@@ -1,0 +1,559 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// AUTH & USERS
+// ============================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  phone         String?
+  avatarUrl     String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  apartmentId String?
+  apartment   Apartment? @relation(fields: [apartmentId], references: [id])
+
+  roles            UserRole[]
+  sessions         Session[]
+  expenses         Expense[]           @relation("ExpenseSubmitter")
+  approvedExpenses Expense[]           @relation("ExpenseApprover")
+  motions          Motion[]
+  damageReports    DamageReport[]
+  suggestions      Suggestion[]
+  attendances      MeetingAttendance[]
+  assignedTasks    Task[]              @relation("TaskAssignee")
+  createdTasks     Task[]              @relation("TaskCreator")
+  votes            Vote[]
+  notifications    Notification[]
+  documents        Document[]          @relation("DocumentUploader")
+  announcements    Announcement[]
+  taskComments     TaskComment[]
+  reportComments   ReportComment[]
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================
+// ROLES & PERMISSIONS
+// ============================================================
+
+enum Role {
+  ADMIN
+  BOARD_CHAIRPERSON
+  BOARD_TREASURER
+  BOARD_PROPERTY_MGR
+  BOARD_ENVIRONMENT
+  BOARD_EVENTS
+  BOARD_SUBSTITUTE
+  BOARD_MEMBER
+  MEMBER
+  RESIDENT
+}
+
+model UserRole {
+  id        String    @id @default(cuid())
+  userId    String
+  role      Role
+  grantedAt DateTime  @default(now())
+  grantedBy String?
+  expiresAt DateTime?
+  active    Boolean   @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@index([userId])
+}
+
+// ============================================================
+// PROPERTY
+// ============================================================
+
+model Building {
+  id         String      @id @default(cuid())
+  name       String
+  address    String
+  apartments Apartment[]
+}
+
+model Apartment {
+  id         String  @id @default(cuid())
+  number     String
+  floor      Int?
+  area       Float?
+  rooms      Float?
+  share      Float?
+  monthlyFee Float?
+  buildingId String
+  building   Building @relation(fields: [buildingId], references: [id])
+
+  residents     User[]
+  damageReports DamageReport[]
+
+  @@unique([buildingId, number])
+}
+
+// ============================================================
+// MEETINGS
+// ============================================================
+
+enum MeetingType {
+  BOARD
+  ANNUAL
+  EXTRAORDINARY
+}
+
+enum MeetingStatus {
+  DRAFT
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Meeting {
+  id          String        @id @default(cuid())
+  type        MeetingType
+  status      MeetingStatus @default(DRAFT)
+  title       String
+  description String?
+  scheduledAt DateTime
+  location    String?
+  calledBy    String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  agendaItems AgendaItem[]
+  attendances MeetingAttendance[]
+  protocol    Protocol?
+  decisions   Decision[]
+  documents   Document[]    @relation("MeetingDocuments")
+  motions     Motion[]
+}
+
+model AgendaItem {
+  id          String  @id @default(cuid())
+  meetingId   String
+  sortOrder   Int
+  title       String
+  description String? @db.Text
+  duration    Int?
+  presenter   String?
+  voteType    VoteType?
+
+  meeting   Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  votes     Vote[]
+  decisions Decision[]
+
+  @@index([meetingId])
+}
+
+enum VoteType {
+  SIMPLE_MAJORITY
+  QUALIFIED_MAJORITY
+  UNANIMOUS
+  SHOW_OF_HANDS
+  BALLOT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  PROXY
+}
+
+model MeetingAttendance {
+  id        String           @id @default(cuid())
+  meetingId String
+  userId    String
+  status    AttendanceStatus @default(ABSENT)
+  proxyFor  String?
+  arrivedAt DateTime?
+  leftAt    DateTime?
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([meetingId, userId])
+}
+
+model Protocol {
+  id        String    @id @default(cuid())
+  meetingId String    @unique
+  content   String    @db.Text
+  signedAt  DateTime?
+  signedBy  String[]
+  pdfUrl    String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// VOTING
+// ============================================================
+
+model Vote {
+  id           String   @id @default(cuid())
+  agendaItemId String
+  userId       String
+  choice       String // YES, NO, ABSTAIN
+  isProxy      Boolean  @default(false)
+  castAt       DateTime @default(now())
+
+  agendaItem AgendaItem @relation(fields: [agendaItemId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id])
+
+  @@unique([agendaItemId, userId])
+}
+
+// ============================================================
+// DECISIONS & TASKS
+// ============================================================
+
+model Decision {
+  id           String   @id @default(cuid())
+  meetingId    String
+  agendaItemId String?
+  reference    String
+  title        String
+  description  String   @db.Text
+  decisionText String   @db.Text
+  decidedAt    DateTime @default(now())
+
+  meeting    Meeting     @relation(fields: [meetingId], references: [id])
+  agendaItem AgendaItem? @relation(fields: [agendaItemId], references: [id])
+  tasks      Task[]
+
+  @@index([reference])
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  WAITING
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?      @db.Text
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime?
+  completedAt DateTime?
+  decisionId  String?
+  assigneeId  String?
+  createdById String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  decision  Decision?     @relation(fields: [decisionId], references: [id])
+  assignee  User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdBy User          @relation("TaskCreator", fields: [createdById], references: [id])
+  comments  TaskComment[]
+}
+
+model TaskComment {
+  id       String   @id @default(cuid())
+  taskId   String
+  authorId String
+  content  String   @db.Text
+  createdAt DateTime @default(now())
+
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id])
+}
+
+// ============================================================
+// EXPENSES
+// ============================================================
+
+enum ExpenseStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  PAID
+}
+
+model Expense {
+  id            String        @id @default(cuid())
+  submitterId   String
+  approverId    String?
+  amount        Decimal       @db.Decimal(10, 2)
+  currency      String        @default("SEK")
+  description   String
+  category      String
+  receiptUrl    String?
+  status        ExpenseStatus @default(DRAFT)
+  submittedAt   DateTime?
+  approvedAt    DateTime?
+  paidAt        DateTime?
+  rejectionNote String?
+  accountingRef String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  submitter User       @relation("ExpenseSubmitter", fields: [submitterId], references: [id])
+  approver  User?      @relation("ExpenseApprover", fields: [approverId], references: [id])
+  documents Document[] @relation("ExpenseDocuments")
+}
+
+// ============================================================
+// MOTIONS
+// ============================================================
+
+enum MotionStatus {
+  DRAFT
+  SUBMITTED
+  RECEIVED
+  BOARD_RESPONSE
+  DECIDED
+  WITHDRAWN
+}
+
+model Motion {
+  id            String       @id @default(cuid())
+  authorId      String
+  title         String
+  description   String       @db.Text
+  proposal      String       @db.Text
+  boardResponse String?      @db.Text
+  status        MotionStatus @default(DRAFT)
+  meetingId     String?
+  resolution    String?      @db.Text
+  submittedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  author    User       @relation(fields: [authorId], references: [id])
+  meeting   Meeting?   @relation(fields: [meetingId], references: [id])
+  documents Document[] @relation("MotionDocuments")
+}
+
+// ============================================================
+// DAMAGE REPORTS & SUGGESTIONS
+// ============================================================
+
+enum ReportStatus {
+  SUBMITTED
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum Severity {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+model DamageReport {
+  id          String       @id @default(cuid())
+  reporterId  String
+  apartmentId String?
+  title       String
+  description String       @db.Text
+  location    String
+  severity    Severity     @default(NORMAL)
+  status      ReportStatus @default(SUBMITTED)
+  resolvedAt  DateTime?
+  resolution  String?      @db.Text
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  reporter  User            @relation(fields: [reporterId], references: [id])
+  apartment Apartment?      @relation(fields: [apartmentId], references: [id])
+  photos    Document[]      @relation("DamageReportPhotos")
+  comments  ReportComment[]
+}
+
+model ReportComment {
+  id             String   @id @default(cuid())
+  damageReportId String
+  authorId       String
+  content        String   @db.Text
+  isInternal     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  damageReport DamageReport @relation(fields: [damageReportId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorId], references: [id])
+}
+
+model Suggestion {
+  id          String       @id @default(cuid())
+  authorId    String
+  title       String
+  description String       @db.Text
+  status      ReportStatus @default(SUBMITTED)
+  response    String?      @db.Text
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  author User @relation(fields: [authorId], references: [id])
+}
+
+// ============================================================
+// ANNOUNCEMENTS
+// ============================================================
+
+enum AudienceScope {
+  ALL
+  MEMBERS_ONLY
+  BOARD_ONLY
+}
+
+model Announcement {
+  id          String        @id @default(cuid())
+  authorId    String
+  title       String
+  content     String        @db.Text
+  scope       AudienceScope @default(ALL)
+  pinned      Boolean       @default(false)
+  publishedAt DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  author User @relation(fields: [authorId], references: [id])
+}
+
+// ============================================================
+// DOCUMENTS
+// ============================================================
+
+enum DocumentCategory {
+  MEETING_PROTOCOL
+  MEETING_ATTACHMENT
+  EXPENSE_RECEIPT
+  MOTION_ATTACHMENT
+  DAMAGE_REPORT_PHOTO
+  ANNUAL_REPORT
+  FINANCIAL_STATEMENT
+  RULES
+  OTHER
+}
+
+model Document {
+  id           String           @id @default(cuid())
+  fileName     String
+  fileUrl      String
+  fileSize     Int
+  mimeType     String
+  category     DocumentCategory
+  uploadedById String
+  createdAt    DateTime         @default(now())
+
+  uploadedBy    User           @relation("DocumentUploader", fields: [uploadedById], references: [id])
+  meetings      Meeting[]      @relation("MeetingDocuments")
+  expenses      Expense[]      @relation("ExpenseDocuments")
+  motions       Motion[]       @relation("MotionDocuments")
+  damageReports DamageReport[] @relation("DamageReportPhotos")
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
+
+// ============================================================
+// INTEGRATIONS
+// ============================================================
+
+model IntegrationConfig {
+  id           String    @id @default(cuid())
+  provider     String    @unique
+  enabled      Boolean   @default(false)
+  config       Json
+  accessToken  String?
+  refreshToken String?
+  tokenExpiry  DateTime?
+  lastSyncAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model IntegrationLog {
+  id             String   @id @default(cuid())
+  provider       String
+  operation      String
+  status         String
+  requestPayload Json?
+  responseCode   Int?
+  errorMessage   String?
+  durationMs     Int?
+  createdAt      DateTime @default(now())
+
+  @@index([provider, createdAt])
+}
+
+// ============================================================
+// BRF SETTINGS
+// ============================================================
+
+model BrfSettings {
+  id                 String  @id @default("default")
+  name               String
+  orgNumber          String
+  address            String
+  city               String
+  postalCode         String
+  fiscalYearStart    Int     @default(1)
+  memberFeeAccountNr String?
+  logoUrl            String?
+  stadgarUrl         String?
+  ordningsreglerUrl  String?
+}
