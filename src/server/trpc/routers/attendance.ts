@@ -47,8 +47,8 @@ export const attendanceRouter = router({
         select: { id: true, type: true, status: true },
       });
       if (!meeting) throw new TRPCError({ code: "NOT_FOUND", message: "Mötet hittades inte" });
-      if (meeting.status !== "IN_PROGRESS") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Mötet är inte pågående" });
+      if (!["SCHEDULED", "IN_PROGRESS"].includes(meeting.status)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Mötet är inte öppet för incheckning" });
       }
 
       if (meeting.type === "BOARD") {
@@ -76,10 +76,17 @@ export const attendanceRouter = router({
           throw new TRPCError({ code: "BAD_REQUEST", message: "Röstlängden är låst" });
         }
 
+        // Get voting shares from apartment ownership
+        const ownership = await ctx.db.apartmentOwnership.findFirst({
+          where: { userId, active: true },
+          select: { ownershipShare: true },
+        });
+        const votingShares = ownership?.ownershipShare ?? 1;
+
         await ctx.db.voterRegistryEntry.upsert({
           where: { voterRegistryId_memberId: { voterRegistryId: registry.id, memberId: userId } },
           update: { checkedIn: true, checkedInAt: new Date() },
-          create: { voterRegistryId: registry.id, memberId: userId, checkedIn: true, checkedInAt: new Date(), votingShares: 1 },
+          create: { voterRegistryId: registry.id, memberId: userId, checkedIn: true, checkedInAt: new Date(), votingShares },
         });
 
         return { success: true };

@@ -56,12 +56,12 @@ export default function AttendanceRegistrationPage() {
         </div>
 
         <div className="mt-8">
-          {meeting.status !== "IN_PROGRESS" ? (
+          {!["SCHEDULED", "IN_PROGRESS"].includes(meeting.status) ? (
             <div className="rounded-lg bg-gray-50 p-4 text-center">
               <p className="text-sm text-gray-500">
-                {meeting.status === "DRAFT" || meeting.status === "SCHEDULED"
-                  ? "Mötet har inte startat ännu. Närvaroregistrering öppnas när mötet startar."
-                  : "Mötet är inte längre pågående."}
+                {meeting.status === "DRAFT"
+                  ? "Mötet är inte publicerat ännu."
+                  : "Mötet är inte längre öppet för incheckning."}
               </p>
             </div>
           ) : meeting.isPresent ? (
