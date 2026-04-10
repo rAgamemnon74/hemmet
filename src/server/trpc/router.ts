@@ -23,6 +23,7 @@ import { settingsRouter } from "./routers/settings";
 import { annualMeetingRouter } from "./routers/annual-meeting";
 import { meetingLiveRouter } from "./routers/meeting-live";
 import { documentRouter } from "./routers/document";
+import { profileRouter } from "./routers/profile";
 
 export const appRouter = router({
   meeting: meetingRouter,
@@ -49,6 +50,7 @@ export const appRouter = router({
   annualMeeting: annualMeetingRouter,
   meetingLive: meetingLiveRouter,
   document: documentRouter,
+  profile: profileRouter,
 });
 
 export type AppRouter = typeof appRouter;
