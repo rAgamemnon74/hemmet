@@ -80,6 +80,44 @@ make dev      # Starta dev-server
 
 Alla har lösenord `password123`.
 
+## Dokumentation och analyser
+
+Katalogen `docs/` innehåller omfattande analyser av BRF-verksamhet, roller, juridik och processer. Dessa ligger till grund för systemets design och framtida utveckling.
+
+### Rollanalyser
+
+Djupanalyser av varje styrelseroll — nuläge i systemet, kritiska brister och prioriterade åtgärder.
+
+| Dokument | Innehåll |
+|----------|----------|
+| [Ordföranderollen](docs/ORDFORANDE_ROLLEN.md) | 24 permissions, utslagsröst (ej implementerad), firmateckning, 7 prioriterade åtgärder |
+| [Sekreterarrollen](docs/SEKRETERAR_ROLLEN.md) | Protokollsignering (DB klar, UI saknas), kallelsehantering, 5 åtgärder |
+| [Kassörrollen](docs/KASSOR_ROLLEN.md) | Utläggsattest OK, budget/avgifter/kvitton saknas, 8 åtgärder |
+| [Fastighetsansvarig](docs/FASTIGHETSANSVARIG_ROLLEN.md) | Felanmälan OK, underhållsplan (K3-krav) saknas helt, besiktningskalender saknas, 9 åtgärder |
+| [Revisorsrollen](docs/REVISOR_ROLLEN.md) | Tre rollkategorier (styrelse/förening/granskning), förtroendevald vs auktoriserad, revisorn kan inte se ekonomi/protokoll |
+| [Valberedningen](docs/VALBEREDARE_ROLLEN.md) | Ny rolltyp "föreningsroll", datamodell för nomineringar, oberoendekrav, arbetsflöde i 4 faser |
+
+### Juridik och compliance
+
+| Dokument | Innehåll |
+|----------|----------|
+| [Lagrum och GDPR](docs/BRF_SYSTEM_LAGRUM.md) | 17 tillämpliga lagar, GDPR-exponering (personnummer i klartext), K3-krav 2026, EPBD energikrav, gallringsrutiner, prioriterad checklista |
+| [Jäv — praktisk analys](docs/JAV_PRAKTISK_ANALYS.md) | Beslutförhet vid jäv, sårbarhetstabell per styrelsestorlek, suppleant-inträde per ärende, jävsregister, implementationsplan |
+
+### Processer och styrelsekrav
+
+| Dokument | Innehåll |
+|----------|----------|
+| [BRF-processer](docs/BRF_PROCESSER.md) | ~50 processer för små/medelstora/stora BRF:er, processkarta per roll, prioriteringsmatris med 15 utvecklingsområden |
+| [Styrelseroller och externa tjänster](docs/STYRELSEN_KRAV.md) | 8 styrelseroller med delegerade tjänster, integrationsmatris, gap-analys, 10 juridiska fallgropar (jäv, felaktigt nekade medlemskap, eftersatt underhåll m.m.) |
+
+### Stadgeanalys
+
+| Dokument | Innehåll |
+|----------|----------|
+| [Gapanalys stadgar vs plattform](docs/gap-analysis.md) | Systematisk genomgång av stadgekrav och systemstöd |
+| [Jämförelse 10 BRF-stadgar](docs/stadgar-comparison.md) | HSB, Riksbyggen, fristående — skillnader och gemensamma parametrar |
+
 ## Projektstruktur
 
 ```
@@ -107,10 +145,7 @@ hemmet/
 │   │   ├── agenda-templates.ts
 │   │   └── validators/       # Zod-schemas
 │   └── components/layout/
-├── docs/
-│   ├── gap-analysis.md       # Gapanalys stadgar vs plattform
-│   ├── stadgar-comparison.md # Jämförelse 10 BRF-stadgar
-│   └── stadgar/              # 10 nedladdade stadge-PDF:er
+├── docs/                      # Analyser och dokumentation (se ovan)
 ├── docker-compose.yml
 ├── Makefile
 └── .env.example
@@ -149,4 +184,4 @@ Baserat på analys av 10 BRF-stadgar (HSB Normalstadgar 2023, Riksbyggen, BRF Be
 
 ## Licens
 
-Privat projekt.
+MIT
