@@ -46,6 +46,11 @@ export type Permission =
   // Membership applications
   | "application:submit"
   | "application:review"
+  // Transfers
+  | "transfer:create"
+  | "transfer:review"
+  | "transfer:manage_financial"
+  | "transfer:view"
   // Admin
   | "admin:users"
   | "admin:integrations"
@@ -77,6 +82,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "member:edit",
     "audit:perform",
     "application:review",
+    "transfer:create", "transfer:review", "transfer:manage_financial", "transfer:view",
     "admin:users", "admin:integrations", "admin:settings",
   ],
   BOARD_CHAIRPERSON: [
@@ -87,16 +93,19 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "report:manage",
     "member:edit",
     "application:review",
+    "transfer:create", "transfer:review", "transfer:view",
     "admin:users", "admin:integrations",
   ],
   BOARD_SECRETARY: [
     ...BOARD_COMMON,
     "meeting:create", "meeting:assign_roles",
     "meeting:protocol",
+    "transfer:view",
   ],
   BOARD_TREASURER: [
     ...BOARD_COMMON,
     "expense:approve",
+    "transfer:create", "transfer:manage_financial", "transfer:view",
   ],
   BOARD_PROPERTY_MGR: [
     ...BOARD_COMMON,

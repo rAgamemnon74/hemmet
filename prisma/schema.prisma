@@ -44,6 +44,9 @@ model User {
   taskComments     TaskComment[]
   reportComments   ReportComment[]
   consents         UserConsent[]
+  transfersAsSeller   TransferCase[]     @relation("TransferSeller")
+  transfersCreated    TransferCase[]     @relation("TransferCreator")
+  mortgageRequests    MortgageNotation[]
 }
 
 model Session {
@@ -141,11 +144,13 @@ model Apartment {
   acquiredAt     DateTime? // Datum för senaste ägarbyte
   notes          String?  @db.Text
 
-  building      Building @relation(fields: [buildingId], references: [id])
-  residents     User[]
-  damageReports DamageReport[]
-  ownerships    ApartmentOwnership[]
-  applications  MembershipApplication[]
+  building           Building @relation(fields: [buildingId], references: [id])
+  residents          User[]
+  damageReports      DamageReport[]
+  ownerships         ApartmentOwnership[]
+  applications       MembershipApplication[]
+  transferCases      TransferCase[]
+  mortgageNotations  MortgageNotation[]
 
   @@unique([buildingId, number])
 }
@@ -296,6 +301,7 @@ model MembershipApplication {
 
   apartment     Apartment         @relation(fields: [apartmentId], references: [id])
   organization  Organization?     @relation(fields: [organizationId], references: [id])
+  transferCase  TransferCase?
 }
 
 enum ApartmentType {
@@ -304,6 +310,109 @@ enum ApartmentType {
   GARAGE      // Garage
   STORAGE     // Förråd/vindsförråd
   OTHER
+}
+
+// ============================================================
+// TRANSFERS (överlåtelser)
+// ============================================================
+
+enum TransferType {
+  SALE                // Marknadsmässig försäljning
+  PRIVATE_SALE        // Privataffär (direkt mellan parter)
+  INHERITANCE         // Arv
+  DIVORCE_SETTLEMENT  // Bodelning
+  GIFT                // Gåva
+  FORCED_SALE         // Exekutiv försäljning (Kronofogden)
+  SHARE_CHANGE        // Ändring av ägarandel mellan befintliga ägare
+}
+
+enum TransferStatus {
+  INITIATED              // Ärende skapat, inväntar underlag
+  MEMBERSHIP_REVIEW      // Medlemsprövning pågår
+  APPROVED               // Styrelsen godkänt
+  REJECTED               // Styrelsen avslagit
+  APPEALED               // Överklagat till Hyresnämnden
+  FINANCIAL_SETTLEMENT   // Godkänt, ekonomisk reglering pågår
+  COMPLETED              // Ägarskifte registrerat
+  CANCELLED              // Ärendet avbrutet
+}
+
+model TransferCase {
+  id                    String         @id @default(cuid())
+  apartmentId           String
+  type                  TransferType
+  status                TransferStatus @default(INITIATED)
+
+  // Parter
+  sellerId              String?        // Befintlig ägare (userId, nullable vid arv)
+  buyerApplicationId    String?  @unique // Koppling till MembershipApplication
+
+  // Extern kontakt (mäklare, jurist, KFM etc.)
+  externalContactName   String?
+  externalContactEmail  String?
+  externalContactPhone  String?
+
+  // Ekonomi
+  transferPrice         Float?         // Köpesumma (nullable vid arv/gåva)
+  transferFeeAmount     Float?         // Beräknad överlåtelseavgift
+  transferFeePaidBy     String?        // "SELLER" | "BUYER"
+  transferFeePaidAt     DateTime?
+  pledgeFeeAmount       Float?         // Pantsättningsavgift
+  outstandingDebt       Float?         // Säljarens skuld till föreningen
+
+  // Datum
+  contractDate          DateTime?      // Köpekontraktets datum
+  accessDate            DateTime?      // Tillträdesdag
+  decisionDate          DateTime?      // Styrelsens beslutsdatum
+  completedAt           DateTime?
+
+  // Prövning
+  creditCheckDone       Boolean        @default(false)
+  creditCheckDate       DateTime?
+  financingVerified     Boolean        @default(false)
+  financingVerifiedDate DateTime?
+  statuteCheckDone      Boolean        @default(false)
+  rejectionReason       String?        @db.Text
+
+  // Kopplingar
+  decisionId            String?        // Styrelsebeslut (Decision)
+
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  createdById           String         // Vem som skapade ärendet
+
+  apartment             Apartment      @relation(fields: [apartmentId], references: [id])
+  seller                User?          @relation("TransferSeller", fields: [sellerId], references: [id])
+  createdBy             User           @relation("TransferCreator", fields: [createdById], references: [id])
+  buyerApplication      MembershipApplication? @relation(fields: [buyerApplicationId], references: [id])
+  decision              Decision?      @relation(fields: [decisionId], references: [id])
+  mortgageNotations     MortgageNotation[]
+
+  @@index([apartmentId])
+  @@index([status])
+  @@index([sellerId])
+}
+
+model MortgageNotation {
+  id              String    @id @default(cuid())
+  apartmentId     String
+  transferCaseId  String?   // Koppling till överlåtelse (valfritt — pant kan noteras utan överlåtelse)
+  bankName        String
+  amount          Float?    // Pantbelopp
+  notationDate    DateTime  @default(now())
+  denotationDate  DateTime? // Null = aktiv pant
+  fee             Float?    // Pantsättningsavgift
+  feePaidAt       DateTime?
+  requestedById   String    // Vem som registrerade
+  notes           String?   @db.Text
+  createdAt       DateTime  @default(now())
+
+  apartment       Apartment      @relation(fields: [apartmentId], references: [id])
+  transferCase    TransferCase?  @relation(fields: [transferCaseId], references: [id])
+  requestedBy     User           @relation(fields: [requestedById], references: [id])
+
+  @@index([apartmentId])
+  @@index([transferCaseId])
 }
 
 // ============================================================
@@ -556,6 +665,7 @@ model Decision {
   agendaItem AgendaItem?      @relation(fields: [agendaItemId], references: [id])
   tasks      Task[]
   voteRecords DecisionVote[]  // Individual votes (used when method = ROLL_CALL)
+  transferCases TransferCase[] // Överlåtelsebeslut kopplade till detta beslut
 
   @@index([reference])
 }
@@ -1110,8 +1220,10 @@ model BrfRules {
   // Protokoll
   protocolDeadlineWeeks    Int     @default(3)  // Protokoll tillgängligt inom X veckor
 
-  // Ägarskap
-  maxOwnershipPercent      Float   @default(100.0) // Kungsklippan: 105
+  // Ägarskap & överlåtelser
+  maxOwnershipPercent            Float   @default(100.0) // Kungsklippan: 105
+  prisbasbelopp                  Int     @default(57300) // Uppdateras manuellt av kassör varje januari
+  transferDecisionDeadlineWeeks  Int     @default(4)     // Varning om ärendet ej beslutats inom X veckor
 
   // Andrahandsuthyrning
   subletRequiresApproval   Boolean @default(true)
