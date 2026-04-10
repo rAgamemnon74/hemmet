@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { UserCheck, Plus, Check, X, AlertTriangle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { maskPersonalId } from "@/lib/gdpr";
 import { trpc } from "@/lib/trpc";
 import { useSession } from "next-auth/react";
 import { hasPermission } from "@/lib/permissions";
@@ -143,7 +144,7 @@ export function ProxyTab({
                       : proxy.externalName ?? "—"}
                     {proxy.proxyType === "EXTERNAL" && proxy.externalPersonalId && (
                       <span className="ml-1 text-xs text-gray-400">
-                        ({proxy.externalPersonalId})
+                        ({maskPersonalId(proxy.externalPersonalId)})
                       </span>
                     )}
                   </td>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { maskPersonalId } from "@/lib/gdpr";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
 import {
@@ -213,7 +214,7 @@ export function OrganizationDetail({ organization: org }: { organization: Organi
                         {rep.firstName} {rep.lastName}
                       </p>
                       <div className="mt-1 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-gray-600">
-                        <span>Personnr: {rep.personalId}</span>
+                        <span>Personnr: {maskPersonalId(rep.personalId)}</span>
                         {rep.email && <span>E-post: {rep.email}</span>}
                         {rep.phone && <span>Telefon: {rep.phone}</span>}
                         {rep.address && <span>Adress: {rep.address}</span>}
@@ -250,7 +251,7 @@ export function OrganizationDetail({ organization: org }: { organization: Organi
               <p className="text-xs font-medium text-gray-500 mb-2">Tidigare ombud</p>
               {inactiveReps.map((rep) => (
                 <div key={rep.id} className="text-xs text-gray-400 py-1">
-                  {rep.firstName} {rep.lastName} ({rep.personalId})
+                  {rep.firstName} {rep.lastName} ({maskPersonalId(rep.personalId)})
                   — återkallad {rep.revokedAt && format(new Date(rep.revokedAt), "d MMM yyyy", { locale: sv })}
                 </div>
               ))}

@@ -43,6 +43,7 @@ model User {
   announcements    Announcement[]
   taskComments     TaskComment[]
   reportComments   ReportComment[]
+  consents         UserConsent[]
 }
 
 model Session {
@@ -1117,4 +1118,53 @@ model BrfRules {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// GDPR — CONSENT & ACCESS LOGGING
+// ============================================================
+
+enum ConsentType {
+  CONTACT_SHARING        // Tillåt andra medlemmar att se e-post/telefon
+  DIGITAL_COMMUNICATION  // Godkänn digital kommunikation (kallelser via e-post)
+  PHOTO_PUBLICATION      // Tillåt publicering av foto (t.ex. i nyhetsbrev)
+}
+
+model UserConsent {
+  id         String      @id @default(cuid())
+  userId     String
+  type       ConsentType
+  granted    Boolean     @default(false)
+  grantedAt  DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId])
+}
+
+enum PersonalDataAction {
+  VIEW_REGISTRY           // Visade medlemsregistret
+  VIEW_MEMBER_DETAIL      // Visade enskild medlems detaljer
+  VIEW_APPLICATION        // Visade medlemsansökan (innehåller personnummer)
+  VIEW_SSN                // Visade personnummer i klartext
+  EXPORT_CSV              // Exporterade medlemsregister till CSV
+  VIEW_PROXY_DETAILS      // Visade ombudsuppgifter (extern person)
+  VIEW_ORGANIZATION_REPS  // Visade organisationsombud (personnummer)
+}
+
+model PersonalDataAccessLog {
+  id            String             @id @default(cuid())
+  userId        String             // Vem som tittade
+  action        PersonalDataAction // Vad som gjordes
+  targetUserId  String?            // Vems data (om enskild person)
+  metadata      String?            // Extra kontext (t.ex. ansöknings-ID)
+  createdAt     DateTime           @default(now())
+
+  @@index([userId])
+  @@index([targetUserId])
+  @@index([createdAt])
 }

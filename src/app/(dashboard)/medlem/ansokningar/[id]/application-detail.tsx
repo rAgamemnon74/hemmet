@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { maskPersonalId } from "@/lib/gdpr";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
 import { ArrowLeft, Check, X, AlertTriangle, Users, BarChart3 } from "lucide-react";
@@ -116,7 +117,7 @@ export function ApplicationDetail({ application: app }: { application: Applicati
               {app.personalId && (
                 <div>
                   <p className="text-xs text-gray-500">Personnummer</p>
-                  <p className="text-sm text-gray-900">{app.personalId}</p>
+                  <p className="text-sm text-gray-900">{maskPersonalId(app.personalId)}</p>
                 </div>
               )}
               <div>

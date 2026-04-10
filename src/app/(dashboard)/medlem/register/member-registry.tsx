@@ -8,8 +8,8 @@ type Member = {
   id: string;
   firstName: string;
   lastName: string;
-  email: string;
-  phone: string | null;
+  email?: string;
+  phone?: string | null;
   apartment: {
     number: string;
     floor: number | null;
@@ -42,7 +42,7 @@ const boardRoles = [
   "BOARD_MEMBER", "BOARD_SUBSTITUTE", "AUDITOR",
 ];
 
-export function MemberRegistry({ initialData }: { initialData: Member[] }) {
+export function MemberRegistry({ initialData, canSeeContact }: { initialData: Member[]; canSeeContact: boolean }) {
   const [search, setSearch] = useState("");
 
   const filtered = search
@@ -51,7 +51,7 @@ export function MemberRegistry({ initialData }: { initialData: Member[] }) {
         return (
           m.firstName.toLowerCase().includes(s) ||
           m.lastName.toLowerCase().includes(s) ||
-          m.email.toLowerCase().includes(s) ||
+          (canSeeContact && m.email?.toLowerCase().includes(s)) ||
           m.apartment?.number.includes(s) ||
           false
         );
@@ -59,20 +59,15 @@ export function MemberRegistry({ initialData }: { initialData: Member[] }) {
     : initialData;
 
   function exportCsv() {
-    const header = "Förnamn,Efternamn,E-post,Telefon,Lägenhet,Byggnad,Roller";
-    const rows = initialData.map((m) =>
-      [
-        m.firstName,
-        m.lastName,
-        m.email,
-        m.phone ?? "",
-        m.apartment?.number ?? "",
-        m.apartment?.building.name ?? "",
-        m.roles.map((r) => roleLabels[r.role] ?? r.role).join("; "),
-      ]
-        .map((v) => `"${v}"`)
-        .join(",")
-    );
+    const header = canSeeContact
+      ? "Förnamn,Efternamn,E-post,Telefon,Lägenhet,Byggnad,Roller"
+      : "Förnamn,Efternamn,Lägenhet,Byggnad,Roller";
+    const rows = initialData.map((m) => {
+      const fields = canSeeContact
+        ? [m.firstName, m.lastName, m.email ?? "", m.phone ?? "", m.apartment?.number ?? "", m.apartment?.building.name ?? "", m.roles.map((r) => roleLabels[r.role] ?? r.role).join("; ")]
+        : [m.firstName, m.lastName, m.apartment?.number ?? "", m.apartment?.building.name ?? "", m.roles.map((r) => roleLabels[r.role] ?? r.role).join("; ")];
+      return fields.map((v) => `"${v}"`).join(",");
+    });
     const csv = [header, ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -127,7 +122,7 @@ export function MemberRegistry({ initialData }: { initialData: Member[] }) {
             <thead>
               <tr className="border-b border-gray-200 text-left text-xs font-medium uppercase text-gray-500">
                 <th className="px-4 py-3">Namn</th>
-                <th className="px-4 py-3">Kontakt</th>
+                {canSeeContact && <th className="px-4 py-3">Kontakt</th>}
                 <th className="px-4 py-3">Lägenhet</th>
                 <th className="px-4 py-3">Roller</th>
               </tr>
@@ -145,20 +140,24 @@ export function MemberRegistry({ initialData }: { initialData: Member[] }) {
                         {m.firstName} {m.lastName}
                       </p>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-0.5 text-xs text-gray-600">
-                        <span className="flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          {m.email}
-                        </span>
-                        {m.phone && (
-                          <span className="flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            {m.phone}
-                          </span>
-                        )}
-                      </div>
-                    </td>
+                    {canSeeContact && (
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-0.5 text-xs text-gray-600">
+                          {m.email && (
+                            <span className="flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              {m.email}
+                            </span>
+                          )}
+                          {m.phone && (
+                            <span className="flex items-center gap-1">
+                              <Phone className="h-3 w-3" />
+                              {m.phone}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {m.apartment ? (
                         <span>

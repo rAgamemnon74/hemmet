@@ -30,7 +30,8 @@ export function AnvandareTab() {
   const [selectedRole, setSelectedRole] = useState<Role>("MEMBER");
 
   if (membersQuery.isLoading) return <p className="text-sm text-gray-500">Laddar...</p>;
-  const members = membersQuery.data ?? [];
+  const data = membersQuery.data;
+  const members = data && "members" in data ? data.members : [];
 
   return (
     <div className="space-y-4">

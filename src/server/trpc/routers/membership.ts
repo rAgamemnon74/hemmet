@@ -3,6 +3,7 @@ import { router, protectedProcedure, publicProcedure, requirePermission } from "
 import { submitApplicationSchema, reviewApplicationSchema } from "@/lib/validators/membership";
 import { TRPCError } from "@trpc/server";
 import { hash } from "bcryptjs";
+import { logPersonalDataAccess } from "@/lib/gdpr";
 
 export const membershipRouter = router({
   // List all applications (board view)
@@ -53,6 +54,9 @@ export const membershipRouter = router({
         },
       });
       if (!app) throw new TRPCError({ code: "NOT_FOUND" });
+
+      logPersonalDataAccess(ctx.user.id as string, "VIEW_APPLICATION", null, `application:${input.id}`);
+
       return app;
     }),
 
