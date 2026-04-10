@@ -421,3 +421,69 @@ Se B2 (Årsredovisning och bokslut) — revisionsflödet.
 | Störningar | Beslutar | Dokumenterar | - | - | - | - | - | - | Anmäler | Anmäler |
 | Renovering | Beslutar | Dokumenterar | - | Bedömer | - | - | - | - | Ansöker | - |
 | Bokning | - | - | - | - | - | Äger | - | - | Bokar | Bokar |
+| Systeminställningar | Initierar ändring | - | Prisbasbelopp | - | - | - | - | - | - | - |
+
+---
+
+## Del VI — Admin-rollen och teknisk förvaltare
+
+### Medveten separation: Ordförande vs Admin
+
+ADMIN-rollen i systemet representerar **teknisk förvaltare/systemadministratör** — inte en styrelseroll. Separationen är medveten:
+
+| Förmåga | Ordförande | Admin (teknisk förvaltare) |
+|---------|:----------:|:--------------------------:|
+| Styrelsearbete (möten, beslut, motioner) | Y | Y |
+| Godkänna utlägg | Y | Y |
+| Hantera användare/roller | Y | Y |
+| Medlemsprövning + överlåtelser | Y | Y |
+| **Ändra föreningsdata** (namn, org.nr, adress) | **N** | **Y** |
+| **Ändra bankuppgifter** (bankgiro, swish, konton) | **N** | **Y** |
+| **Ändra stadgeregler** (BrfRules) | **N** | **Y** |
+| **Ändra räkenskapsår** | **N** | **Y** |
+| **Utföra revision** (audit:perform) | **N** | **Y** |
+| **Hantera överlåtelseavgifter/pant** | **N** (kassörens uppgift) | **Y** |
+
+### Varför denna separation?
+
+**1. Skyddar mot misstag.** Föreningens grunddata (org.nummer, bankuppgifter, räkenskapsår) ändras extremt sällan — kanske en gång vart 5-10 år. Om ordförande har daglig tillgång ökar risken för oavsiktliga ändringar.
+
+**2. Speglar verkligheten.** I de flesta BRF:er är det den ekonomiska förvaltaren (HSB, Riksbyggen, SBC, Nabo) som administrerar grunddata i sina system. Admin-rollen representerar denna externa tekniska kompetens.
+
+**3. Tydlig ansvarsfördelning.** Ordförande fattar beslut om vad som ska ändras. Admin/förvaltare verkställer ändringen i systemet. Beslutet protokollförs, verkställandet loggas.
+
+**4. Revisionsspår.** Om grunddata ändras av en part som inte är ordförande skapas en naturlig kontrollpunkt — revisorn kan verifiera att ändringen överensstämmer med styrelsebeslut.
+
+### Normalflöde vid ändring av grunddata
+
+```
+1. Styrelsen beslutar om ändring (t.ex. ny bankgiro efter bankbyte)
+   → Beslut protokollförs
+
+2. Ordförande instruerar teknisk förvaltare/admin
+   → Via ärendesystem, e-post eller direkt
+
+3. Admin verkställer ändringen i systemet
+   → admin:settings permission krävs
+
+4. Ändringen loggas automatiskt
+   → Vem ändrade, vad, när
+
+5. Kassören verifierar
+   → Kontrollerar att bankuppgifter stämmer
+
+6. Revisorn granskar vid årsrevision
+   → Verifierar att ändring motsvarar styrelsebeslut
+```
+
+### Undantagsfall
+
+I en liten BRF utan extern förvaltare kan ordförande också ha ADMIN-rollen. Systemet hindrar inte detta — rollerna är additiva. Men separationen finns som **best practice** och rekommenderas.
+
+### Kassörens särskilda ansvar: Prisbasbelopp
+
+`BrfRules.prisbasbelopp` uppdateras årligen (januari) av regeringen. Det påverkar:
+- Överlåtelseavgift (max X% av prisbasbelopp)
+- Pantsättningsavgift (max X% av prisbasbelopp)
+
+**Kassören ansvarar för** att informera admin/förvaltare om att prisbasbeloppet behöver uppdateras. Systemet bör framöver varna kassören i januari om värdet inte uppdaterats.
