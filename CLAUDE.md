@@ -15,6 +15,26 @@ Digital plattform för svenska bostadsrättsföreningar. Stödjer styrelsearbete
 - **Tailwind CSS 4** + shadcn/ui-mönster
 - **date-fns** med svensk locale
 
+## GDPR-designprinciper
+
+Dessa principer är OBLIGATORISKA och gäller all kod som hanterar persondata:
+
+1. **Visa aldrig mer än rollen kräver.** Varje API-endpoint som returnerar persondata MÅSTE använda `.select()` med fält filtrerade per roll. Aldrig `include` utan fältbegränsning på User-data. `passwordHash` returneras ALDRIG.
+
+2. **Personnummer visas aldrig i klartext.** Använd `maskPersonalId()` från `src/lib/gdpr.ts`. Enda undantaget: explicit "visa fullständigt"-klick för ordförande/kassör, med åtkomstloggning.
+
+3. **Kontaktuppgifter (e-post, telefon) kräver rollcheck.** Styrelsemedlemmar ser kontaktinfo. Medlemmar ser bara namn + lägenhet (BrfL 9:8). Boende ser ingenting. Kontrollera `isBoardMember` på serversidan, lita aldrig på klienten.
+
+4. **Logga åtkomst till persondata.** Varje visning av register, ansökningar eller personnummer loggas via `logPersonalDataAccess()`. Fire-and-forget — blockerar aldrig requests.
+
+5. **Samtycke via opt-in.** Kontaktdelning mellan medlemmar kräver aktivt samtycke (`UserConsent`-modellen). Default = dolt.
+
+6. **Gallra data med rättslig grund.** Avslagna ansökningar: 6 mån. Avslutade medlemskap: behåll namn + lägenhet + ekonomi i 7 år (bokföringslagen), radera personnummer/telefon/e-post. Externa ombud: 3 mån efter mötet.
+
+7. **CSV-export respekterar samma filtrering.** En export ska aldrig innehålla mer data än vad användaren ser i UI. Logga alla exporter.
+
+8. **"Det finns ju på Ratsit" är inget försvar.** BRF:en är självständig personuppgiftsansvarig. Att data publicerats av andra ger inte oss rätt att behandla den utan egen rättslig grund.
+
 ## Konventioner
 
 - **Språk:** Svensk UI-text, svenska URL-sökvägar, all kod på engelska
@@ -24,6 +44,7 @@ Digital plattform för svenska bostadsrättsföreningar. Stödjer styrelsearbete
 - **Validering:** Zod-schemas i `src/lib/validators/`, delade mellan klient och server
 - **Pengar:** Alltid `Decimal` (Prisma) / `Prisma.Decimal`, aldrig float
 - **Konfiguration:** Föreningsspecifika regler i `BrfRules`-modellen, hämtas via `getBrfRules()` från `src/lib/rules.ts`
+- **Persondata:** Följ GDPR-designprinciperna ovan — de övertrumfar alla andra konventioner
 
 ## Kommandon
 
