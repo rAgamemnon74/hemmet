@@ -2,7 +2,82 @@
 
 ---
 
-## Del I — Juridiska pelare
+## Del 0 — Historisk kontext: Sverige och persondata före GDPR
+
+### Offentlighetsprincipen och det svenska paradoxet
+
+Sverige har en internationellt unik tradition av öppenhet kring personuppgifter. Innan GDPR (och till stor del även efter) har "GDPR-klassad" information spridits fritt av myndigheter och kommersiella aktörer i decennier:
+
+**Historiska exempel på systemisk persondata-spridning:**
+
+| Period | Källa | Data som spreds | Mottagare |
+|--------|-------|----------------|-----------|
+| 1947– | **Folkbokföringen** (offentlig handling) | Fullständigt personnummer, namn, adress, civilstånd, familjemedlemmar | Vem som helst via begäran |
+| 1960-tal– | **Skolregister/matriklar** | Namn, personnummer, adress, föräldrars namn och yrke, klassfoto | Trycktes i böcker, delades ut till alla elever |
+| 1970-tal– | **SPAR** (Statens personadressregister) | Namn, adress, personnummer | Såldes till företag för direktreklam |
+| 1980-tal– | **Telefonkataloger** (Televerket/Telia) | Namn, adress, telefonnummer | Varje hushåll fick en, fritt tillgänglig |
+| 1990-tal– | **Upplysningscentralen (UC)** | Kreditupplysning, inkomst, skuldsaldo, betalningsanmärkningar | Tillgängligt för företag, senare privatpersoner |
+| 2000-tal– | **Ratsit, Merinfo, Hitta.se, Eniro** | Personnummer, adress, inkomst, fordon, fastighetsinnehav, grannars namn | Fritt tillgängligt online för alla |
+| 2003– | **Skatteverkets inkomstuppgifter** | Taxerad inkomst per person | Publicerades i tryckta förteckningar och online |
+| 2010-tal– | **Lantmäteriet (öppna data)** | Fastighetsägare med namn, köpeskilling, taxeringsvärde | API:er, webbsidor |
+
+### Konsekvensen för BRF-system 2026
+
+**Paradoxen:** GDPR kräver att vi skyddar data som i många fall redan finns fritt tillgänglig via:
+- Ratsit/Merinfo (personnummer, adress, inkomst — fortfarande tillgängligt 2026)
+- Lantmäteriet (fastighetsägare = BRF-medlemmar — öppna data)
+- Bolagsverket (styrelseledamöter med personnummer — offentlig handling)
+- Skatteverket (folkbokföring — offentlig handling)
+
+**Det juridiska svaret:** GDPR reglerar inte om data *existerar* offentligt, utan om en **specifik personuppgiftsansvarig** (i detta fall BRF:en) har **rättslig grund** att **behandla** den. Att Ratsit publicerar ett personnummer ger inte BRF:en rätt att göra samma sak.
+
+### Praktiska implikationer för systemet
+
+**1. "Men det står ju på Ratsit ändå" — inget försvar**
+
+En styrelsemedlem som argumenterar att personnummer inte behöver skyddas "för det finns ju på Ratsit" har juridiskt fel. BRF:en är en självständig personuppgiftsansvarig och måste ha egen rättslig grund för varje behandling.
+
+**2. Historisk data i föreningsarkiv**
+
+Många föreningar har decennier av pappersarkiv med:
+- Stämmoprotokoll med fullständiga personnummer
+- Överlåtelsehandlingar med köpeskilling och kreditupplysning
+- Medlemsförteckningar med allt — personnummer, arbetsgivare, telefon
+
+Systemet bör **inte** digitalisera denna data okritiskt. Vid digitalisering av historiska arkiv gäller GDPR fullt ut — personnummer ska maskeras, irrelevant data gallras.
+
+**3. Myndighetskommunikation kräver fortfarande personnummer**
+
+Trots GDPR behöver BRF:en personnummer för:
+- Överlåtelser (Lantmäteriet)
+- Pantnoteringar (banker)
+- Kontrolluppgifter (Skatteverket)
+- Kreditupplysning vid medlemsprövning (UC)
+
+Systemet måste stödja detta **utan** att exponera personnummer i vardaglig användning.
+
+**4. Offentlighetsprincipen vs GDPR — en pågående spänning**
+
+| Princip | Säger | Konsekvens för BRF |
+|---------|-------|-------------------|
+| **Offentlighetsprincipen** (TF 2 kap.) | Allmänna handlingar ska vara tillgängliga | Stämmoprotokoll, årsredovisning är "offentliga" i föreningskontexten |
+| **GDPR Art. 6.1c** (rättslig förpliktelse) | Behandling OK om lag kräver det | BrfL kräver medlemsförteckning med namn+adress+lägenhet |
+| **GDPR Art. 5.1c** (dataminimering) | Samla bara det som behövs | Personnummer i stämmoprotokoll = överdrivet om det inte är nödvändigt |
+| **Dataskyddslagen 3 kap. 10 §** | Personnummer bara om "klart motiverat" | BRF:en måste motivera varje användning av personnummer |
+
+**5. Det svenska "GDPR-undantaget" som inte finns**
+
+Det finns en utbredd missuppfattning att svenska föreningar har lättare GDPR-krav pga offentlighetsprincipen. **Detta stämmer inte.** Offentlighetsprincipen gäller myndigheter. BRF:er är privaträttsliga subjekt och har inga undantag — de lyder under GDPR fullt ut, precis som vilket företag som helst.
+
+### Systemets ansvar
+
+Hemmet bör designas med insikten att:
+1. **Användarna förväntar sig öppenhet** — svenska kulturella normer kring transparens lever kvar
+2. **Lagen kräver skydd** — oavsett kulturella förväntningar
+3. **Systemet ska vara den ansvarsfulla parten** — inte lita på att användare förstår GDPR
+4. **Defaultinställningar ska vara restriktiva** — opt-in, inte opt-out
+
+---
 
 ### 1. Grundlagarna för BRF-verksamhet
 

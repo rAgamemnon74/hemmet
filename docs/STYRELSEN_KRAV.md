@@ -429,7 +429,9 @@ Under 2000-talet har juridiken kring BRF:er stramats åt markant. Lekmannastyrel
 - Skadestånd till drabbad medlem
 - Enorma interna konflikter och förtroendekris
 
-**Vad Hemmet bör stödja:** Se `docs/BRF_SYSTEM_LAGRUM.md` för fullständig GDPR-analys.
+**Vanligt missförstånd:** "Det spelar ingen roll — personnumren finns ju på Ratsit/Merinfo ändå." Detta är juridiskt fel. Att data publicerats av andra aktörer ger inte BRF:en rätt att behandla den utan egen rättslig grund. Sverige har en unik historik av öppen persondata (skolregister med personnummer, telefonkataloger, SPAR-registret, skattelängder) som skapat en kulturell förväntning om öppenhet — men GDPR gäller fullt ut för privaträttsliga föreningar oavsett denna tradition.
+
+**Vad Hemmet bör stödja:** Se `docs/BRF_SYSTEM_LAGRUM.md` (Del 0) för fullständig historisk kontext och GDPR-analys.
 
 ---
 
