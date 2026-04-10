@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
-import { Plus, BookOpen } from "lucide-react";
+import { Plus, BookOpen, Vote, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
+import type { DecisionMethod } from "@prisma/client";
 
 type Decision = {
   id: string;
@@ -13,12 +15,30 @@ type Decision = {
   title: string;
   decisionText: string;
   decidedAt: Date;
+  method: DecisionMethod;
+  voteRequestedBy: string | null;
+  voteRequestedReason: string | null;
+  votesFor: number | null;
+  votesAgainst: number | null;
+  votesAbstained: number | null;
 };
 
 type AgendaItem = {
   id: string;
   sortOrder: number;
   title: string;
+};
+
+const methodLabels: Record<DecisionMethod, string> = {
+  ACCLAMATION: "Acklamation",
+  ROLL_CALL: "Votering (namnupprop)",
+  COUNTED: "Votering (räknade röster)",
+};
+
+const methodColors: Record<DecisionMethod, string> = {
+  ACCLAMATION: "bg-green-100 text-green-700",
+  ROLL_CALL: "bg-blue-100 text-blue-700",
+  COUNTED: "bg-purple-100 text-purple-700",
 };
 
 export function DecisionsTab({
@@ -39,12 +59,22 @@ export function DecisionsTab({
     description: "",
     decisionText: "",
     agendaItemId: "",
+    method: "ACCLAMATION" as DecisionMethod,
+    voteRequestedBy: "",
+    voteRequestedReason: "",
+    votesFor: "",
+    votesAgainst: "",
+    votesAbstained: "",
   });
 
   const createDecision = trpc.decision.create.useMutation({
     onSuccess: () => {
       setShowForm(false);
-      setForm({ title: "", description: "", decisionText: "", agendaItemId: "" });
+      setForm({
+        title: "", description: "", decisionText: "", agendaItemId: "",
+        method: "ACCLAMATION", voteRequestedBy: "", voteRequestedReason: "",
+        votesFor: "", votesAgainst: "", votesAbstained: "",
+      });
       router.refresh();
     },
   });
@@ -57,8 +87,17 @@ export function DecisionsTab({
       description: form.description,
       decisionText: form.decisionText,
       agendaItemId: form.agendaItemId || undefined,
+      method: form.method,
+      voteRequestedBy: form.voteRequestedBy || undefined,
+      voteRequestedReason: form.voteRequestedReason || undefined,
+      votesFor: form.votesFor ? parseInt(form.votesFor) : undefined,
+      votesAgainst: form.votesAgainst ? parseInt(form.votesAgainst) : undefined,
+      votesAbstained: form.votesAbstained ? parseInt(form.votesAbstained) : undefined,
     });
   }
+
+  const isVotering = form.method !== "ACCLAMATION";
+  const isCounted = form.method === "COUNTED";
 
   return (
     <div>
@@ -91,18 +130,50 @@ export function DecisionsTab({
             className="rounded-lg border border-gray-200 bg-white p-4"
           >
             <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-mono font-medium text-gray-600">
                     {decision.reference}
                   </span>
                   <h3 className="text-sm font-semibold text-gray-900">
                     {decision.title}
                   </h3>
+                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", methodColors[decision.method])}>
+                    {methodLabels[decision.method]}
+                  </span>
                 </div>
                 <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">
                   {decision.decisionText}
                 </p>
+
+                {/* Votering details */}
+                {decision.method !== "ACCLAMATION" && (
+                  <div className="mt-3 space-y-2">
+                    {decision.voteRequestedBy && (
+                      <div className="rounded-md bg-amber-50 p-2 text-xs text-amber-700">
+                        <span className="font-medium">Votering begärd av:</span> {decision.voteRequestedBy}
+                        {decision.voteRequestedReason && (
+                          <span> — {decision.voteRequestedReason}</span>
+                        )}
+                      </div>
+                    )}
+                    {decision.method === "COUNTED" &&
+                      decision.votesFor !== null && (
+                        <div className="flex gap-4 text-sm">
+                          <span className="flex items-center gap-1 text-green-700">
+                            <Vote className="h-3.5 w-3.5" />
+                            Ja: {decision.votesFor}
+                          </span>
+                          <span className="text-red-700">
+                            Nej: {decision.votesAgainst ?? 0}
+                          </span>
+                          <span className="text-gray-500">
+                            Avstår: {decision.votesAbstained ?? 0}
+                          </span>
+                        </div>
+                      )}
+                  </div>
+                )}
               </div>
               <span className="shrink-0 text-xs text-gray-400">
                 {format(new Date(decision.decidedAt), "d MMM yyyy", { locale: sv })}
@@ -135,6 +206,7 @@ export function DecisionsTab({
                 ))}
               </select>
             </div>
+
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Titel *
@@ -148,9 +220,10 @@ export function DecisionsTab({
                 placeholder="t.ex. Godkännande av budget 2026"
               />
             </div>
+
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                Bakgrund/Beskrivning *
+                Bakgrund *
               </label>
               <textarea
                 rows={2}
@@ -158,9 +231,9 @@ export function DecisionsTab({
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                placeholder="Förklaring av ärendet"
               />
             </div>
+
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Beslutstext *
@@ -174,7 +247,104 @@ export function DecisionsTab({
                 placeholder="Styrelsen beslutar att..."
               />
             </div>
+
+            {/* Beslutsmetod */}
+            <div className="rounded-md border border-gray-200 bg-white p-3 space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Beslutsmetod *
+                </label>
+                <select
+                  value={form.method}
+                  onChange={(e) => setForm((f) => ({ ...f, method: e.target.value as DecisionMethod }))}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="ACCLAMATION">Acklamation (enkel majoritet)</option>
+                  <option value="ROLL_CALL">Votering med namnupprop (individuella röster)</option>
+                  <option value="COUNTED">Votering med räknade röster</option>
+                </select>
+              </div>
+
+              {isVotering && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-600">
+                        Votering begärd av
+                      </label>
+                      <input
+                        type="text"
+                        value={form.voteRequestedBy}
+                        onChange={(e) => setForm((f) => ({ ...f, voteRequestedBy: e.target.value }))}
+                        className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="Namn"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-600">
+                        Anledning
+                      </label>
+                      <input
+                        type="text"
+                        value={form.voteRequestedReason}
+                        onChange={(e) => setForm((f) => ({ ...f, voteRequestedReason: e.target.value }))}
+                        className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="Varför votering begärdes"
+                      />
+                    </div>
+                  </div>
+
+                  {isCounted && (
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-green-700">
+                          Röster för
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={form.votesFor}
+                          onChange={(e) => setForm((f) => ({ ...f, votesFor: e.target.value }))}
+                          className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-red-700">
+                          Röster emot
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={form.votesAgainst}
+                          onChange={(e) => setForm((f) => ({ ...f, votesAgainst: e.target.value }))}
+                          className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-500">
+                          Avstår
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={form.votesAbstained}
+                          onChange={(e) => setForm((f) => ({ ...f, votesAbstained: e.target.value }))}
+                          className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {form.method === "ROLL_CALL" && (
+                    <p className="text-xs text-gray-500 italic">
+                      Individuella röster kan dokumenteras efter att beslutet skapats.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           </div>
+
           <div className="mt-3 flex justify-end gap-2">
             <button
               type="button"

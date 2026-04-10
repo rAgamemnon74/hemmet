@@ -23,6 +23,7 @@ const statusLabels: Record<MeetingStatus, string> = {
   DRAFT: "Utkast",
   SCHEDULED: "Planerat",
   IN_PROGRESS: "Pågår",
+  FINALIZING: "Efterbehandling",
   COMPLETED: "Avslutat",
   CANCELLED: "Inställt",
 };
@@ -31,6 +32,7 @@ const statusColors: Record<MeetingStatus, string> = {
   DRAFT: "bg-gray-100 text-gray-700",
   SCHEDULED: "bg-blue-100 text-blue-700",
   IN_PROGRESS: "bg-green-100 text-green-700",
+  FINALIZING: "bg-amber-100 text-amber-700",
   COMPLETED: "bg-gray-100 text-gray-600",
   CANCELLED: "bg-red-100 text-red-700",
 };

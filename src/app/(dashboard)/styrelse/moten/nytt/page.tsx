@@ -2,9 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ListChecks } from "lucide-react";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc";
+import { getTemplate } from "@/lib/agenda-templates";
+
+const typeLabels = {
+  BOARD: "Styrelsemöte",
+  ANNUAL: "Årsmöte",
+  EXTRAORDINARY: "Extra stämma",
+};
 
 export default function NewMeetingPage() {
   const router = useRouter();
@@ -20,6 +27,7 @@ export default function NewMeetingPage() {
     scheduledAt: "",
     location: "",
     description: "",
+    useTemplate: true,
   });
 
   function updateField(field: string, value: string) {
@@ -34,8 +42,11 @@ export default function NewMeetingPage() {
       scheduledAt: new Date(form.scheduledAt),
       location: form.location || undefined,
       description: form.description || undefined,
+      useTemplate: form.useTemplate,
     });
   }
+
+  const template = getTemplate(form.type);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -127,6 +138,44 @@ export default function NewMeetingPage() {
             onChange={(e) => updateField("description", e.target.value)}
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
+        </div>
+
+        {/* Template toggle */}
+        <div className="rounded-md border border-gray-200 bg-gray-50 p-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.useTemplate}
+              onChange={(e) => setForm((f) => ({ ...f, useTemplate: e.target.checked }))}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <ListChecks className="h-4 w-4 text-gray-600" />
+            <span className="text-sm font-medium text-gray-700">
+              Använd standardmall för {typeLabels[form.type].toLowerCase()}
+            </span>
+          </label>
+
+          {form.useTemplate && template.length > 0 && (
+            <div className="mt-3 ml-6 space-y-1">
+              <p className="text-xs font-medium text-gray-500 uppercase mb-2">
+                {template.length} dagordningspunkter skapas automatiskt:
+              </p>
+              {template.map((item, i) => (
+                <div key={i} className="flex items-baseline gap-2 text-xs text-gray-600">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-200 text-[10px] font-medium text-gray-600">
+                    {i + 1}
+                  </span>
+                  <span>{item.title}</span>
+                  {item.duration && (
+                    <span className="text-gray-400">({item.duration} min)</span>
+                  )}
+                </div>
+              ))}
+              <p className="mt-2 text-xs text-gray-400 italic">
+                Du kan redigera, lägga till och ta bort punkter efter att mötet skapats.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-3 pt-2">

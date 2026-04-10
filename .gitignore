@@ -38,6 +38,13 @@ yarn-error.log*
 # uploads
 /uploads
 
+# stadgar PDFs (may contain real org data)
+docs/stadgar/*.pdf
+*.pdf
+
+# WSL/Windows metadata
+*:Zone.Identifier
+
 # vercel
 .vercel
 

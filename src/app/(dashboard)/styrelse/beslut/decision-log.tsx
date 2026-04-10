@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
-import { Search, BookOpen } from "lucide-react";
+import { Search, BookOpen, Vote } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { DecisionMethod } from "@prisma/client";
 
 type Decision = {
   id: string;
@@ -12,14 +15,31 @@ type Decision = {
   description: string;
   decisionText: string;
   decidedAt: Date;
+  method: DecisionMethod;
+  votesFor: number | null;
+  votesAgainst: number | null;
+  votesAbstained: number | null;
+  voteRequestedBy: string | null;
   meeting: { title: string; scheduledAt: Date; type: string };
-  _count: { tasks: number };
+  _count: { tasks: number; voteRecords: number };
 };
 
 const typeLabels: Record<string, string> = {
   BOARD: "Styrelsemöte",
   ANNUAL: "Årsmöte",
   EXTRAORDINARY: "Extra stämma",
+};
+
+const methodLabels: Record<DecisionMethod, string> = {
+  ACCLAMATION: "Acklamation",
+  ROLL_CALL: "Votering (namnupprop)",
+  COUNTED: "Votering (räknade)",
+};
+
+const methodColors: Record<DecisionMethod, string> = {
+  ACCLAMATION: "bg-green-100 text-green-700",
+  ROLL_CALL: "bg-blue-100 text-blue-700",
+  COUNTED: "bg-purple-100 text-purple-700",
 };
 
 export function DecisionLog({ initialData }: { initialData: Decision[] }) {
@@ -66,9 +86,10 @@ export function DecisionLog({ initialData }: { initialData: Decision[] }) {
       ) : (
         <div className="space-y-3">
           {filtered.map((decision) => (
-            <div
+            <Link
               key={decision.id}
-              className="rounded-lg border border-gray-200 bg-white p-5"
+              href={`/styrelse/beslut/${decision.id}`}
+              className="block rounded-lg border border-gray-200 bg-white p-5 transition-shadow hover:shadow-md"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -79,14 +100,30 @@ export function DecisionLog({ initialData }: { initialData: Decision[] }) {
                     <h3 className="text-sm font-semibold text-gray-900">
                       {decision.title}
                     </h3>
+                    <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", methodColors[decision.method])}>
+                      {methodLabels[decision.method]}
+                    </span>
                   </div>
-                  <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">
+                  <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap line-clamp-2">
                     {decision.decisionText}
                   </p>
                   <div className="mt-3 flex items-center gap-3 text-xs text-gray-500">
                     <span>
                       {typeLabels[decision.meeting.type]}: {decision.meeting.title}
                     </span>
+                    {decision.method === "COUNTED" && decision.votesFor !== null && (
+                      <span className="flex items-center gap-1">
+                        <Vote className="h-3 w-3" />
+                        {decision.votesFor}–{decision.votesAgainst ?? 0}
+                        {decision.votesAbstained ? ` (${decision.votesAbstained} avstod)` : ""}
+                      </span>
+                    )}
+                    {decision._count.voteRecords > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Vote className="h-3 w-3" />
+                        {decision._count.voteRecords} individuella röster
+                      </span>
+                    )}
                     {decision._count.tasks > 0 && (
                       <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700">
                         {decision._count.tasks} uppföljningsärenden
@@ -98,7 +135,7 @@ export function DecisionLog({ initialData }: { initialData: Decision[] }) {
                   {format(new Date(decision.decidedAt), "d MMM yyyy", { locale: sv })}
                 </span>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

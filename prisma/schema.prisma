@@ -27,6 +27,7 @@ model User {
   apartment   Apartment? @relation(fields: [apartmentId], references: [id])
 
   roles            UserRole[]
+  ownerships       ApartmentOwnership[]
   sessions         Session[]
   expenses         Expense[]           @relation("ExpenseSubmitter")
   approvedExpenses Expense[]           @relation("ExpenseApprover")
@@ -67,12 +68,14 @@ model VerificationToken {
 enum Role {
   ADMIN
   BOARD_CHAIRPERSON
+  BOARD_SECRETARY
   BOARD_TREASURER
   BOARD_PROPERTY_MGR
   BOARD_ENVIRONMENT
   BOARD_EVENTS
   BOARD_SUBSTITUTE
   BOARD_MEMBER
+  AUDITOR
   MEMBER
   RESIDENT
 }
@@ -98,26 +101,208 @@ model UserRole {
 
 model Building {
   id         String      @id @default(cuid())
-  name       String
+  name       String      // t.ex. "Hus A" eller "Solvägen 1"
   address    String
+  city       String?
+  postalCode String?
+
+  // Fastighetsdata
+  propertyDesignation String?  // Fastighetsbeteckning, t.ex. "Stockholm Solbacken 1:5"
+  constructionYear    Int?     // Byggnadsår
+  totalArea           Float?   // Total bostadsyta (kvm)
+  plotArea             Float?  // Tomtareal (kvm)
+  commercialUnits     Int?     // Antal lokaler
+  heatingType         String?  // Uppvärmningsform
+  taxationValue       Float?   // Taxeringsvärde (kr)
+  energyRating        String?  // Energiklass (A-G)
+  energyDeclarationExpiry DateTime? // Energideklaration giltig t.o.m.
+
   apartments Apartment[]
 }
 
 model Apartment {
   id         String  @id @default(cuid())
-  number     String
-  floor      Int?
-  area       Float?
-  rooms      Float?
-  share      Float?
-  monthlyFee Float?
+  number     String  // Lägenhetsnummer
+  floor      Int?    // Våningsplan
+  area       Float?  // Bostadsyta (kvm)
+  rooms      Float?  // Antal rum (t.ex. 2.5 = 2 rum och kök)
+  share      Float?  // Andelstal (ägarandel, t.ex. 0.05 = 5%)
+  monthlyFee Float?  // Månadsavgift (kr)
   buildingId String
-  building   Building @relation(fields: [buildingId], references: [id])
 
+  // Utökad data
+  objectNumber   String?  // Objektnummer / bostadsrättsnummer
+  type           ApartmentType @default(APARTMENT)
+  balcony        Boolean  @default(false)
+  patio          Boolean  @default(false) // Uteplats
+  storage        String?  // Förråd (t.ex. "K12")
+  parking        String?  // Parkeringsplats (t.ex. "P5")
+  acquiredAt     DateTime? // Datum för senaste ägarbyte
+  notes          String?  @db.Text
+
+  building      Building @relation(fields: [buildingId], references: [id])
   residents     User[]
   damageReports DamageReport[]
+  ownerships    ApartmentOwnership[]
+  applications  MembershipApplication[]
 
   @@unique([buildingId, number])
+}
+
+// ============================================================
+// ORGANIZATIONS (juridiska personer)
+// ============================================================
+
+model Organization {
+  id            String   @id @default(cuid())
+  name          String   // Företagsnamn
+  orgNumber     String   @unique // Organisationsnummer
+  address       String?
+  city          String?
+  postalCode    String?
+  phone         String?
+  email         String?
+  contactPerson String?  // Allmän kontaktperson (inte nödvändigtvis ombud)
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  representatives OrganizationRepresentative[]
+  ownerships      ApartmentOwnership[]
+  applications    MembershipApplication[]
+  mandateDocuments OrganizationMandate[]
+}
+
+model OrganizationRepresentative {
+  id              String   @id @default(cuid())
+  organizationId  String
+  personalId      String   // Personnummer
+  firstName       String
+  lastName        String
+  address         String?
+  phone           String?
+  email           String?
+  active          Boolean  @default(true)
+  grantedAt       DateTime @default(now())
+  revokedAt       DateTime?
+  notes           String?  @db.Text
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model OrganizationMandate {
+  id              String   @id @default(cuid())
+  organizationId  String
+  documentName    String   // Filnamn
+  documentUrl     String   // Sökväg till uppladdat dokument
+  documentSize    Int?     // bytes
+  mimeType        String?
+  description     String?  // T.ex. "Styrelsebeslut 2026-03-15"
+  validFrom       DateTime @default(now())
+  validUntil      DateTime? // Null = tillsvidare
+  uploadedAt      DateTime @default(now())
+  uploadedBy      String   // userId
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+// ============================================================
+// APARTMENT OWNERSHIP (ägarskap med andelar)
+// ============================================================
+
+enum OwnerType {
+  PERSON        // Fysisk person
+  ORGANIZATION  // Juridisk person
+}
+
+model ApartmentOwnership {
+  id              String    @id @default(cuid())
+  apartmentId     String
+  ownerType       OwnerType @default(PERSON)
+  userId          String?   // Fysisk person (OwnerType.PERSON)
+  organizationId  String?   // Juridisk person (OwnerType.ORGANIZATION)
+  ownershipShare  Float     // Ägarandel av lägenheten (0.0-1.0)
+  acquiredAt      DateTime  @default(now())
+  transferredAt   DateTime? // När ägandet upphörde
+  active          Boolean   @default(true)
+  notes           String?   @db.Text
+
+  apartment    Apartment     @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([apartmentId])
+  @@index([userId])
+  @@index([organizationId])
+}
+
+// ============================================================
+// MEMBERSHIP APPLICATION (medlemsansökan)
+// ============================================================
+
+enum ApplicationStatus {
+  SUBMITTED       // Ansökan inskickad
+  UNDER_REVIEW    // Styrelsen granskar
+  APPROVED        // Godkänd
+  REJECTED        // Avslagen
+  WITHDRAWN       // Återtagen
+}
+
+enum ApplicantType {
+  PERSON
+  ORGANIZATION
+}
+
+model MembershipApplication {
+  id            String            @id @default(cuid())
+  status        ApplicationStatus @default(SUBMITTED)
+  applicantType ApplicantType     @default(PERSON)
+  apartmentId   String
+  submittedAt   DateTime          @default(now())
+  reviewedAt    DateTime?
+  reviewedBy    String?           // userId of board member who reviewed
+
+  // Sökande fysisk person
+  applicantUserId String?         // Om sökande redan har konto
+  firstName     String?
+  lastName      String?
+  personalId    String?           // Personnummer
+  email         String
+  phone         String?
+  address       String?           // Nuvarande adress
+
+  // Sökande juridisk person
+  organizationId    String?
+  organizationName  String?       // Företagsnamn (om ny organisation)
+  organizationOrgNr String?       // Organisationsnummer
+
+  // Ägarskapsdetaljer
+  ownershipShare Float            // Begärd ägarandel (0.0-1.0)
+  transferFrom   String?          // Namn på säljare/överlåtare
+  transferPrice  Float?           // Överlåtelsebelopp (kr)
+  transferDate   DateTime?        // Planerat tillträdesdatum
+
+  // Handläggning
+  rejectionReason String?         @db.Text
+  boardNotes      String?         @db.Text // Interna anteckningar
+
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  apartment     Apartment         @relation(fields: [apartmentId], references: [id])
+  organization  Organization?     @relation(fields: [organizationId], references: [id])
+}
+
+enum ApartmentType {
+  APARTMENT   // Lägenhet
+  COMMERCIAL  // Lokal
+  GARAGE      // Garage
+  STORAGE     // Förråd/vindsförråd
+  OTHER
 }
 
 // ============================================================
@@ -134,7 +319,8 @@ enum MeetingStatus {
   DRAFT
   SCHEDULED
   IN_PROGRESS
-  COMPLETED
+  FINALIZING        // Efterbehandling — protokoll, röstresultat
+  COMPLETED         // Färdigt — låst
   CANCELLED
 }
 
@@ -150,12 +336,35 @@ model Meeting {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  agendaItems AgendaItem[]
-  attendances MeetingAttendance[]
-  protocol    Protocol?
-  decisions   Decision[]
-  documents   Document[]    @relation("MeetingDocuments")
-  motions     Motion[]
+  // Meeting roles (assigned per meeting)
+  meetingChairpersonId String? // Mötesordförande
+  meetingSecretaryId   String? // Mötessekreterare
+  adjusters            String[] // Justeringsmän (userIds)
+
+  // Live meeting state
+  activeAgendaItemId   String? // Aktuell dagordningspunkt
+  activeSubItemType    String? // "motion" | "suggestion" | null
+  activeSubItemId      String? // ID för aktiv motion/förslag under specialpunkt
+
+  agendaItems   AgendaItem[]
+  attendances   MeetingAttendance[]
+  protocol      Protocol?
+  decisions     Decision[]
+  documents     Document[]      @relation("MeetingDocuments")
+  motions       Motion[]
+  voterRegistry VoterRegistry?
+  proxies       MeetingProxy[]
+}
+
+enum AgendaItemType {
+  OPENING          // Mötets öppnande
+  ATTENDANCE       // Närvarokontroll (styrelse) / Upprättande av röstlängd (stämma)
+  QUORUM_CHECK     // Behörighetsprövning — beslutförhet (styrelse) / behörig kallelse (stämma)
+  ELECT_CHAIR      // Val av mötesordförande
+  ELECT_SECRETARY  // Val av mötessekreterare
+  ELECT_ADJUSTERS  // Val av justerare
+  MOTIONS          // Visar kopplade motioner (årsmöte)
+  BOARD_MATTERS    // Visar inkomna ärenden — motioner + förslag (styrelsemöte)
 }
 
 model AgendaItem {
@@ -167,6 +376,7 @@ model AgendaItem {
   duration    Int?
   presenter   String?
   voteType    VoteType?
+  specialType AgendaItemType? // Specialpunkter som renderas dynamiskt
 
   meeting   Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   votes     Vote[]
@@ -204,6 +414,80 @@ model MeetingAttendance {
   @@unique([meetingId, userId])
 }
 
+// ============================================================
+// VOTER REGISTRY & PROXY (Annual meetings)
+// ============================================================
+
+enum VoterRegistryMethod {
+  DIGITAL      // Members check in digitally
+  DOCUMENT     // Uploaded document/attachment
+}
+
+model VoterRegistry {
+  id        String              @id @default(cuid())
+  meetingId String              @unique
+  method    VoterRegistryMethod @default(DIGITAL)
+  locked    Boolean             @default(false) // Lock registry after verification
+  lockedAt  DateTime?
+  lockedBy  String?             // userId who locked
+  notes     String?             @db.Text
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  meeting   Meeting             @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  entries   VoterRegistryEntry[]
+}
+
+model VoterRegistryEntry {
+  id               String   @id @default(cuid())
+  voterRegistryId  String
+  memberId         String   // userId of the member
+  checkedIn        Boolean  @default(false)
+  checkedInAt      DateTime?
+  representedBy    String?  // If present via proxy: proxyId reference
+  votingShares     Float?   // Andelstal / röstandel
+  notes            String?
+  createdAt        DateTime @default(now())
+
+  voterRegistry VoterRegistry @relation(fields: [voterRegistryId], references: [id], onDelete: Cascade)
+
+  @@unique([voterRegistryId, memberId])
+  @@index([voterRegistryId])
+}
+
+enum ProxyType {
+  MEMBER     // Ombud är annan medlem i föreningen
+  EXTERNAL   // Ombud är extern person
+}
+
+model MeetingProxy {
+  id          String    @id @default(cuid())
+  meetingId   String
+  memberId    String    // The member granting proxy
+  proxyType   ProxyType
+
+  // If proxy is another member
+  proxyMemberId String? // userId of the proxy member
+
+  // If proxy is external person
+  externalName          String?
+  externalPersonalId    String?  // Personnummer
+  externalAddress       String?
+  externalPhone         String?
+  externalEmail         String?
+
+  registeredAt DateTime @default(now())
+  registeredBy String   // userId who registered (usually the member themselves)
+  approved     Boolean  @default(false) // Board approval for external proxies
+  approvedBy   String?  // userId
+  approvedAt   DateTime?
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, memberId]) // One proxy per member per meeting
+  @@index([meetingId])
+}
+
 model Protocol {
   id        String    @id @default(cuid())
   meetingId String    @unique
@@ -239,6 +523,12 @@ model Vote {
 // DECISIONS & TASKS
 // ============================================================
 
+enum DecisionMethod {
+  ACCLAMATION   // Enkel majoritet / acklamation ("bifall utan votering")
+  ROLL_CALL     // Votering med individuella röster
+  COUNTED       // Votering med räknade röster (antal)
+}
+
 model Decision {
   id           String   @id @default(cuid())
   meetingId    String
@@ -249,11 +539,38 @@ model Decision {
   decisionText String   @db.Text
   decidedAt    DateTime @default(now())
 
-  meeting    Meeting     @relation(fields: [meetingId], references: [id])
-  agendaItem AgendaItem? @relation(fields: [agendaItemId], references: [id])
+  // Decision method
+  method              DecisionMethod @default(ACCLAMATION)
+
+  // Votering request (who requested and why)
+  voteRequestedBy     String?        // Name or userId of person requesting votering
+  voteRequestedReason String?        @db.Text
+
+  // Aggregate vote counts (used when method = COUNTED)
+  votesFor            Int?
+  votesAgainst        Int?
+  votesAbstained      Int?
+
+  meeting    Meeting          @relation(fields: [meetingId], references: [id])
+  agendaItem AgendaItem?      @relation(fields: [agendaItemId], references: [id])
   tasks      Task[]
+  voteRecords DecisionVote[]  // Individual votes (used when method = ROLL_CALL)
 
   @@index([reference])
+}
+
+model DecisionVote {
+  id         String   @id @default(cuid())
+  decisionId String
+  voterId    String   // userId
+  voterName  String   // Stored name for protocol purposes
+  choice     String   // YES, NO, ABSTAIN
+  castAt     DateTime @default(now())
+
+  decision Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+
+  @@unique([decisionId, voterId])
+  @@index([decisionId])
 }
 
 enum TaskStatus {
@@ -346,8 +663,10 @@ enum MotionStatus {
   SUBMITTED
   RECEIVED
   BOARD_RESPONSE
-  DECIDED
-  WITHDRAWN
+  DECIDED            // Omröstad och beslutad
+  WITHDRAWN          // Återtagen av motionären
+  STRUCK             // Struken från dagordningen
+  NOT_TREATED        // Ej behandlad (tiden räckte inte)
 }
 
 model Motion {
@@ -357,6 +676,7 @@ model Motion {
   description   String       @db.Text
   proposal      String       @db.Text
   boardResponse String?      @db.Text
+  boardRecommendation MotionRecommendation? // Styrelsens rekommendation
   status        MotionStatus @default(DRAFT)
   meetingId     String?
   resolution    String?      @db.Text
@@ -364,9 +684,42 @@ model Motion {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  author    User       @relation(fields: [authorId], references: [id])
-  meeting   Meeting?   @relation(fields: [meetingId], references: [id])
-  documents Document[] @relation("MotionDocuments")
+  author         User              @relation(fields: [authorId], references: [id])
+  meeting        Meeting?          @relation(fields: [meetingId], references: [id])
+  documents      Document[]        @relation("MotionDocuments")
+  voteProposals  MotionVoteProposal[]
+}
+
+enum MotionRecommendation {
+  APPROVE       // Styrelsen tillstyrker
+  REJECT        // Styrelsen avstyrker
+  AMEND         // Styrelsen föreslår ändring
+  NEUTRAL       // Styrelsen tar inte ställning
+}
+
+model MotionVoteProposal {
+  id          String   @id @default(cuid())
+  motionId    String
+  sortOrder   Int
+  label       String   // t.ex. "Bifall", "Avslag", "Styrelsens förslag"
+  description String   @db.Text // Detaljerad beslutstext
+  isDefault   Boolean  @default(false) // Primärt förslag (motionärens yrkande)
+  source      MotionProposalSource @default(MOTIONER)
+  votesFor    Int?     // Fylls i efter omröstning
+  votesAgainst Int?
+  votesAbstained Int?
+  adopted     Boolean  @default(false) // Om detta förslag antogs
+  createdAt   DateTime @default(now())
+
+  motion Motion @relation(fields: [motionId], references: [id], onDelete: Cascade)
+
+  @@index([motionId])
+}
+
+enum MotionProposalSource {
+  MOTIONER      // Motionärens yrkande
+  BOARD         // Styrelsens alternativa förslag
+  AMENDMENT     // Ändringsyrkande (från stämman)
 }
 
 // ============================================================
@@ -470,25 +823,57 @@ enum DocumentCategory {
   DAMAGE_REPORT_PHOTO
   ANNUAL_REPORT
   FINANCIAL_STATEMENT
+  AUDIT_REPORT
+  ORGANIZATION_MANDATE
   RULES
   OTHER
 }
 
 model Document {
   id           String           @id @default(cuid())
-  fileName     String
-  fileUrl      String
-  fileSize     Int
+  fileName     String           // Originalfilnamn
+  storedName   String           @default("") // Unikt filnamn på disk
+  fileUrl      String           // /api/documents/[id]/download
+  fileSize     Int              // bytes
   mimeType     String
   category     DocumentCategory
+  description  String?
   uploadedById String
   createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt @default(now())
 
-  uploadedBy    User           @relation("DocumentUploader", fields: [uploadedById], references: [id])
-  meetings      Meeting[]      @relation("MeetingDocuments")
-  expenses      Expense[]      @relation("ExpenseDocuments")
-  motions       Motion[]       @relation("MotionDocuments")
-  damageReports DamageReport[] @relation("DamageReportPhotos")
+  // Låsning
+  locked       Boolean          @default(false)
+  lockedAt     DateTime?
+  lockedBy     String?
+
+  // Behörighet
+  visibleToMembers Boolean      @default(false)
+  visibleToAll     Boolean      @default(false)
+
+  uploadedBy    User              @relation("DocumentUploader", fields: [uploadedById], references: [id])
+  meetings      Meeting[]         @relation("MeetingDocuments")
+  expenses      Expense[]         @relation("ExpenseDocuments")
+  motions       Motion[]          @relation("MotionDocuments")
+  damageReports DamageReport[]    @relation("DamageReportPhotos")
+  versions      DocumentVersion[]
+
+  @@index([category])
+}
+
+model DocumentVersion {
+  id           String   @id @default(cuid())
+  documentId   String
+  fileName     String
+  storedName   String
+  fileSize     Int
+  uploadedById String
+  createdAt    DateTime @default(now())
+  comment      String?
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
 }
 
 // ============================================================
@@ -541,19 +926,195 @@ model IntegrationLog {
 }
 
 // ============================================================
+// ANNUAL REPORT & AUDIT
+// ============================================================
+
+model AnnualReport {
+  id              String   @id @default(cuid())
+  fiscalYear      String   @unique // e.g. "2025" or "2025/2026"
+  title           String
+  boardMembers    String   @db.Text // Board composition during the year
+  activities      String   @db.Text // Verksamhetsberättelse
+  maintenance     String?  @db.Text // Underhåll och förvaltning
+  economy         String?  @db.Text // Ekonomisk översikt
+  futureOutlook   String?  @db.Text // Framtida planer
+  status          AnnualReportStatus @default(DRAFT)
+  publishedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  audit           Audit?
+}
+
+enum AnnualReportStatus {
+  DRAFT
+  REVIEW          // Skickad till revisor
+  REVISED         // Revisor har granskat
+  APPROVED        // Godkänd av styrelsen
+  PUBLISHED       // Publicerad till medlemmar
+}
+
+model Audit {
+  id              String      @id @default(cuid())
+  annualReportId  String      @unique
+  auditorId       String      // userId of the auditor
+  status          AuditStatus @default(PENDING)
+  statement       String?     @db.Text // Revisionsberättelse
+  recommendation  AuditRecommendation? // Revisorns rekommendation
+  findings        String?     @db.Text // Anmärkningar
+  financialReview String?     @db.Text // Granskning av räkenskaper
+  boardReview     String?     @db.Text // Granskning av förvaltning
+  submittedAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  annualReport    AnnualReport @relation(fields: [annualReportId], references: [id], onDelete: Cascade)
+
+  @@index([auditorId])
+}
+
+enum AuditStatus {
+  PENDING         // Väntar på granskning
+  IN_PROGRESS     // Granskning pågår
+  COMPLETED       // Revisionsberättelse klar
+}
+
+enum AuditRecommendation {
+  APPROVE                  // Tillstyrker ansvarsfrihet
+  APPROVE_WITH_REMARKS     // Tillstyrker med anmärkningar
+  DENY                     // Avstyrker ansvarsfrihet
+}
+
+// ============================================================
 // BRF SETTINGS
 // ============================================================
 
 model BrfSettings {
   id                 String  @id @default("default")
-  name               String
-  orgNumber          String
+
+  // Juridiskt
+  name               String  // Föreningens namn
+  orgNumber          String  // Organisationsnummer
+  registrationDate   DateTime? // Registreringsdatum hos Bolagsverket
+  seat               String?   // Säte (kommun)
+  signatoryRule      String?   // Firmateckningsregel, t.ex. "ordförande och kassör i förening"
+  signatories        String?   // Nuvarande firmatecknare (namn)
+
+  // Adress (föreningens postadress)
   address            String
   city               String
   postalCode         String
-  fiscalYearStart    Int     @default(1)
-  memberFeeAccountNr String?
+
+  // Kontakt
+  phone              String?
+  email              String?
+  website            String?
+
+  // Ekonomi
+  fiscalYearStart    Int     @default(1)  // Startmånad (1=jan)
+  fiscalYearEnd      Int     @default(12) // Slutmånad (12=dec)
+  bankgiro           String?
+  plusgiro            String?
+  bankAccount        String? // IBAN eller kontonummer
+  swish              String?
+  vatRegistered      Boolean @default(false) // Momsregistrerad
+  fTax               Boolean @default(false) // F-skattsedel
+
+  // Förvaltning
+  propertyManager    String? // Fastighetsförvaltare (företagsnamn)
+  insuranceCompany   String? // Försäkringsbolag
+  insurancePolicy    String? // Försäkringspolicynummer
+  insuranceExpiry    DateTime? // Försäkring giltig t.o.m.
+
+  // Dokument
   logoUrl            String?
-  stadgarUrl         String?
-  ordningsreglerUrl  String?
+  stadgarUrl         String? // Stadgar
+  ordningsreglerUrl  String? // Ordningsregler
+
+  // Deprecated: use bankgiro/plusgiro instead
+  memberFeeAccountNr String?
+}
+
+// ============================================================
+// BRF RULES (konfigurerbara regler baserat på stadgar)
+// ============================================================
+
+enum OrganizationAffiliation {
+  NONE
+  HSB
+  RIKSBYGGEN
+  SBC
+  OTHER
+}
+
+model BrfRules {
+  id String @id @default("default")
+
+  // Organisationsanslutning
+  affiliation              OrganizationAffiliation @default(NONE)
+  reservedBoardSeats       Int     @default(0)  // HSB: 1, Riksbyggen: 1
+  reservedBoardSubstitutes Int     @default(0)  // HSB: 1, Riksbyggen: 0 (sedan 2023)
+  reservedAuditorSeats     Int     @default(0)  // HSB: 1
+  requireOrgApprovalForStatuteChange Boolean @default(false)
+
+  // Styrelse
+  minBoardMembers          Int     @default(3)
+  maxBoardMembers          Int     @default(7)  // 7-11
+  maxBoardSubstitutes      Int     @default(3)  // 3-6
+  allowExternalBoardMembers Int    @default(0)  // 0-2
+
+  // Stämma — kallelse
+  noticePeriodMinWeeks     Int     @default(2)
+  noticePeriodMaxWeeks     Int     @default(6)  // Insteget: 4, övriga: 6
+  noticeMethodDigital      Boolean @default(false) // Nytt 2023
+  allowDigitalMeeting      Boolean @default(false) // Nytt 2023
+
+  // Stämma — ombud
+  maxProxiesPerPerson      Int     @default(1)  // 1-2, Insteget: 0=obegränsat
+  proxyCircleRestriction   Boolean @default(false) // Äldre: true, 2023: false
+  proxyMaxValidityMonths   Int     @default(12)
+
+  // Stämma — röstning
+  blankVoteExcluded        Boolean @default(true) // Blankröst exkluderas vid majoritet
+  secretBallotOnDemand     Boolean @default(true) // Sluten omröstning vid personval
+  tieBreakerChairperson    Boolean @default(true) // Ordförandens röst vid lika (beslut)
+  tieBreakerLotteryForElection Boolean @default(true) // Lottning vid lika (val)
+
+  // Stämma — dagordning
+  adjustersCount           Int     @default(2)  // 1-2
+  separateVoteCounters     Boolean @default(false) // HSB: true
+  agendaTemplateId         String? // Referens till anpassad mall (null = standard)
+
+  // Motioner
+  motionDeadlineMonth      Int     @default(2)  // 1-3
+  motionDeadlineDay        Int     @default(1)  // 1-31 (0 = sista dagen i månaden)
+
+  // Avgifter (procent av prisbasbelopp)
+  transferFeeMaxPercent    Float   @default(2.5)  // 2.5 (äldre) eller 3.5 (2023)
+  pledgeFeeMaxPercent      Float   @default(1.0)  // 1.0 (äldre) eller 1.5 (2023)
+  subletFeeMaxPercent      Float   @default(10.0) // Alltid 10
+  transferFeePaidBySeller  Boolean @default(false) // false=köpare, true=säljare
+
+  // Revisorer
+  minAuditors              Int     @default(1)  // 1-2
+  maxAuditors              Int     @default(2)  // 2-3
+  maxAuditorSubstitutes    Int     @default(2)  // 1-2
+  requireAuthorizedAuditor Boolean @default(false)
+
+  // Underhåll
+  maintenancePlanRequired  Boolean @default(true)
+  maintenancePlanYears     Int     @default(30) // HSB 2023: 50
+  maintenanceFundPercent   Float?  // 0.3% av taxeringsvärde (null = enligt plan)
+
+  // Protokoll
+  protocolDeadlineWeeks    Int     @default(3)  // Protokoll tillgängligt inom X veckor
+
+  // Ägarskap
+  maxOwnershipPercent      Float   @default(100.0) // Kungsklippan: 105
+
+  // Andrahandsuthyrning
+  subletRequiresApproval   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

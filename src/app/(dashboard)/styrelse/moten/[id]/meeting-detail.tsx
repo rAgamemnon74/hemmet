@@ -15,14 +15,22 @@ import {
   Play,
   CheckCircle,
   XCircle,
+  UserCog,
+  ClipboardList,
+  UserCheck,
+  ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import { AgendaTab } from "./tabs/agenda-tab";
 import { AttendanceTab } from "./tabs/attendance-tab";
+import { MeetingRolesTab } from "./tabs/meeting-roles-tab";
 import { ProtocolTab } from "./tabs/protocol-tab";
 import { DecisionsTab } from "./tabs/decisions-tab";
-import type { MeetingStatus, Role } from "@prisma/client";
+import { VoterRegistryTab } from "./tabs/voter-registry-tab";
+import { ProxyTab } from "./tabs/proxy-tab";
+import { MeetingLogTab } from "./tabs/meeting-log-tab";
+import type { MeetingStatus, DecisionMethod, AgendaItemType, Role } from "@prisma/client";
 import { useSession } from "next-auth/react";
 import { hasPermission } from "@/lib/permissions";
 
@@ -34,6 +42,9 @@ type MeetingData = {
   scheduledAt: Date;
   location: string | null;
   description: string | null;
+  meetingChairpersonId: string | null;
+  meetingSecretaryId: string | null;
+  adjusters: string[];
   agendaItems: Array<{
     id: string;
     sortOrder: number;
@@ -42,6 +53,7 @@ type MeetingData = {
     duration: number | null;
     presenter: string | null;
     voteType: string | null;
+    specialType: AgendaItemType | null;
     votes: Array<{
       id: string;
       choice: string;
@@ -62,6 +74,12 @@ type MeetingData = {
     title: string;
     decisionText: string;
     decidedAt: Date;
+    method: DecisionMethod;
+    voteRequestedBy: string | null;
+    voteRequestedReason: string | null;
+    votesFor: number | null;
+    votesAgainst: number | null;
+    votesAbstained: number | null;
   }>;
 };
 
@@ -77,18 +95,25 @@ const statusLabels: Record<string, string> = {
   DRAFT: "Utkast",
   SCHEDULED: "Planerat",
   IN_PROGRESS: "Pågår",
+  FINALIZING: "Efterbehandling",
   COMPLETED: "Avslutat",
   CANCELLED: "Inställt",
 };
 
-const tabs = [
+type TabDef = { id: string; label: string; icon: typeof FileText };
+
+const baseTabs: TabDef[] = [
   { id: "agenda", label: "Dagordning", icon: FileText },
+  { id: "roles", label: "Mötesroller", icon: UserCog },
   { id: "attendance", label: "Närvaro", icon: Users },
   { id: "protocol", label: "Protokoll", icon: BookOpen },
   { id: "decisions", label: "Beslut", icon: CheckCircle },
-] as const;
+];
 
-type TabId = (typeof tabs)[number]["id"];
+const annualTabs: TabDef[] = [
+  { id: "voter-registry", label: "Röstlängd", icon: ClipboardList },
+  { id: "proxies", label: "Ombud", icon: UserCheck },
+];
 
 export function MeetingDetail({
   meeting: initialMeeting,
@@ -97,18 +122,49 @@ export function MeetingDetail({
   meeting: MeetingData;
   boardMembers: BoardMember[];
 }) {
-  const [activeTab, setActiveTab] = useState<TabId>("agenda");
+  const isAnnualMeeting = initialMeeting.type === "ANNUAL" || initialMeeting.type === "EXTRAORDINARY";
+  const isBoardMeeting = initialMeeting.type === "BOARD";
+  const showLog = initialMeeting.status === "FINALIZING" || initialMeeting.status === "COMPLETED";
+  const logTab: TabDef[] = showLog ? [{ id: "log", label: "Möteslogg", icon: ScrollText }] : [];
+  const tabs = [...baseTabs, ...(isAnnualMeeting ? annualTabs : []), ...logTab];
+  const [activeTab, setActiveTab] = useState("agenda");
   const router = useRouter();
   const { data: session } = useSession();
   const userRoles = (session?.user?.roles ?? []) as Role[];
   const canEdit = hasPermission(userRoles, "meeting:edit");
 
+  const rulesQuery = trpc.brfRules.get.useQuery();
+  const rules = rulesQuery.data;
+
+  // Beslutförhet (board meetings)
+  const presentCount = initialMeeting.attendances.filter(
+    (a) => a.status === "PRESENT" || a.status === "PROXY"
+  ).length;
+  const totalBoardMembers = boardMembers.length;
+  const quorumRequired = Math.floor(totalBoardMembers / 2) + 1;
+  const isQuorate = presentCount >= quorumRequired;
+
+  const [noticePeriodWarning, setNoticePeriodWarning] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const updateStatus = trpc.meeting.update.useMutation({
-    onSuccess: () => router.refresh(),
+    onSuccess: () => {
+      setErrorMessage(null);
+      setNoticePeriodWarning(null);
+      router.refresh();
+    },
+    onError: (error) => {
+      if (error.data?.code === "PRECONDITION_FAILED") {
+        setNoticePeriodWarning(error.message);
+      } else {
+        setErrorMessage(error.message);
+      }
+    },
   });
 
-  function handleStatusChange(status: MeetingStatus) {
-    updateStatus.mutate({ id: initialMeeting.id, status });
+  function handleStatusChange(status: MeetingStatus, skipNoticePeriodCheck?: boolean) {
+    setErrorMessage(null);
+    updateStatus.mutate({ id: initialMeeting.id, status, skipNoticePeriodCheck });
   }
 
   return (
@@ -151,6 +207,18 @@ export function MeetingDetail({
 
           {canEdit && (
             <div className="flex items-center gap-2">
+              {initialMeeting.status !== "CANCELLED" && (
+                <>
+                  <Link href={`/styrelse/moten/${initialMeeting.id}/admin`}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100">
+                    Mötesadmin
+                  </Link>
+                  <Link href={`/styrelse/moten/${initialMeeting.id}/presentation`} target="_blank"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    Presentation
+                  </Link>
+                </>
+              )}
               {initialMeeting.status === "DRAFT" && (
                 <button
                   onClick={() => handleStatusChange("SCHEDULED")}
@@ -170,11 +238,20 @@ export function MeetingDetail({
               )}
               {initialMeeting.status === "IN_PROGRESS" && (
                 <button
+                  onClick={() => handleStatusChange("FINALIZING")}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
+                >
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  Avsluta → Efterbehandling
+                </button>
+              )}
+              {initialMeeting.status === "FINALIZING" && (
+                <button
                   onClick={() => handleStatusChange("COMPLETED")}
                   className="inline-flex items-center gap-1.5 rounded-md bg-gray-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700"
                 >
                   <CheckCircle className="h-3.5 w-3.5" />
-                  Avsluta möte
+                  Lås möte
                 </button>
               )}
               {(initialMeeting.status === "DRAFT" || initialMeeting.status === "SCHEDULED") && (
@@ -190,8 +267,8 @@ export function MeetingDetail({
           )}
         </div>
 
-        {/* Status badge */}
-        <div className="mt-3">
+        {/* Status badge + quorum */}
+        <div className="mt-3 flex items-center gap-3">
           <span
             className={cn(
               "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
@@ -199,6 +276,7 @@ export function MeetingDetail({
                 "bg-gray-100 text-gray-700": initialMeeting.status === "DRAFT",
                 "bg-blue-100 text-blue-700": initialMeeting.status === "SCHEDULED",
                 "bg-green-100 text-green-700": initialMeeting.status === "IN_PROGRESS",
+                "bg-amber-100 text-amber-700": initialMeeting.status === "FINALIZING",
                 "bg-gray-100 text-gray-600": initialMeeting.status === "COMPLETED",
                 "bg-red-100 text-red-700": initialMeeting.status === "CANCELLED",
               }
@@ -206,7 +284,53 @@ export function MeetingDetail({
           >
             {statusLabels[initialMeeting.status]}
           </span>
+
+          {isBoardMeeting && initialMeeting.status === "IN_PROGRESS" && (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
+                isQuorate
+                  ? "bg-green-100 text-green-700"
+                  : "bg-red-100 text-red-700"
+              )}
+            >
+              {isQuorate ? (
+                <>Beslutfört ({presentCount}/{totalBoardMembers})</>
+              ) : (
+                <>Ej beslutfört ({presentCount}/{totalBoardMembers}, krävs {quorumRequired})</>
+              )}
+            </span>
+          )}
         </div>
+
+        {noticePeriodWarning && (
+          <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3">
+            <p className="text-sm text-amber-800">{noticePeriodWarning}</p>
+            <p className="mt-1 text-sm text-amber-700">
+              Vill du publicera kallelsen ändå?
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={() => handleStatusChange("SCHEDULED", true)}
+                className="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
+              >
+                Publicera ändå
+              </button>
+              <button
+                onClick={() => setNoticePeriodWarning(null)}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Avbryt
+              </button>
+            </div>
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="mt-3 rounded-md border border-red-300 bg-red-50 p-3">
+            <p className="text-sm text-red-800">{errorMessage}</p>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -240,6 +364,16 @@ export function MeetingDetail({
             canEdit={canEdit}
           />
         )}
+        {activeTab === "roles" && (
+          <MeetingRolesTab
+            meetingId={initialMeeting.id}
+            meetingChairpersonId={initialMeeting.meetingChairpersonId}
+            meetingSecretaryId={initialMeeting.meetingSecretaryId}
+            adjusters={initialMeeting.adjusters}
+            boardMembers={boardMembers}
+            canEdit={canEdit}
+          />
+        )}
         {activeTab === "attendance" && (
           <AttendanceTab
             meetingId={initialMeeting.id}
@@ -262,6 +396,22 @@ export function MeetingDetail({
             agendaItems={initialMeeting.agendaItems}
             canEdit={canEdit}
           />
+        )}
+        {activeTab === "voter-registry" && isAnnualMeeting && (
+          <VoterRegistryTab
+            meetingId={initialMeeting.id}
+            meetingStatus={initialMeeting.status}
+            canEdit={canEdit}
+          />
+        )}
+        {activeTab === "proxies" && isAnnualMeeting && (
+          <ProxyTab
+            meetingId={initialMeeting.id}
+            canEdit={canEdit}
+          />
+        )}
+        {activeTab === "log" && showLog && (
+          <MeetingLogTab meetingId={initialMeeting.id} />
         )}
       </div>
     </div>

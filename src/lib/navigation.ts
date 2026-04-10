@@ -12,6 +12,11 @@ import {
   Settings,
   Vote,
   Building2,
+  ClipboardCheck,
+  ScrollText,
+  DoorOpen,
+  UserPlus,
+  Landmark,
   type LucideIcon,
 } from "lucide-react";
 import type { Permission } from "./permissions";
@@ -43,7 +48,14 @@ export const navigation: NavSection[] = [
       { label: "Ärenden", href: "/styrelse/arenden", icon: CheckSquare, permission: "task:view" },
       { label: "Beslut", href: "/styrelse/beslut", icon: BookOpen, permission: "meeting:view" },
       { label: "Utlägg", href: "/styrelse/utlagg", icon: Receipt, permission: "expense:submit" },
+      { label: "Årsberättelse", href: "/styrelse/arsberattelse", icon: ScrollText, permission: "annual_report:view" },
       { label: "Dokument", href: "/styrelse/dokument", icon: FileText, permission: "document:view_board" },
+    ],
+  },
+  {
+    title: "Revision",
+    items: [
+      { label: "Årsrevision", href: "/revision", icon: ClipboardCheck, permission: "audit:view" },
     ],
   },
   {
@@ -52,6 +64,9 @@ export const navigation: NavSection[] = [
       { label: "Motioner", href: "/medlem/motioner", icon: Vote, permission: "motion:submit" },
       { label: "Årsmöte", href: "/medlem/arsmote", icon: Users, permission: "annual:view" },
       { label: "Medlemsregister", href: "/medlem/register", icon: Building2, permission: "member:view_registry" },
+      { label: "Lägenheter", href: "/medlem/lagenheter", icon: DoorOpen, permission: "member:view_registry" },
+      { label: "Ansökningar", href: "/medlem/ansokningar", icon: UserPlus, permission: "application:review" },
+      { label: "Organisationer", href: "/medlem/organisationer", icon: Landmark, permission: "member:view_registry" },
     ],
   },
   {

@@ -22,12 +22,14 @@ type BoardMember = {
 
 const roleLabels: Record<string, string> = {
   BOARD_CHAIRPERSON: "Ordförande",
+  BOARD_SECRETARY: "Sekreterare",
   BOARD_TREASURER: "Kassör",
   BOARD_PROPERTY_MGR: "Förvaltningsansvarig",
   BOARD_ENVIRONMENT: "Miljöansvarig",
   BOARD_EVENTS: "Festansvarig",
   BOARD_MEMBER: "Ledamot",
   BOARD_SUBSTITUTE: "Suppleant",
+  AUDITOR: "Revisor",
 };
 
 export function AttendanceTab({

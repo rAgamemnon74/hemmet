@@ -6,16 +6,21 @@ export const createMeetingSchema = z.object({
   scheduledAt: z.coerce.date(),
   location: z.string().optional(),
   description: z.string().optional(),
+  useTemplate: z.boolean().default(true),
 });
 
 export const updateMeetingSchema = z.object({
   id: z.string(),
   title: z.string().min(1, "Titel krävs").optional(),
   type: z.enum(["BOARD", "ANNUAL", "EXTRAORDINARY"]).optional(),
-  status: z.enum(["DRAFT", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
+  status: z.enum(["DRAFT", "SCHEDULED", "IN_PROGRESS", "FINALIZING", "COMPLETED", "CANCELLED"]).optional(),
+  skipNoticePeriodCheck: z.boolean().optional(),
   scheduledAt: z.coerce.date().optional(),
   location: z.string().optional(),
   description: z.string().optional(),
+  meetingChairpersonId: z.string().optional().nullable(),
+  meetingSecretaryId: z.string().optional().nullable(),
+  adjusters: z.array(z.string()).optional(),
 });
 
 export const createAgendaItemSchema = z.object({
@@ -59,6 +64,20 @@ export const createDecisionSchema = z.object({
   title: z.string().min(1, "Titel krävs"),
   description: z.string().min(1, "Beskrivning krävs"),
   decisionText: z.string().min(1, "Beslutstext krävs"),
+  method: z.enum(["ACCLAMATION", "ROLL_CALL", "COUNTED"]).default("ACCLAMATION"),
+  voteRequestedBy: z.string().optional().nullable(),
+  voteRequestedReason: z.string().optional().nullable(),
+  // For COUNTED method
+  votesFor: z.number().int().min(0).optional().nullable(),
+  votesAgainst: z.number().int().min(0).optional().nullable(),
+  votesAbstained: z.number().int().min(0).optional().nullable(),
+});
+
+export const addDecisionVoteSchema = z.object({
+  decisionId: z.string(),
+  voterId: z.string(),
+  voterName: z.string(),
+  choice: z.enum(["YES", "NO", "ABSTAIN"]),
 });
 
 export const castVoteSchema = z.object({
