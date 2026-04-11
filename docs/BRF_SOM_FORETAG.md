@@ -318,17 +318,203 @@ Leverantör → Faktura → Operativ ledare granskar
 
 ---
 
-## Implementationsprioritering
+## Äkta vs oäkta BRF — designa för det komplexa
+
+### Vad gör en BRF oäkta?
+
+En BRF klassificeras som **oäkta** om kvalificerad verksamhet (medlemmars boende) understiger 60% av föreningens totala intäkter. Resterande 40%+ kommer från:
+
+- Kommersiella lokaler (butiker, restauranger, kontor)
+- Garage/parkering uthyrt till icke-medlemmar
+- Gästlägenhet/festlokal uthyrd externt
+- Reklamintäkter (fasadytor, tak)
+- Vindsvåningar omvandlade till bostadsrätter men sålda utan andelar
+
+### Konsekvenser
+
+| Aspekt | Äkta BRF | Oäkta BRF |
+|--------|:--------:|:---------:|
+| Beskattning | Schablonintäkt (statslåneränta × taxeringsvärde) | Full bolagsskatt 20.6% på alla intäkter |
+| Momsplikt | Sällan (parkering från okt 2026) | Ja — kommersiella hyror, parkering, tjänster |
+| Avdragsrätt | Begränsad | Full avdragsrätt mot intäkter |
+| Medlems försäljningsvinst | Kapitalvinstbeskattning normalt | Eventuell schablonbeskattning + uttagsbeskattning |
+| Årsredovisning | K3 (förenklad) | K3 med full resultat- och balansräkning |
+| Hyresavtal | Sällan formella | **Obligatoriskt** — kommersiella hyresavtal (JB 12 kap) |
+| Hyresavisering | Enkel (månadsavgift) | Komplex — hyra + moms + tillägg + indexreglering |
+| Fastighetsskatt | Reducerad | Normal |
+| Deklaration | Enkel (INK2S) | Komplex (INK2) med bilagor |
+
+### Systemkonsekvenser
+
+En oäkta BRF kräver att driftlagret hanterar:
+
+| Funktion | Äkta BRF | Oäkta BRF | Designprincip |
+|----------|:--------:|:---------:|:-------------:|
+| Hyresavtal för lokaler | — | Obligatoriskt | Bygg för oäkta, dölj för äkta |
+| Hyresavisering med moms | — | Obligatoriskt | Bygg med moms, moms=0 för äkta |
+| Momsredovisning (kvartalsvis) | — | Obligatoriskt | Bygg, inaktivera för äkta |
+| Kommersiella hyresgäster | — | Fullständig hantering | Utöka hyresgästmodell |
+| Indexreglering av hyror | — | Vanligt (KPI-kopplat) | Konfigurerbart per avtal |
+| Separata resultaträkningar | — | Per fastighet/enhet | Bygg generellt |
+| Investeringsavdrag | — | Avdragsgilla | Kostnadsfördelning |
+| Fastighetsskatt per enhet | Reducerad schablonmässigt | Per typ (bostad/lokal/garage) | Konfigurerbart |
+
+### Designprincip: Bygg för oäkta, skala av för äkta
+
+```
+Oäkta BRF (fullständig):
+    Hyresavtal: lokaler, garage, gästlägenhet
+    Hyresavisering: hyra + moms + tillägg + index
+    Momsredovisning: kvartalsvis
+    Resultaträkning: per enhet
+    Kommersiella hyresgäster: fullständigt register
+    ↓
+Äkta BRF (förenklad):
+    Hyresavtal: inaktivt / dolt
+    Hyresavisering: månadsavgift (ingen moms)
+    Momsredovisning: inaktivt
+    Resultaträkning: totalt (inte per enhet)
+    Kommersiella hyresgäster: inaktivt
+```
+
+Konfigureras via:
+```
+BrfRules {
+  isAuthentic              Boolean @default(true)   // Äkta förening
+  commercialUnitsExist     Boolean @default(false)  // Har kommersiella lokaler
+  vatRegistered            Boolean @default(false)  // Momsregistrerad
+  vatReportingPeriod       String? @default("QUARTERLY") // MONTHLY, QUARTERLY, YEARLY
+}
+```
+
+---
+
+## Hyresavtalsmodell (kommersiella lokaler)
+
+### LeaseAgreement (hyresavtal)
+
+```
+LeaseAgreement {
+  id
+  unitId                // Apartment/lokal med type=COMMERCIAL
+  tenantType            // COMPANY, PERSON
+  tenantName            // Företagsnamn eller personnamn
+  tenantOrgNumber       // Organisationsnummer (företag)
+  tenantContactPerson
+  tenantEmail
+  tenantPhone
+  
+  // Avtalstid
+  startDate
+  endDate               // null = tillsvidare
+  noticePeriodMonths     // Uppsägningstid
+  autoRenewalMonths      // Förlängningstid vid ej uppsägning
+  
+  // Ekonomi
+  baseRent              // Bashyra (kr/mån)
+  vatRate               // Momssats (0.25 = 25%)
+  indexClause           // KPI-koppling: "KPI_OCT" = oktober-KPI
+  indexBaseYear          // Basår för index
+  supplements           // JSON: tillägg (värme, el, vatten, sopor)
+  
+  // Status
+  status                // DRAFT, ACTIVE, TERMINATED, EXPIRED
+  terminatedAt
+  terminatedBy
+  
+  createdAt
+  updatedAt
+}
+```
+
+### RentInvoice (hyresavisering)
+
+```
+RentInvoice {
+  id
+  leaseAgreementId
+  period                // "2026-04" (år-månad)
+  
+  baseRent              // Bashyra detta period
+  indexAdjustment       // Indexuppräkning (+/-)
+  supplements           // Tillägg detta period
+  subtotal              // Summa före moms
+  vatAmount             // Momsbelopp
+  total                 // Totalt att betala
+  
+  dueDate
+  paidAt
+  paidAmount
+  
+  status                // DRAFT, SENT, PAID, OVERDUE, CREDITED
+  creditedInvoiceId     // Om kreditfaktura: pekar på original
+  
+  createdAt
+}
+```
+
+---
+
+## Bevakning av äkta/oäkta-status
+
+### Automatisk beräkning
+
+Systemet kan beräkna andelen kvalificerade intäkter:
+
+```
+Kvalificerade intäkter = summa månadsavgifter (alla bostäder)
+Okvalificerade intäkter = summa kommersiella hyror + parkering (extern) + övriga
+Total = Kvalificerade + Okvalificerade
+
+Andel kvalificerad = Kvalificerade / Total
+
+Om Andel < 0.60 → VARNING: "Föreningen riskerar att klassificeras som oäkta"
+```
+
+### Systemvarning
+
+```
+Dashboard (kassör/ordförande):
+  ⚠ Kvalificerade intäkter: 58% (under 60%-gränsen)
+  → Föreningen riskerar att klassificeras som oäkta nästa beskattningsår
+  → Konsekvenser: full bolagsskatt, momsplikt, ändrad deklaration
+  → Åtgärder: minska kommersiella intäkter eller öka bostadsintäkter
+```
+
+---
+
+## Implementationsprioritering (uppdaterad)
+
+### Fas A — Grundläggande driftlager
 
 | Prio | Funktion | Berör | Komplexitet |
 |------|----------|-------|:-----------:|
-| 1 | **Delegationsmodell** — vem har befogenhet för vad med vilken gräns | Styrelse → drift | Medel |
-| 2 | **Operativa roller** (OPERATIONS_MANAGER/STAFF/CONTRACTOR) | Alla | Medel |
-| 3 | **Arbetsordrar** (WorkOrder) kopplade till felanmälan/besiktning | Drift | Medel |
-| 4 | **Beloppsgräns-validering** — automatisk check vid beställning | Kassör, drift | Låg |
-| 5 | **Operativ dashboard** — arbetsordrar, felanmälningar, besiktningar | Driftansvarig | Medel |
-| 6 | **Enkel tidrapportering** — timmar per anställd per vecka | Anställda | Låg |
-| 7 | **Faktura-attest utökat** — leverantörsfakturor (inte bara utlägg) | Kassör, drift | Medel |
+| 1 | **Delegationsmodell** — befogenhet med gränser | Styrelse → drift | Medel |
+| 2 | **Operativa roller** | Alla | Medel |
+| 3 | **Arbetsordrar** kopplade till felanmälan/besiktning | Drift | Medel |
+| 4 | **Beloppsgräns-validering** | Kassör, drift | Låg |
+| 5 | **Operativ dashboard** | Driftansvarig | Medel |
+
+### Fas B — Kommersiell förvaltning (oäkta-stöd)
+
+| Prio | Funktion | Berör | Komplexitet |
+|------|----------|-------|:-----------:|
+| 6 | **BrfRules: äkta/oäkta konfiguration** | Admin | Låg |
+| 7 | **LeaseAgreement** — kommersiella hyresavtal | Kassör, drift | Hög |
+| 8 | **RentInvoice** — hyresavisering med moms | Kassör | Hög |
+| 9 | **Momsredovisning** — kvartalsvis sammanställning | Kassör | Medel |
+| 10 | **Äkta/oäkta-bevakning** — automatisk beräkning + varning | Kassör, ordförande | Medel |
+| 11 | **Indexreglering** — KPI-kopplad hyresjustering | Kassör | Medel |
+| 12 | **Faktura-attest utökat** — leverantörsfakturor | Kassör, drift | Medel |
+
+### Skalning
+
+```
+Liten äkta BRF:     Fas A (1-5) — räcker gott
+Medelstor äkta BRF:  Fas A (1-5) — räcker
+Stor äkta BRF:       Fas A (1-5) + eventuellt 12
+Oäkta BRF:           Fas A + Fas B (6-12) — allt behövs
+```
 
 ---
 
@@ -339,3 +525,7 @@ BRF:en har två ansikten:
 - **Företag** — drift, personal, leverantörer, ekonomi
 
 Hemmet stödjer föreningssidan väl. Företagssidan saknas nästan helt. Delegationsmodellen är bryggan — den kopplar styrelsebeslut till operativ befogenhet med spårbarhet och gränser.
+
+**Designprincip:** Bygg för oäkta (det komplexa fallet). Äkta BRF:er använder samma system med kommersiella funktioner inaktiverade. En konfigurationsflagga (`BrfRules.isAuthentic`) styr vad som visas.
+
+**Bevakningsprincip:** Systemet beräknar löpande andelen kvalificerade intäkter och varnar om föreningen närmar sig oäkta-gränsen — innan det är för sent att agera.
