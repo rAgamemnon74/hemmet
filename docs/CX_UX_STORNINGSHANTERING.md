@@ -2,7 +2,7 @@
 
 ## Aktörer
 
-En störning involverar upp till 8 aktörer. Varje aktör har olika behov, rädslor och rättigheter.
+En störning involverar upp till 9 aktörer. Varje aktör har olika behov, rädslor och rättigheter.
 
 | Aktör | Relation | Systemroll idag |
 |-------|----------|:---------------:|
@@ -12,8 +12,134 @@ En störning involverar upp till 8 aktörer. Varje aktör har olika behov, räds
 | **Styrelsen** | Ansvarig att hantera | Kan ändra status |
 | **Fastighetsansvarig** | Kan delegeras undersökning | Samma som styrelse |
 | **Ordförande** | Undertecknar varningar, eskalerar | Samma som styrelse |
+| **Extern förvaltare/störningsjour** | Delegerad första kontakt (stora BRF:er) | Inte i systemet |
 | **Polisen** | Akuta situationer | Inte i systemet |
 | **Hyresnämnden** | Sista instans vid förverkande | Inte i systemet |
+
+---
+
+## Kontaktvägar: Vem kontaktar vem?
+
+### Anmälarens kontaktväg per situation
+
+Anmälaren behöver inte veta vem som hanterar — systemet ska visa rätt väg.
+
+| Situation | Första kontakt | Via systemet? | Varför |
+|-----------|:-------------:|:-------------:|--------|
+| Buller en enskild gång | Grannen direkt (knacka på) | Nej | Informellt löser det sig oftast |
+| Upprepat buller | Styrelsen | **Ja — anmälan** | Behöver dokumenteras, mönster |
+| Rök/lukt | Styrelsen | **Ja — anmälan** | Kan vara hälsorisk |
+| Hot eller våld | **Polisen 112** | Nej — ring först | Akut fara, styrelsen hanterar ALDRIG våld |
+| Pågående fest kl 03 | Polisen 114 + styrelsen efteråt | **Ja — anmälan i efterhand** | Polisen agerar direkt, styrelsen dokumenterar |
+| Misstanke om brott | Polisen | Nej | Inte styrelsens uppgift att utreda brott |
+| Skadegörelse gemensamma utrymmen | Fastighetsansvarig + styrelsen | **Ja — felanmälan + störning** | Åtgärd + dokumentation |
+| Andrahandshyresgäst stör upprepat | Styrelsen → ägaren | **Ja — anmälan** | Föreningen kontaktar ägaren, inte hyresgästen |
+
+### Intern routing: Vem hanterar inom föreningen?
+
+| BRF-storlek | Första hanterare | Eskalering | Extern delegation |
+|-------------|:----------------:|:----------:|:-----------------:|
+| Liten (5-30 lgh) | Ordförande direkt | Hela styrelsen | Sällan |
+| Medelstor (30-100) | Ordförande delegerar till ledamot/fastighetsansvarig | Ordförande → styrelsen | Vid behov |
+| Stor (100+) | Extern störningsjour / förvaltare | Förvaltare → ordförande → styrelsen | Standard |
+
+### Systemets routing-logik
+
+```
+Anmälan inkommer
+    ↓
+Automatiskt:
+    1. Koppla till targetApartmentId → resolve ägare via ApartmentOwnership
+    2. Kolla SubletApplication aktiv? → flagga isSubletSituation
+    3. Kolla BrfRules/föreningsstorlek → bestäm routing:
+        → Liten BRF: notifiera ordförande direkt
+        → Medel/stor: notifiera tilldelad handläggare (assignedToId)
+        → Om ingen handläggare: notifiera ordförande som fallback
+    4. Kvittens till anmälare: "Din anmälan har mottagits"
+    5. Logga anmälan i ActivityLog + PersonalDataAccessLog
+```
+
+---
+
+## Länkning: Störning → Lägenhet → Ägare
+
+### Nuvarande modell
+
+```
+DisturbanceCase
+    → targetApartmentId (vilken lägenhet som stör)
+    → reportedById (vem som anmäler)
+```
+
+### Komplett modell (föreslagen)
+
+```
+DisturbanceCase
+    → targetApartmentId → Apartment
+        → ApartmentOwnership (active: true) → userId → Ägaren
+        → SubletApplication (status: ACTIVE) → applicantId → Hyresvärden
+                                              → tenantName → Hyresgästen
+    → reportedById → User → Anmälaren
+    → reportedByApartmentId → Vilken lägenhet anmälaren bor i
+    → assignedToId → Handläggare (styrelsemedlem/förvaltare)
+```
+
+Systemet bör automatiskt resolva:
+- **Vem äger den störande lägenheten** — den som får tillsägelser
+- **Är det andrahand** — extra information till styrelsen
+- **Vem anmäler** — för mönsteranalys (se nedan)
+- **Var bor anmälaren** — validerar att störningen är relevant (grannlägenhet, inte andra sidan huset)
+
+---
+
+## Anmälarmissbruk och mönsteranalys
+
+### Varför logga anmälaren?
+
+Anonymitet skyddar anmälaren — men systemet MÅSTE internt veta vem som anmäler. Anledningar:
+
+| Syfte | Beskrivning |
+|-------|-------------|
+| **Missbruk/trakasseri** | En boende som systematiskt anmäler samma granne utan grund — kan vara trakasseri |
+| **Mönsterigenkänning** | Flera anmälare mot samma lägenhet = starkt underlag. En anmälare mot alla = misstänkt |
+| **Jävskontroll** | Styrelsemedlem anmäler sin granne som hen har konflikt med |
+| **GDPR-krav** | Registerförteckning kräver spårbarhet av vem som initierar behandling |
+| **Vittnesmål** | Om ärendet når Hyresnämnden behöver anmälaren kunna styrka sin berättelse |
+
+### Mönster systemet bör bevaka
+
+| Mönster | Indikerar | Systemåtgärd |
+|---------|-----------|-------------|
+| **5+ anmälningar från samma person på 6 månader** | Potentiellt missbruk eller reellt problem | Flagga för styrelsen: "Frekvent anmälare — granska mönstret" |
+| **3+ anmälningar mot samma lägenhet från olika anmälare** | Starkt underlag — verkligt problem | Automatisk eskalering: "Flera oberoende anmälningar" |
+| **1 anmälare → flera olika lägenheter** | Potentiellt missbruk/överkänslighet | Flagga: "Anmälaren har anmält X olika lägenheter" |
+| **Anmälare = styrelsemedlem → grannen** | Potentiell intressekonflikt | Jävsvarning vid styrelsens behandling |
+| **Anmälan direkt efter avslag** (andrahand, renovering etc.) | Potentiell hämndaktion | Flagga: "Anmälan inkommen kort efter avslag på annat ärende" |
+
+### Datamodell: Anmälarspårning
+
+```
+DisturbanceCase {
+  // Befintliga fält...
+  
+  reportedById          String    // Alltid sparat — aldrig anonymt internt
+  reportedByApartmentId String?   // Anmälarens lägenhet
+  anonymousReport       Boolean   // true = styrelsen ser anmälaren, den anklagade ser INTE
+}
+```
+
+**Princip:** Anonymitet gäller gentemot den anklagade, ALDRIG gentemot styrelsen. Styrelsen måste alltid kunna se vem som anmäler — annars kan de inte bedöma trovärdighet eller upptäcka missbruk.
+
+### Styrelsens vy: Anmälarprofil
+
+Vid varje ärende bör styrelsen se:
+```
+Anmälare: [Namn] (lgh 1001)
+    Totalt antal anmälningar: 7
+    Senaste 6 mån: 3 anmälningar
+    Anmält lägenheter: 2001 (4 ggr), 3001 (2 ggr), 2002 (1 gång)
+    ⚠ Frekvent anmälare — granska mönstret
+```
 
 ---
 
