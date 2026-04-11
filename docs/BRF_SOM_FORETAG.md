@@ -256,23 +256,127 @@ NEJ → Skapar WorkOrder tilldelad leverantör (t.ex. elektriker)
 
 ## Ekonomiskt flöde
 
-### Löner och personal
+### Arkitekturprincip: Hemmet beslutar, banken exekverar, redovisningen bokför
 
-| Process | Ansvarig | System/extern |
-|---------|----------|:-------------:|
-| Löneberäkning | Kassör / löneföretag | Externt (Fortnox Lön, Visma) |
-| Utbetalning | Kassör via bank | Externt |
-| Arbetsgivardeklaration | Kassör / löneföretag | Externt (Skatteverket) |
-| Semesterplanering | Operativ ledare | Kunde vara i Hemmet |
-| Tidrapportering | Anställda → operativ ledare | Kunde vara i Hemmet |
+```
+Hemmet                         Banken                  Redovisning
+(beslut + underlag)            (exekvering)            (bokföring)
+
+Utlägg godkänt ────────────→  Kassör betalar ──────→  Verifikation skapas
+Hyra fakturerad ───────────→  Autogiro/OCR ─────────→  Intäkt bokförs
+Leverantörsfaktura attesterad → Kassör betalar ──────→  Kostnad bokförs
+Lönekostnad (avtal) ───────→  Löneprogram → bank ──→  Lönekostnad bokförs
+Skatt ─────────────────────→  Skattekonto (SKV) ───→  Skattekostnad bokförs
+```
+
+Hemmet äger **avtalsbaserad data** (vad föreningen borde tjäna/betala):
+- Månadsavgifter per lägenhet (andelstal × avgift)
+- Hyresavtal för lokaler (hyra + moms + index)
+- Leverantörsavtal (avtalade kostnader)
+- Personalavtal (totalkostnad för föreningen)
+- Överlåtelse/pantsättningsavgifter (beräknade)
+
+Hemmet äger **inte** bokföringsdata. Saldon importeras via SIE-export:
+```
+Redovisningssystem → SIE4-fil → Hemmet importerar → Dashboard
+```
+
+### Löner och personal — Hemmets gränsdragning
+
+**Hemmet äger personalregistret, inte lönehanteringen.**
+
+All löneberäkning, skatteavdrag, arbetsgivaravgifter, semesterräkneverk, sjuklön och arbetsgivardeklaration (AGI) hanteras externt — i lönesystem (Fortnox Lön, Visma) eller av lönebyrå.
+
+| Process | Ansvarig | I Hemmet? |
+|---------|----------|:---------:|
+| Personalregister (vem, roll, avtal) | Ordförande | **Ja** |
+| Totalkostnad per anställd | Kassör | **Ja** |
+| Anställningsavtal (dokumentlänk) | Ordförande | **Ja** |
+| Arbetsordrar till anställda | Driftansvarig | **Ja** |
+| Löneberäkning | Lönesystem/lönebyrå | **Nej** |
+| Skatteavdrag, AGI | Lönesystem | **Nej** |
+| Semesterhantering | Lönesystem | **Nej** |
+| Löneutbetalning | Bank | **Nej** |
+
+### Personalmodell i Hemmet
+
+```
+Employee {
+  id
+  userId                    // Koppling till User (OPERATIONS_STAFF-roll)
+  title                     // "Fastighetsskötare", "Städare"
+  employmentType            // PERMANENT, TEMPORARY, HOURLY
+  startDate
+  endDate?
+  totalMonthlyCost          // Total kostnad för föreningen (lön + arbetsgivaravgifter)
+                            // INTE individuell lön — föreningskostnad
+  contractDocumentId?       // Länk till Document (anställningsavtal)
+  notes?
+}
+```
+
+**Varför `totalMonthlyCost` istället för `salary`:**
+- Det kassören och styrelsen behöver veta är "vad kostar den här anställningen föreningen per månad"
+- Totalkostnaden inkluderar arbetsgivaravgifter (~31.42%) och är en budgetpost
+- Det är en **föreningskostnad**, inte en personlig löneuppgift
+- Kan visas för hela styrelsen i budgetsammanhang utan att avslöja individuell lön
+
+### GDPR vs redovisningsplikt — konflikten
+
+Lönedata hamnar i korselden mellan dataskydd och lagstadgad öppenhet:
+
+| Krav | Säger | Konsekvens |
+|------|-------|-----------|
+| **GDPR Art. 5.1c** (dataminimering) | Samla bara det som behövs | Hemmet lagrar totalkostnad, inte bruttolön |
+| **GDPR Art. 6.1c** (rättslig förpliktelse) | Behandling OK om lag kräver | Arbetsgivare MÅSTE hantera löneuppgifter — men det sker i lönesystemet |
+| **ÅRL 5 kap. 20 §** (årsredovisning) | Löner och ersättningar ska redovisas som not | **Obligatorisk post** — men som totalsumma, inte per person |
+| **BFL 7 kap. 2 §** (arkivering) | Räkenskapsmaterial sparas 7 år | Gäller lönesystemet, inte Hemmet |
+| **Offentlighetsprincipen** | Gäller inte BRF:er (privaträttsliga) | Individuella löner är inte offentliga |
+
+**Årsredovisningens krav (ÅRL 5 kap. 20 §):**
+
+Årsredovisningen MÅSTE innehålla en not om personal:
+```
+Not X — Anställda och personalkostnader
+
+Medelantal anställda: 2 (varav 1 kvinna, 1 man)
+
+Löner och ersättningar:
+  Styrelse och VD:       45 000 kr (avser arvoden)
+  Övriga anställda:     336 000 kr
+Sociala kostnader:      119 600 kr
+  varav pensionskostnader: 33 600 kr
+
+Totala personalkostnader: 500 600 kr
+```
+
+**Notera:** Totalbelopp per kategori — aldrig individuella löner. Hemmet behöver bara kunna leverera:
+- Antal anställda (räknas från Employee-modellen)
+- Total personalkostnad per år (summeras från `totalMonthlyCost × 12`)
+- Styrelsens arvoden (summa av arvodesbeslut, redan i Decision-modellen)
+
+Individuella löner stannar i lönesystemet.
+
+### Vem ser vad i Hemmet
+
+| Data | Ordförande | Kassör | Styrelse | Revisor | Medlem |
+|------|:----------:|:------:|:--------:|:-------:|:------:|
+| Anställdas namn + roll | Y | Y | Y | Y | — |
+| `totalMonthlyCost` | Y | Y | Y (i budget) | Y | — |
+| Anställningsavtal (dokument) | Y | Y | — | Y | — |
+| Total personalkostnad/år | Y | Y | Y | Y | Y (i årsredovisning) |
+| Individuell lön | — | — | — | — | — |
+
+Individuell lön finns **aldrig** i Hemmet — den finns i lönesystemet dit bara kassör och lönebyrå har åtkomst.
 
 ### Fakturor och inköp
 
 ```
 Leverantör → Faktura → Operativ ledare granskar
-    → Inom beloppsgräns? → Attesterar själv
+    → Inom delegerad beloppsgräns? → Attesterar själv
     → Över gräns? → Kassör/ordförande attesterar
-    → Betalning via ekonomisystem
+    → Betalning via bank (exekvering)
+    → Bokföring via redovisningssystem
 ```
 
 ---
@@ -286,7 +390,7 @@ Leverantör → Faktura → Operativ ledare granskar
 3. **Försäkringar** — arbetsgivarförsäkring, TFA (trygghetsförsäkring vid arbetsskada)
 4. **Kollektivavtal** — Fastighetsanställdas Förbund, om tillämpligt
 5. **Arbetsgivarregistrering** — hos Skatteverket
-6. **Löneskatt + arbetsgivaravgifter** — månadsvis
+6. **Löneskatt + arbetsgivaravgifter** — månadsvis (hanteras av lönesystem)
 7. **Rehabiliteringsansvar** — vid sjukskrivning
 
 ### Vanliga misstag
@@ -298,23 +402,38 @@ Leverantör → Faktura → Operativ ledare granskar
 | Ingen arbetsmiljöplan | Arbetsmiljöverket kan utfärda föreläggande |
 | Muntlig uppsägning | Ogiltig — LAS kräver skriftlighet |
 | Ingen rehab-plan vid sjukdom | Skyldighet enligt SFB |
+| Lagra individuella löner i styrelseverktyg | GDPR-risk — dataminimering bryts |
 
 ---
 
 ## Gränsdragning: Vad hör hemma i Hemmet?
 
-| Funktion | I Hemmet? | Varför / varför inte |
-|----------|:---------:|---------------------|
-| Delegationsregister | **Ja** | Vem har rätt att besluta om vad, med vilken gräns |
-| Arbetsordrar (WorkOrder) | **Ja** | Kopplar felanmälan → utförande → verifiering |
-| Operativa roller + permissions | **Ja** | Personal behöver systemåtkomst |
-| Leverantörshantering | **Ja** (finns) | Contractor-modell implementerad |
-| Lönehantering | **Nej** | Löneprogram (Fortnox, Visma, extern lönebyrå) |
-| Tidrapportering | **Kanske** | Enkel variant möjlig, avancerad → externt |
-| Personaladministration (LAS) | **Nej** | HR-system eller pappersprocess |
-| Faktura-attest | **Ja** (delvis) | Expense-modellen fungerar, men behöver utökas för leverantörsfakturor vs utlägg |
-| Arbetsschema | **Kanske** | Enkel variant, avancerad → externt |
-| Försäkringsbevakning | **Ja** (delvis) | BrfSettings har data, behöver förnyelsepåminnelse |
+### Hemmet äger
+
+| Funktion | Beskrivning |
+|----------|-------------|
+| **Avtal och grunddata** | Hyresavtal, leverantörsavtal, personalavtal (totalMonthlyCost) |
+| **Delegationsregister** | Vem har rätt att besluta om vad, med vilken gräns |
+| **Arbetsordrar** | Kopplar felanmälan → utförande → verifiering |
+| **Operativa roller** | Anställd personal med systemåtkomst |
+| **Leverantörshantering** | Contractor-modell med PUB-avtal |
+| **Personalregister** | Vem, roll, totalMonthlyCost, avtalsdokument |
+| **Avgiftsberäkning** | Avtalsbaserat: vad föreningen borde tjäna/betala |
+| **Faktura-attest** | Godkännandeflöde med beloppsgränser |
+| **Försäkringsbevakning** | Förnyelsepåminnelse |
+
+### Hemmet äger INTE
+
+| Funktion | Hanteras av | Integration |
+|----------|-------------|-------------|
+| **Bokföring** | Fortnox, Visma, förvaltare | SIE4-import av saldon |
+| **Löneberäkning** | Lönesystem / lönebyrå | Ingen — totalMonthlyCost räcker |
+| **Skatt, AGI, arbetsgivaravgifter** | Lönesystem → Skatteverket | Ingen |
+| **Semesterräkneverk** | Lönesystem | Ingen |
+| **Bankutbetalningar** | Bank | Ingen — kassör exekverar manuellt |
+| **Deklaration** | Redovisningssystem / revisor | Ingen |
+| **K3-avskrivning** | Redovisningssystem | SIE4-import |
+| **Individuella löner** | Lönesystem | **Aldrig** — finns inte i Hemmet (GDPR) |
 
 ---
 
