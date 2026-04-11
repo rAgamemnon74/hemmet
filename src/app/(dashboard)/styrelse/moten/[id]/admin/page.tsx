@@ -37,9 +37,16 @@ export default function MeetingAdminPage() {
   const quickDecision = trpc.meetingLive.quickDecision.useMutation({ onSuccess: () => stateQuery.refetch() });
   const updateAttendance = trpc.attendance.update.useMutation({ onSuccess: () => stateQuery.refetch() });
   const updateMeetingRoles = trpc.meeting.update.useMutation({ onSuccess: () => stateQuery.refetch() });
+  const updateNotes = trpc.agenda.updateNotes.useMutation();
 
   const [decisionForm, setDecisionForm] = useState({ title: "", decisionText: "", method: "ACCLAMATION" as DecisionMethod, votesFor: "", votesAgainst: "", votesAbstained: "" });
+  const [notesValue, setNotesValue] = useState("");
+  const [notesSaving, setNotesSaving] = useState(false);
+  const notesTimerRef = { current: null as NodeJS.Timeout | null };
   const [showDecisionForm, setShowDecisionForm] = useState(false);
+  const [recusals, setRecusals] = useState<Record<string, string>>({});  // userId → reason
+
+  const declareRecusal = trpc.decision.declareRecusal.useMutation({ onSuccess: () => stateQuery.refetch() });
 
   const meeting = stateQuery.data;
   if (!meeting) return <div className="flex items-center justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" /></div>;
@@ -257,6 +264,32 @@ export default function MeetingAdminPage() {
                   </p>
                 )}
               </div>
+
+              {/* Secretary notes */}
+              {canControl && (
+                <div className="rounded-lg border border-gray-200 bg-white p-4">
+                  <h3 className="text-xs font-semibold text-gray-700 uppercase mb-2 flex items-center gap-1">
+                    Anteckningar {notesSaving && <span className="text-gray-400 font-normal">(sparar...)</span>}
+                  </h3>
+                  <textarea
+                    rows={3}
+                    value={activeItem.id === (meeting.agendaItems.find((i) => i.id === meeting.activeAgendaItemId))?.id ? notesValue : (activeItem.notes ?? "")}
+                    onChange={(e) => {
+                      setNotesValue(e.target.value);
+                      if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
+                      notesTimerRef.current = setTimeout(() => {
+                        setNotesSaving(true);
+                        updateNotes.mutate({ id: activeItem.id, notes: e.target.value }, {
+                          onSettled: () => setNotesSaving(false),
+                        });
+                      }, 2000);
+                    }}
+                    onFocus={() => setNotesValue(activeItem.notes ?? "")}
+                    placeholder="Sekreterarens anteckningar under denna punkt..."
+                    className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  />
+                </div>
+              )}
 
               {/* ATTENDANCE: Board meeting — show all board members with status */}
               {activeItem.specialType === "ATTENDANCE" && canControl && meeting.type === "BOARD" && (() => {
@@ -554,8 +587,37 @@ export default function MeetingAdminPage() {
                   </>
                 )}
               </div>
+              {/* Jävsdeklaration */}
+              <div className="border-t border-gray-100 pt-3">
+                <p className="text-xs font-semibold text-gray-700 mb-2">Jäv — är någon närvarande jävig i detta ärende?</p>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {meeting.attendances.filter((a) => a.status === "PRESENT" || a.status === "PROXY").map((a) => (
+                    <label key={a.user.id} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-amber-50 cursor-pointer text-xs">
+                      <input type="checkbox" checked={!!recusals[a.user.id]}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setRecusals((r) => ({ ...r, [a.user.id]: "" }));
+                          } else {
+                            setRecusals((r) => { const n = { ...r }; delete n[a.user.id]; return n; });
+                          }
+                        }}
+                        className="rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
+                      <span className="text-gray-700">{a.user.firstName} {a.user.lastName}</span>
+                      {recusals[a.user.id] !== undefined && (
+                        <input type="text" value={recusals[a.user.id]} placeholder="Anledning..."
+                          onChange={(e) => setRecusals((r) => ({ ...r, [a.user.id]: e.target.value }))}
+                          className="flex-1 rounded border border-amber-200 px-2 py-0.5 text-xs focus:border-amber-400 focus:outline-none" />
+                      )}
+                    </label>
+                  ))}
+                </div>
+                {Object.keys(recusals).length > 0 && (
+                  <p className="mt-1 text-xs text-amber-600">{Object.keys(recusals).length} jäviga — dessa deltar ej i beslutet</p>
+                )}
+              </div>
+
               <div className="flex justify-end gap-2">
-                <button onClick={() => setShowDecisionForm(false)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Avbryt</button>
+                <button onClick={() => { setShowDecisionForm(false); setRecusals({}); }} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Avbryt</button>
                 <button onClick={handleQuickDecision} disabled={!decisionForm.decisionText.trim() || quickDecision.isPending}
                   className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50">
                   {quickDecision.isPending ? "Sparar..." : "Spara beslut"}

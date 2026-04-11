@@ -155,6 +155,7 @@ export function MeetingDetail({
 
   const [noticePeriodWarning, setNoticePeriodWarning] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ status: MeetingStatus; label: string; warning?: string } | null>(null);
 
   const updateStatus = trpc.meeting.update.useMutation({
     onSuccess: () => {
@@ -170,6 +171,17 @@ export function MeetingDetail({
       }
     },
   });
+
+  function confirmStatusChange(status: MeetingStatus, label: string, warning?: string) {
+    setPendingAction({ status, label, warning });
+  }
+
+  function executeStatusChange(skipNoticePeriodCheck?: boolean) {
+    if (!pendingAction) return;
+    setErrorMessage(null);
+    setPendingAction(null);
+    updateStatus.mutate({ id: initialMeeting.id, status: pendingAction.status, skipNoticePeriodCheck });
+  }
 
   function handleStatusChange(status: MeetingStatus, skipNoticePeriodCheck?: boolean) {
     setErrorMessage(null);
@@ -238,7 +250,7 @@ export function MeetingDetail({
               )}
               {initialMeeting.status === "SCHEDULED" && (
                 <button
-                  onClick={() => handleStatusChange("IN_PROGRESS")}
+                  onClick={() => confirmStatusChange("IN_PROGRESS", "Starta mötet", "Mötet markeras som pågående och närvaroregistrering öppnas.")}
                   className="inline-flex items-center gap-1.5 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700"
                 >
                   <Play className="h-3.5 w-3.5" />
@@ -247,7 +259,7 @@ export function MeetingDetail({
               )}
               {initialMeeting.status === "IN_PROGRESS" && (
                 <button
-                  onClick={() => handleStatusChange("FINALIZING")}
+                  onClick={() => confirmStatusChange("FINALIZING", "Avsluta mötet", "Mötet markeras som avslutat. Protokoll och beslut kan färdigställas under efterbehandling.")}
                   className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
                 >
                   <CheckCircle className="h-3.5 w-3.5" />
@@ -256,7 +268,7 @@ export function MeetingDetail({
               )}
               {initialMeeting.status === "FINALIZING" && (
                 <button
-                  onClick={() => handleStatusChange("COMPLETED")}
+                  onClick={() => confirmStatusChange("COMPLETED", "Lås mötet", "Mötet låses permanent. Inga fler ändringar kan göras.")}
                   className="inline-flex items-center gap-1.5 rounded-md bg-gray-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-700"
                 >
                   <CheckCircle className="h-3.5 w-3.5" />
@@ -265,7 +277,7 @@ export function MeetingDetail({
               )}
               {(initialMeeting.status === "DRAFT" || initialMeeting.status === "SCHEDULED") && (
                 <button
-                  onClick={() => handleStatusChange("CANCELLED")}
+                  onClick={() => confirmStatusChange("CANCELLED", "Ställa in mötet", "Mötet ställs in. Denna åtgärd kan inte ångras.")}
                   className="inline-flex items-center gap-1.5 rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"
                 >
                   <XCircle className="h-3.5 w-3.5" />
@@ -329,6 +341,23 @@ export function MeetingDetail({
                 onClick={() => setNoticePeriodWarning(null)}
                 className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
+                Avbryt
+              </button>
+            </div>
+          </div>
+        )}
+
+        {pendingAction && (
+          <div className="mt-3 rounded-md border border-blue-300 bg-blue-50 p-3">
+            <p className="text-sm font-medium text-blue-900">Bekräfta: {pendingAction.label}?</p>
+            {pendingAction.warning && <p className="mt-1 text-sm text-blue-700">{pendingAction.warning}</p>}
+            <div className="mt-2 flex gap-2">
+              <button onClick={() => executeStatusChange()}
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
+                Ja, fortsätt
+              </button>
+              <button onClick={() => setPendingAction(null)}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
                 Avbryt
               </button>
             </div>
