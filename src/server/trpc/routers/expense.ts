@@ -12,8 +12,8 @@ import { getBrfRules } from "@/lib/rules";
 import { Prisma } from "@prisma/client";
 
 export const expenseRouter = router({
+  // expense:submit = se egna utlägg, expense:view_all = se alla (styrelse + revisor)
   list: protectedProcedure
-    .use(requirePermission("expense:submit"))
     .input(
       z.object({
         status: z
@@ -23,9 +23,17 @@ export const expenseRouter = router({
       }).optional()
     )
     .query(async ({ ctx, input }) => {
+      const userRoles = (ctx.user.roles ?? []) as string[];
+      const canViewAll = userRoles.some((r) =>
+        ["ADMIN", "BOARD_CHAIRPERSON", "BOARD_SECRETARY", "BOARD_TREASURER",
+         "BOARD_PROPERTY_MGR", "BOARD_ENVIRONMENT", "BOARD_EVENTS",
+         "BOARD_MEMBER", "BOARD_SUBSTITUTE", "AUDITOR"].includes(r)
+      );
+
       const where: Prisma.ExpenseWhereInput = {};
       if (input?.status) where.status = input.status;
-      if (input?.onlyMine) where.submitterId = ctx.user.id;
+      // Non-board users only see their own expenses
+      if (!canViewAll || input?.onlyMine) where.submitterId = ctx.user.id;
 
       return ctx.db.expense.findMany({
         where,
