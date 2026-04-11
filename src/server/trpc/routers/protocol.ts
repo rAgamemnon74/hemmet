@@ -2,6 +2,7 @@ import { z } from "zod";
 import { router, protectedProcedure, requirePermission } from "../trpc";
 import { upsertProtocolSchema } from "@/lib/validators/meeting";
 import { TRPCError } from "@trpc/server";
+import { logActivity } from "@/lib/audit";
 
 export const protocolRouter = router({
   // Update protocol content — only if DRAFT or FINALIZED (by secretary)
@@ -54,7 +55,7 @@ export const protocolRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Protokollet är redan slutbehandlat" });
       }
 
-      return ctx.db.protocol.update({
+      const result = await ctx.db.protocol.update({
         where: { meetingId: input.meetingId },
         data: {
           status: "FINALIZED",
@@ -62,6 +63,8 @@ export const protocolRouter = router({
           finalizedBy: ctx.user.id as string,
         },
       });
+      logActivity({ userId: ctx.user.id as string, action: "protocol.finalize", entityType: "Protocol", entityId: protocol.id, description: "Slutbehandlade protokollet", before: { status: "DRAFT" }, after: { status: "FINALIZED" } });
+      return result;
     }),
 
   // Reopen — secretary can pull back to DRAFT if needed
@@ -127,14 +130,13 @@ export const protocolRouter = router({
       ].filter(Boolean) as string[];
       const allSigned = requiredSigners.every((id) => newSignedBy.includes(id));
 
-      return ctx.db.protocol.update({
+      const newStatus = allSigned ? "SIGNED" : "FINALIZED";
+      const result = await ctx.db.protocol.update({
         where: { meetingId: input.meetingId },
-        data: {
-          signedBy: newSignedBy,
-          signedAt: new Date(),
-          status: allSigned ? "SIGNED" : "FINALIZED",
-        },
+        data: { signedBy: newSignedBy, signedAt: new Date(), status: newStatus },
       });
+      logActivity({ userId, action: "protocol.sign", entityType: "Protocol", entityId: protocol.id, description: `Signerade protokollet${allSigned ? " (alla har signerat)" : ""}`, before: { signedBy: protocol.signedBy }, after: { signedBy: newSignedBy, status: newStatus } });
+      return result;
     }),
 
   // Archive — final lock after signing
@@ -150,9 +152,11 @@ export const protocolRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Protokollet måste vara signerat innan det kan arkiveras" });
       }
 
-      return ctx.db.protocol.update({
+      const result = await ctx.db.protocol.update({
         where: { meetingId: input.meetingId },
         data: { status: "ARCHIVED", archivedAt: new Date() },
       });
+      logActivity({ userId: ctx.user.id as string, action: "protocol.archive", entityType: "Protocol", entityId: protocol.id, description: "Arkiverade protokollet", before: { status: "SIGNED" }, after: { status: "ARCHIVED" } });
+      return result;
     }),
 });

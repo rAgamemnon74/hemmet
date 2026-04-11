@@ -2,6 +2,7 @@ import { z } from "zod";
 import { router, protectedProcedure, requirePermission } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { getBrfRules } from "@/lib/rules";
+import { logActivity } from "@/lib/audit";
 
 export const transferRouter = router({
   list: protectedProcedure
@@ -148,7 +149,9 @@ export const transferRouter = router({
         data.completedAt = new Date();
       }
 
-      return ctx.db.transferCase.update({ where: { id: input.id }, data });
+      const result = await ctx.db.transferCase.update({ where: { id: input.id }, data });
+      logActivity({ userId: ctx.user.id as string, action: "transfer.updateStatus", entityType: "TransferCase", entityId: input.id, description: `Status: ${transfer.status} → ${input.status}`, before: { status: transfer.status }, after: { status: input.status } });
+      return result;
     }),
 
   updateChecks: protectedProcedure

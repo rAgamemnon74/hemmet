@@ -4,6 +4,7 @@ import { createMeetingSchema, updateMeetingSchema } from "@/lib/validators/meeti
 import { getTemplate } from "@/lib/agenda-templates";
 import { getBrfRules } from "@/lib/rules";
 import { TRPCError } from "@trpc/server";
+import { logActivity } from "@/lib/audit";
 
 export const meetingRouter = router({
   list: protectedProcedure
@@ -140,10 +141,22 @@ export const meetingRouter = router({
         }
       }
 
-      return ctx.db.meeting.update({
-        where: { id },
-        data,
+      // Log before state for audit trail
+      const before = await ctx.db.meeting.findUnique({ where: { id }, select: { status: true, title: true, scheduledAt: true, meetingChairpersonId: true, meetingSecretaryId: true, adjusters: true } });
+
+      const result = await ctx.db.meeting.update({ where: { id }, data });
+
+      logActivity({
+        userId: ctx.user.id as string,
+        action: "meeting.update",
+        entityType: "Meeting",
+        entityId: id,
+        description: data.status ? `Status: ${before?.status} → ${data.status}` : "Uppdaterade mötesdata",
+        before: before as Record<string, unknown>,
+        after: data as Record<string, unknown>,
       });
+
+      return result;
     }),
 
   getLog: protectedProcedure

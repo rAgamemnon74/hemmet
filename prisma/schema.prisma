@@ -1291,3 +1291,23 @@ model PersonalDataAccessLog {
   @@index([targetUserId])
   @@index([createdAt])
 }
+
+// ============================================================
+// AUDIT TRAIL — spårning av alla styrelsehandlingar
+// ============================================================
+
+model ActivityLog {
+  id            String   @id @default(cuid())
+  userId        String   // Vem utförde handlingen
+  action        String   // T.ex. "meeting.update", "expense.approve", "protocol.finalize"
+  entityType    String   // T.ex. "Meeting", "Expense", "Protocol", "TransferCase"
+  entityId      String   // ID på entiteten som ändrades
+  description   String?  // Kort beskrivning: "Ändrade mötesstatus"
+  before        String?  @db.Text // JSON: fältvärden före ändring
+  after         String?  @db.Text // JSON: fältvärden efter ändring
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
