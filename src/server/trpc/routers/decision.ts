@@ -117,6 +117,20 @@ export const decisionRouter = router({
         after: { reference, method: input.method, tiebrokenByChairperson },
       });
 
+      // Auto-create task from decision if text suggests action
+      if (input.decisionText && meeting.meetingChairpersonId) {
+        await ctx.db.task.create({
+          data: {
+            title: `Verkställ: ${input.title}`,
+            description: input.decisionText,
+            decisionId: decision.id,
+            assigneeId: meeting.meetingChairpersonId,
+            createdById: ctx.user.id as string,
+            priority: "MEDIUM",
+          },
+        });
+      }
+
       return decision;
     }),
 

@@ -27,6 +27,10 @@ import { profileRouter } from "./routers/profile";
 import { transferRouter } from "./routers/transfer";
 import { dashboardRouter } from "./routers/dashboard";
 import { notificationRouter } from "./routers/notification";
+import { subletRouter } from "./routers/sublet";
+import { renovationRouter } from "./routers/renovation";
+import { disturbanceRouter } from "./routers/disturbance";
+import { bookingRouter } from "./routers/booking";
 
 export const appRouter = router({
   meeting: meetingRouter,
@@ -57,6 +61,10 @@ export const appRouter = router({
   transfer: transferRouter,
   dashboard: dashboardRouter,
   notification: notificationRouter,
+  sublet: subletRouter,
+  renovation: renovationRouter,
+  disturbance: disturbanceRouter,
+  booking: bookingRouter,
 });
 
 export type AppRouter = typeof appRouter;

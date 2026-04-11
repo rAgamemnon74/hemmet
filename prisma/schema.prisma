@@ -47,6 +47,10 @@ model User {
   transfersAsSeller   TransferCase[]     @relation("TransferSeller")
   transfersCreated    TransferCase[]     @relation("TransferCreator")
   mortgageRequests    MortgageNotation[]
+  subletApplications  SubletApplication[] @relation("SubletApplicant")
+  renovationApplications RenovationApplication[] @relation("RenovationApplicant")
+  disturbanceReports  DisturbanceCase[]  @relation("DisturbanceReporter")
+  bookings            Booking[]
 }
 
 model Session {
@@ -151,6 +155,9 @@ model Apartment {
   applications       MembershipApplication[]
   transferCases      TransferCase[]
   mortgageNotations  MortgageNotation[]
+  subletApplications SubletApplication[]
+  renovationApplications RenovationApplication[]
+  disturbancesTargeted DisturbanceCase[] @relation("DisturbanceTarget")
 
   @@unique([buildingId, number])
 }
@@ -894,10 +901,13 @@ model DamageReport {
   location    String
   severity    Severity     @default(NORMAL)
   status      ReportStatus @default(SUBMITTED)
-  resolvedAt  DateTime?
-  resolution  String?      @db.Text
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  resolvedAt       DateTime?
+  resolution       String?      @db.Text
+  estimatedCost    Float?       // Uppskattad reparationskostnad
+  actualCost       Float?       // Faktisk kostnad
+  assignedTo       String?      // Entreprenör/firma som åtgärdar
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   reporter  User            @relation(fields: [reporterId], references: [id])
   apartment Apartment?      @relation(fields: [apartmentId], references: [id])
@@ -928,6 +938,231 @@ model Suggestion {
   updatedAt   DateTime     @updatedAt
 
   author User @relation(fields: [authorId], references: [id])
+}
+
+// ============================================================
+// SUBLET (andrahandsuthyrning)
+// ============================================================
+
+enum SubletStatus {
+  SUBMITTED       // Ansökan inskickad
+  UNDER_REVIEW    // Styrelsen granskar
+  APPROVED        // Godkänd
+  REJECTED        // Avslagen
+  ACTIVE          // Pågående uthyrning
+  EXPIRED         // Tidsbegränsning passerad
+  TERMINATED      // Avslutad i förtid
+}
+
+model SubletApplication {
+  id              String       @id @default(cuid())
+  apartmentId     String
+  applicantId     String       // Medlemmen som ansöker
+  status          SubletStatus @default(SUBMITTED)
+
+  // Skäl och period
+  reason          String       @db.Text // Varför andrahand (arbete, studier, etc.)
+  startDate       DateTime
+  endDate         DateTime
+
+  // Hyresgäst
+  tenantName      String
+  tenantEmail     String?
+  tenantPhone     String?
+
+  // Avgift
+  subletFeeAmount Float?       // Beräknad andrahandsavgift
+
+  // Beslut
+  reviewedAt      DateTime?
+  reviewedBy      String?
+  rejectionReason String?      @db.Text
+  boardNotes      String?      @db.Text
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  apartment       Apartment    @relation(fields: [apartmentId], references: [id])
+  applicant       User         @relation("SubletApplicant", fields: [applicantId], references: [id])
+
+  @@index([apartmentId])
+  @@index([applicantId])
+  @@index([status])
+}
+
+// ============================================================
+// RENOVATION (renoveringsansökan)
+// ============================================================
+
+enum RenovationStatus {
+  SUBMITTED
+  TECHNICAL_REVIEW  // Fastighetsansvarig bedömer
+  BOARD_REVIEW      // Styrelsen beslutar
+  APPROVED          // Godkänd med villkor
+  REJECTED
+  IN_PROGRESS       // Renovering pågår
+  INSPECTION        // Slutbesiktning
+  COMPLETED
+}
+
+enum RenovationType {
+  KITCHEN           // Kök
+  BATHROOM          // Badrum
+  FLOORING          // Golv
+  WALLS             // Väggar
+  ELECTRICAL        // El
+  PLUMBING          // VVS
+  VENTILATION       // Ventilation
+  BALCONY           // Balkong
+  OTHER
+}
+
+model RenovationApplication {
+  id              String           @id @default(cuid())
+  apartmentId     String
+  applicantId     String
+  status          RenovationStatus @default(SUBMITTED)
+  type            RenovationType
+
+  // Beskrivning
+  description     String           @db.Text
+  affectsStructure Boolean         @default(false) // Bärande konstruktion
+  affectsPlumbing  Boolean         @default(false) // VVS
+  affectsElectrical Boolean        @default(false) // El
+  affectsVentilation Boolean       @default(false) // Ventilation
+  plannedStartDate DateTime?
+  plannedEndDate   DateTime?
+  estimatedCost    Float?
+
+  // Teknisk bedömning (fastighetsansvarig)
+  technicalAssessment String?      @db.Text
+  technicalAssessedBy String?
+  technicalAssessedAt DateTime?
+
+  // Styrelsebeslut
+  conditions       String?         @db.Text // Villkor vid godkännande
+  reviewedAt       DateTime?
+  reviewedBy       String?
+  rejectionReason  String?         @db.Text
+
+  // Slutbesiktning
+  inspectionDate   DateTime?
+  inspectionResult String?         @db.Text
+  inspectedBy      String?
+
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  apartment        Apartment       @relation(fields: [apartmentId], references: [id])
+  applicant        User            @relation("RenovationApplicant", fields: [applicantId], references: [id])
+
+  @@index([apartmentId])
+  @@index([applicantId])
+  @@index([status])
+}
+
+// ============================================================
+// DISTURBANCE (störningsärenden)
+// ============================================================
+
+enum DisturbanceStatus {
+  REPORTED          // Anmälan inkommen
+  ACKNOWLEDGED      // Styrelsen har noterat
+  FIRST_WARNING     // Första tillsägelsen skickad
+  SECOND_WARNING    // Andra varningen skickad
+  BOARD_REVIEW      // Styrelsen överväger åtgärd
+  RESOLVED          // Löst
+  ESCALATED         // Hyresnämnden/förverkande
+  CLOSED
+}
+
+enum DisturbanceType {
+  NOISE             // Buller
+  SMOKE             // Rök/lukt
+  THREATS           // Hot/otrygghet
+  PROPERTY_DAMAGE   // Skadegörelse
+  COMMON_AREA_MISUSE // Missbruk av gemensamma utrymmen
+  PETS              // Husdjur
+  WASTE             // Sophantering
+  OTHER
+}
+
+model DisturbanceCase {
+  id              String            @id @default(cuid())
+  reportedById    String            // Vem som anmäler
+  status          DisturbanceStatus @default(REPORTED)
+  type            DisturbanceType
+
+  // Ärende
+  description     String            @db.Text
+  location        String?           // Var störningen sker
+  targetApartmentId String?         // Vilken lägenhet som stör (om känt)
+
+  // Tidslinje (varje steg dokumenteras)
+  acknowledgedAt  DateTime?
+  acknowledgedBy  String?
+  firstWarningAt  DateTime?
+  firstWarningBy  String?
+  secondWarningAt DateTime?
+  secondWarningBy String?
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  resolution      String?           @db.Text
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  reportedBy      User              @relation("DisturbanceReporter", fields: [reportedById], references: [id])
+  targetApartment Apartment?        @relation("DisturbanceTarget", fields: [targetApartmentId], references: [id])
+
+  @@index([reportedById])
+  @@index([status])
+  @@index([targetApartmentId])
+}
+
+// ============================================================
+// BOOKINGS (bokningssystem)
+// ============================================================
+
+enum ResourceType {
+  LAUNDRY           // Tvättstuga
+  SAUNA             // Bastu
+  GUEST_APARTMENT   // Gästlägenhet
+  PARTY_ROOM        // Festlokal
+  GYM               // Gym
+  OTHER
+}
+
+model BookableResource {
+  id              String       @id @default(cuid())
+  name            String       // "Tvättstuga 1", "Bastu"
+  type            ResourceType
+  description     String?
+  location        String?      // Var i fastigheten
+  maxDurationHours Int         @default(3) // Max bokningslängd
+  advanceBookingDays Int       @default(14) // Hur långt fram man kan boka
+  rulesText       String?      @db.Text // Bokningsregler i fritext
+  active          Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+
+  bookings        Booking[]
+}
+
+model Booking {
+  id              String   @id @default(cuid())
+  resourceId      String
+  userId          String
+  startTime       DateTime
+  endTime         DateTime
+  notes           String?
+  cancelledAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  resource        BookableResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  user            User             @relation(fields: [userId], references: [id])
+
+  @@index([resourceId, startTime])
+  @@index([userId])
 }
 
 // ============================================================
