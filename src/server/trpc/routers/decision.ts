@@ -3,6 +3,8 @@ import { router, protectedProcedure, requirePermission } from "../trpc";
 import { createDecisionSchema, addDecisionVoteSchema } from "@/lib/validators/meeting";
 import { format } from "date-fns";
 import { TRPCError } from "@trpc/server";
+import { logActivity } from "@/lib/audit";
+import { getBrfRules } from "@/lib/rules";
 
 export const decisionRouter = router({
   list: protectedProcedure
@@ -22,16 +24,16 @@ export const decisionRouter = router({
           ...(input?.search
             ? {
                 OR: [
-                  { title: { contains: input.search, mode: "insensitive" } },
-                  { reference: { contains: input.search, mode: "insensitive" } },
-                  { decisionText: { contains: input.search, mode: "insensitive" } },
+                  { title: { contains: input.search, mode: "insensitive" as const } },
+                  { reference: { contains: input.search, mode: "insensitive" as const } },
+                  { decisionText: { contains: input.search, mode: "insensitive" as const } },
                 ],
               }
             : {}),
         },
         include: {
           meeting: { select: { title: true, scheduledAt: true, type: true } },
-          _count: { select: { tasks: true, voteRecords: true } },
+          _count: { select: { tasks: true, voteRecords: true, recusals: true } },
         },
         orderBy: { decidedAt: "desc" },
       });
@@ -46,9 +48,8 @@ export const decisionRouter = router({
         include: {
           meeting: { select: { id: true, title: true, scheduledAt: true, type: true } },
           agendaItem: { select: { id: true, sortOrder: true, title: true } },
-          voteRecords: {
-            orderBy: { voterName: "asc" },
-          },
+          voteRecords: { orderBy: { voterName: "asc" } },
+          recusals: { orderBy: { createdAt: "asc" } },
           _count: { select: { tasks: true } },
         },
       });
@@ -60,9 +61,11 @@ export const decisionRouter = router({
     .use(requirePermission("meeting:edit"))
     .input(createDecisionSchema)
     .mutation(async ({ ctx, input }) => {
-      // Generate reference: YYYY-MM-§N
       const meeting = await ctx.db.meeting.findUniqueOrThrow({
         where: { id: input.meetingId },
+        include: {
+          attendances: { where: { status: { in: ["PRESENT", "PROXY"] } }, select: { userId: true } },
+        },
       });
       const existingCount = await ctx.db.decision.count({
         where: { meetingId: input.meetingId },
@@ -70,7 +73,23 @@ export const decisionRouter = router({
       const datePrefix = format(meeting.scheduledAt, "yyyy-MM");
       const reference = `${datePrefix}-§${existingCount + 1}`;
 
-      return ctx.db.decision.create({
+      // Check tie-breaker
+      let tiebrokenByChairperson = false;
+      if (input.method === "COUNTED" && input.votesFor !== undefined && input.votesAgainst !== undefined) {
+        if (input.votesFor === input.votesAgainst) {
+          const rules = await getBrfRules();
+          if (rules.tieBreakerChairperson && meeting.meetingChairpersonId) {
+            tiebrokenByChairperson = true;
+            // Chairperson's vote counts as +1 for
+            input.votesFor = (input.votesFor ?? 0) + 1;
+          }
+        }
+      }
+
+      // Track participants (all present minus any recusals added later)
+      const participantIds = meeting.attendances.map((a) => a.userId);
+
+      const decision = await ctx.db.decision.create({
         data: {
           meetingId: input.meetingId,
           agendaItemId: input.agendaItemId,
@@ -83,9 +102,121 @@ export const decisionRouter = router({
           votesFor: input.votesFor,
           votesAgainst: input.votesAgainst,
           votesAbstained: input.votesAbstained,
+          tiebrokenByChairperson,
+          participantIds,
           reference,
         },
       });
+
+      logActivity({
+        userId: ctx.user.id as string,
+        action: "decision.create",
+        entityType: "Decision",
+        entityId: decision.id,
+        description: `Beslut ${reference}: ${input.title}${tiebrokenByChairperson ? " (ordförandens utslagsröst)" : ""}`,
+        after: { reference, method: input.method, tiebrokenByChairperson },
+      });
+
+      return decision;
+    }),
+
+  // Declare conflict of interest (jäv)
+  declareRecusal: protectedProcedure
+    .use(requirePermission("meeting:vote"))
+    .input(
+      z.object({
+        decisionId: z.string(),
+        reason: z.string().min(1, "Ange anledning till jäv"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.id as string;
+      const decision = await ctx.db.decision.findUnique({
+        where: { id: input.decisionId },
+        include: {
+          meeting: {
+            include: {
+              attendances: { where: { status: { in: ["PRESENT", "PROXY"] } }, select: { userId: true } },
+            },
+          },
+        },
+      });
+      if (!decision) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // Get user name
+      const user = await ctx.db.user.findUnique({
+        where: { id: userId },
+        select: { firstName: true, lastName: true },
+      });
+
+      const recusal = await ctx.db.decisionRecusal.create({
+        data: {
+          decisionId: input.decisionId,
+          userId,
+          userName: user ? `${user.firstName} ${user.lastName}` : userId,
+          reason: input.reason,
+        },
+      });
+
+      // Update participant list (remove recused user)
+      const newParticipants = decision.participantIds.filter((id) => id !== userId);
+      await ctx.db.decision.update({
+        where: { id: input.decisionId },
+        data: { participantIds: newParticipants },
+      });
+
+      logActivity({
+        userId,
+        action: "decision.recusal",
+        entityType: "Decision",
+        entityId: input.decisionId,
+        description: `Jävsdeklaration: ${user?.firstName} ${user?.lastName} — ${input.reason}`,
+        before: { participantIds: decision.participantIds },
+        after: { participantIds: newParticipants, recusalReason: input.reason },
+      });
+
+      return recusal;
+    }),
+
+  // Check quorum for a decision (considering recusals)
+  checkQuorum: protectedProcedure
+    .use(requirePermission("meeting:view"))
+    .input(z.object({ meetingId: z.string(), recusedCount: z.number().default(0) }))
+    .query(async ({ ctx, input }) => {
+      const meeting = await ctx.db.meeting.findUnique({
+        where: { id: input.meetingId },
+        include: {
+          attendances: { where: { status: { in: ["PRESENT", "PROXY"] } } },
+        },
+      });
+      if (!meeting) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const rules = await getBrfRules();
+
+      // Total board members (from rules or actual count)
+      const totalBoardMembers = await ctx.db.userRole.count({
+        where: {
+          role: { in: ["BOARD_CHAIRPERSON", "BOARD_SECRETARY", "BOARD_TREASURER", "BOARD_PROPERTY_MGR", "BOARD_ENVIRONMENT", "BOARD_EVENTS", "BOARD_MEMBER"] },
+          active: true,
+        },
+      });
+
+      const present = meeting.attendances.length;
+      const availableVoters = present - input.recusedCount;
+      const quorumRequired = Math.floor(totalBoardMembers / 2) + 1;
+      const isQuorate = availableVoters >= quorumRequired;
+
+      return {
+        totalBoardMembers,
+        present,
+        recused: input.recusedCount,
+        availableVoters,
+        quorumRequired,
+        isQuorate,
+        warning: !isQuorate
+          ? `Ej beslutfört: ${availableVoters} tillgängliga röster, ${quorumRequired} krävs. Överväg att bordlägga ärendet eller låta suppleant inträda.`
+          : null,
+      };
     }),
 
   addVoteRecord: protectedProcedure

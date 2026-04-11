@@ -672,13 +672,34 @@ model Decision {
   votesAgainst        Int?
   votesAbstained      Int?
 
+  // Tie-breaker
+  tiebrokenByChairperson Boolean @default(false) // Ordförandens utslagsröst avgjorde
+
+  // Participation tracking
+  participantIds    String[] // Ledamöter som deltog i beslutet (exkl. jäviga)
+
   meeting    Meeting          @relation(fields: [meetingId], references: [id])
   agendaItem AgendaItem?      @relation(fields: [agendaItemId], references: [id])
   tasks      Task[]
   voteRecords DecisionVote[]  // Individual votes (used when method = ROLL_CALL)
   transferCases TransferCase[] // Överlåtelsebeslut kopplade till detta beslut
+  recusals    DecisionRecusal[] // Jävsdeklarationer
 
   @@index([reference])
+}
+
+model DecisionRecusal {
+  id         String   @id @default(cuid())
+  decisionId String
+  userId     String   // Ledamoten som deklarerade jäv
+  userName   String   // Namn (för protokollsyfte)
+  reason     String   @db.Text // Anledning till jäv
+  createdAt  DateTime @default(now())
+
+  decision Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+
+  @@unique([decisionId, userId])
+  @@index([decisionId])
 }
 
 model DecisionVote {
@@ -1210,6 +1231,10 @@ model BrfRules {
   // Motioner
   motionDeadlineMonth      Int     @default(2)  // 1-3
   motionDeadlineDay        Int     @default(1)  // 1-31 (0 = sista dagen i månaden)
+
+  // Utlägg
+  expenseApprovalMaxAmount Float?              // Max belopp som en person kan godkänna (null = obegränsat)
+  expenseSelfApprovalBlocked Boolean @default(true) // Hindra godkännande av egna utlägg
 
   // Avgifter (procent av prisbasbelopp)
   transferFeeMaxPercent    Float   @default(2.5)  // 2.5 (äldre) eller 3.5 (2023)

@@ -8,6 +8,7 @@ import {
 } from "@/lib/validators/expense";
 import { TRPCError } from "@trpc/server";
 import { logActivity } from "@/lib/audit";
+import { getBrfRules } from "@/lib/rules";
 import { Prisma } from "@prisma/client";
 
 export const expenseRouter = router({
@@ -118,11 +119,27 @@ export const expenseRouter = router({
       });
       if (!expense) throw new TRPCError({ code: "NOT_FOUND" });
       if (expense.status !== "SUBMITTED") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Kan bara godkänna inskickade utlägg" });
+      }
+
+      const rules = await getBrfRules();
+
+      // Block self-approval
+      if (rules.expenseSelfApprovalBlocked && expense.submitterId === ctx.user.id) {
         throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Kan bara godkänna inskickade utlägg",
+          code: "FORBIDDEN",
+          message: "Du kan inte godkänna dina egna utlägg.",
         });
       }
+
+      // Check amount limit
+      if (rules.expenseApprovalMaxAmount && Number(expense.amount) > rules.expenseApprovalMaxAmount) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Beloppet ${Number(expense.amount)} kr överstiger gränsen ${rules.expenseApprovalMaxAmount} kr. Kräver styrelsebeslut.`,
+        });
+      }
+
       const result = await ctx.db.expense.update({
         where: { id: input.id },
         data: { status: "APPROVED", approverId: ctx.user.id, approvedAt: new Date() },
