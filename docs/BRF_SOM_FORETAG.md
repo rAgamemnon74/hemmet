@@ -611,6 +611,223 @@ Dashboard (kassör/ordförande):
 
 ---
 
+## Operativa roller — specialiseringar
+
+### Rollhierarki
+
+Samma mönster som styrelserollerna: en basroll med gemensamma permissions + specialiseringar.
+
+```
+OPERATIONS_COMMON (alla anställda):
+├── Se tilldelade arbetsordrar
+├── Uppdatera status på tilldelade arbetsordrar
+├── Se byggnads-/lägenhetsinfo (inte persondata)
+└── Se meddelanden riktade till personal
+
+OPERATIONS_CARETAKER (fastighetsskötare) = OPERATIONS_COMMON +
+├── Se alla felanmälningar (inte bara tilldelade)
+├── Se boendekontaktuppgifter (telefon — för att nå vid reparation)
+└── Uppdatera felanmälningsstatus
+
+OPERATIONS_CLEANER (städare) = OPERATIONS_COMMON
+    (inga tillägg — ser bara tilldelade arbetsordrar)
+
+OPERATIONS_ADMIN (kontorsadministratör) = OPERATIONS_COMMON +
+├── Se medlemsregister (kontaktuppgifter, ej personnummer)
+├── Hantera bokningar
+└── Hantera dokument (uppladdning, kategorisering)
+
+OPERATIONS_MANAGER (driftchef) = OPERATIONS_COMMON +
+├── Allt ovanstående
+├── Skapa och tilldela arbetsordrar
+├── Hantera leverantörer (Contractor)
+├── Se och planera besiktningskalender
+├── Se personalregister (totalMonthlyCost)
+├── Delegerad attesträtt (inom beloppsgräns)
+└── Se ekonomisk driftöversikt
+```
+
+### Specialiseringar
+
+| Roll | Typisk titel | Systemåtkomst | GDPR: ser kontaktuppgifter? |
+|------|-------------|---------------|:---------------------------:|
+| `OPERATIONS_MANAGER` | Driftchef, förvaltare | Full driftåtkomst | Ja — behöver kontakta boende + leverantörer |
+| `OPERATIONS_CARETAKER` | Fastighetsskötare, vaktmästare | Felanmälningar + arbetsordrar | Ja, telefon — behöver nå boende vid reparation |
+| `OPERATIONS_CLEANER` | Städare | Bara tilldelade arbetsordrar | Nej |
+| `OPERATIONS_ADMIN` | Kontorsansvarig | Register + bokningar + dokument | Ja — medlemsservice |
+| `OPERATIONS_CONTRACTOR` | Extern leverantör med systemåtkomst | Bara tilldelade arbetsordrar | Nej — minimalt |
+
+### Vad operativa roller ALDRIG ser
+
+- Styrelseprotokoll
+- Styrelsemöten och dagordningar
+- Motioner och styrelsens yttranden
+- Ekonomisk detaljdata (utlägg, budget, bokföring)
+- Personnummer
+- Överlåtelser och medlemsansökningar
+- Revisionsdata
+- Individuella löner (finns inte i systemet)
+
+---
+
+## CX/UX: Förvaltningssektionen
+
+### Navigationsstruktur
+
+```
+Förvaltning (ny sektion i sidomenyn)
+├── Översikt          — driftchefens dashboard
+├── Arbetsordrar      — lista, skapa, tilldela, följa upp
+├── Personal          — anställda, roller, avtal, kostnad
+├── Leverantörer      — register, avtal, PUB-avtal
+├── Besiktningar      — kalender, kommande, förfallna
+└── Komponenter       — byggnadsregister, underhållsplan
+```
+
+Synlig för: `OPERATIONS_MANAGER` ser allt, övriga operativa roller ser relevanta delar.
+
+Styrelsemedlemmar med `report:manage` (fastighetsansvarig) ser också sektionen — de är den operativa ledarens uppdragsgivare.
+
+### UX per roll: Vad möter den anställda?
+
+#### Driftchefen (OPERATIONS_MANAGER)
+
+Loggar in → Ser "Förvaltning" som primär sektion:
+
+```
+┌─────────────────────────────────────────────────┐
+│  Förvaltning — Översikt                         │
+│                                                 │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐        │
+│  │ 7        │ │ 2        │ │ 1        │        │
+│  │ Öppna    │ │ Kritiska │ │ Förfallen│        │
+│  │ arbets-  │ │ felan-   │ │ besikt-  │        │
+│  │ ordrar   │ │ mälningar│ │ ning     │        │
+│  └──────────┘ └──────────┘ └──────────┘        │
+│                                                 │
+│  Senaste arbetsordrar:                          │
+│  ✓ Lampa trapphus B — Klar (igår)              │
+│  → Kran lgh 2001 — Pågår (tilldelad: Erik)     │
+│  ○ OVK-besiktning — Planerad (nästa vecka)     │
+│                                                 │
+│  Kommande besiktningar:                         │
+│  ⚠ OVK Hus A — förfaller 15 april              │
+│  ○ Hissbesiktning — 1 juni                     │
+│                                                 │
+│  Personal:                                      │
+│  Erik (fastighetsskötare) — 3 aktiva ordrar    │
+│  Maria (städare) — 1 aktiv order               │
+└─────────────────────────────────────────────────┘
+```
+
+#### Fastighetsskötaren (OPERATIONS_CARETAKER)
+
+Loggar in → Ser en **enkel, mobilvänlig** vy:
+
+```
+┌────────────────────────────────┐
+│  Mina arbetsordrar             │
+│                                │
+│  ⚡ BRÅDSKANDE                 │
+│  ┌────────────────────────────┐│
+│  │ Vattenläcka lgh 3002      ││
+│  │ Prio: URGENT              ││
+│  │ → Öppna                   ││
+│  └────────────────────────────┘│
+│                                │
+│  📋 ATT GÖRA                   │
+│  ┌────────────────────────────┐│
+│  │ Lampa trapphus B          ││
+│  │ Prio: MEDIUM              ││
+│  │ → Markera påbörjad        ││
+│  └────────────────────────────┘│
+│  ┌────────────────────────────┐│
+│  │ Snöröjning parkering      ││
+│  │ Prio: HIGH                ││
+│  │ → Markera påbörjad        ││
+│  └────────────────────────────┘│
+│                                │
+│  ✅ KLARA (senaste)            │
+│  Kran lgh 1001 — Klar igår    │
+│  Dörrlås entré — Klar 8 apr   │
+│                                │
+│  📍 Felanmälningar             │
+│  3 nya sedan igår → Visa      │
+└────────────────────────────────┘
+```
+
+**Mobil first** — fastighetsskötaren har telefonen i fickan, inte en laptop. Stora knappar, tydliga statusar, minimal text.
+
+#### Städaren (OPERATIONS_CLEANER)
+
+Loggar in → Extremt enkel vy:
+
+```
+┌────────────────────────────────┐
+│  Mina uppgifter                │
+│                                │
+│  ☐ Trapphus A — Torsdag       │
+│  ☐ Trapphus B — Torsdag       │
+│  ☐ Fönsterputs — Fredag       │
+│                                │
+│  Markera som klar: [✓]        │
+└────────────────────────────────┘
+```
+
+Inget mer. Ingen felanmälningslista, inga leverantörer, inga kontaktuppgifter. Bara: vad ska jag göra, och en knapp för "klar".
+
+### Arbetsorder-flödet (UX)
+
+```
+Källa                        Driftchef                    Utförare
+──────                       ─────────                    ────────
+Felanmälan inkommer ────→    Ser på dashboard
+                             Bedömer: vem kan fixa?
+                             ↓
+                             Skapar arbetsorder ─────→    Ser i sin lista
+                             (titel, beskrivning,         (mobil notis)
+                              prio, tilldelad)
+                                                          ↓
+                                                          Markerar "påbörjad"
+                                                          ↓
+                                                          Utför arbetet
+                                                          ↓
+                                                          Markerar "klar"
+                                                          (valfritt: kommentar,
+                                                           faktisk kostnad)
+                             ↓
+                             Ser "klar" i sin lista
+                             Verifierar (valfritt)
+                             ↓
+                             Felanmälan → RESOLVED
+                             Boende notifieras
+```
+
+**Nyckel-UX-principer:**
+
+1. **En klick-tilldelning** — driftchef ser felanmälan, klickar "Skapa arbetsorder", väljer person → klart
+2. **Mobil notis** — fastighetsskötaren får push/SMS: "Ny arbetsorder: Vattenläcka lgh 3002"
+3. **Statusuppdatering utan formulär** — stora knappar: "Påbörjad" / "Klar"
+4. **Automatisk koppling** — arbetsorder klar → felanmälan stängs → boende notifieras
+5. **Fotodokumentation** — fastighetsskötaren kan fota före/efter (mobilkamera)
+
+### Navigation: Vem ser vad
+
+| Sektion | Driftchef | Fastighetsskötare | Städare | Kontorsadmin | Styrelse (fastighetsansvarig) |
+|---------|:---------:|:----------------:|:-------:|:------------:|:----------------------------:|
+| Förvaltning — Översikt | Y | — | — | — | Y |
+| Arbetsordrar — alla | Y | — | — | — | Y (läs) |
+| Arbetsordrar — mina | Y | Y | Y | — | — |
+| Personal | Y | — | — | — | Y (läs) |
+| Leverantörer | Y | — | — | — | Y |
+| Besiktningar | Y | — | — | — | Y |
+| Komponenter | Y | — | — | — | Y |
+| Felanmälningar | Y | Y | — | — | Y |
+| Bokningar | — | — | — | Y | — |
+| Medlemsregister | — | — | — | Y | Y |
+
+---
+
 ## Implementationsprioritering (uppdaterad)
 
 ### Fas A — Grundläggande driftlager
