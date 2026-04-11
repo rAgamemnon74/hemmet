@@ -35,6 +35,22 @@ Dessa principer är OBLIGATORISKA och gäller all kod som hanterar persondata:
 
 8. **"Det finns ju på Ratsit" är inget försvar.** BRF:en är självständig personuppgiftsansvarig. Att data publicerats av andra ger inte oss rätt att behandla den utan egen rättslig grund.
 
+## Aktivitetsloggning (audit trail)
+
+Dessa principer är OBLIGATORISKA för alla tRPC-mutations som ändrar data:
+
+1. **Alla mutations ska logga.** Varje mutation som skapar, ändrar eller tar bort data MÅSTE anropa `logActivity()` från `src/lib/audit.ts`. Inga undantag.
+
+2. **Logga before/after.** Vid statusändringar och fältuppdateringar: hämta befintligt värde FÖRE ändringen, logga både gammalt och nytt som JSON. Använd `diffFields()` vid komplexa ändringar.
+
+3. **Beskrivningen ska vara läsbar.** `description`-fältet ska vara en kort svensk mening som en revisor kan förstå: "Ändrade mötesstatus från DRAFT till SCHEDULED", "Godkände utlägg: Reparation av hiss", "Jävsdeklaration: Anna Ordförande — äger leverantörsfirman".
+
+4. **Fire-and-forget.** `logActivity()` blockerar aldrig — logga och gå vidare. Loggningsfel får aldrig krascha en mutation.
+
+5. **entityType + entityId är obligatoriska.** Varje loggpost MÅSTE kunna kopplas till en specifik entitet: "Meeting" + id, "Expense" + id, "Protocol" + id etc.
+
+6. **Jävsdeklarationer loggas med full kontext.** Vid `declareRecusal`: logga vem som var jävig, anledning, och vilka som kvarstod som deltagare (before/after participantIds).
+
 ## Konventioner
 
 - **Språk:** Svensk UI-text, svenska URL-sökvägar, all kod på engelska
