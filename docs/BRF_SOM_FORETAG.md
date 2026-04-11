@@ -381,6 +381,92 @@ Leverantör → Faktura → Operativ ledare granskar
 
 ---
 
+## Ideellt arbete och medlemmars insatser
+
+### Modell C verkligheten — medlemmar som förvaltare
+
+I små och ideellt drivna BRF:er utförs förvaltningen av medlemmarna själva:
+- Alla tar trappstädningen en vecka var
+- Städdagar vår och höst
+- "Sansen som bor i ettan är händig — han fixar det"
+- Styrelsemedlemmar klipper gräset, skottar snön, byter lampor
+
+Det fungerar socialt och praktiskt. Men det finns skattemässiga fallgropar.
+
+### Skattefritt vs skattepliktigt
+
+| Scenario | Ersättning | Skatteplikt | Redovisningskrav |
+|----------|:---------:|:-----------:|:----------------:|
+| Städdag — alla hjälps åt | Ingen | **Nej** | Ingen (dokumentera deltagare frivilligt) |
+| Trappstädning i rotation | Ingen | **Nej** | Ingen |
+| Medlem fixar kran, köper material | Utlägg ersätts | **Nej** (bara material) | Kvitto + utläggsredovisning |
+| Medlem målar trapphuset, får **avgiftsreduktion** | Indirekt (lägre avgift) | **JA** | Kontrolluppgift + arbetsgivaravgifter |
+| Medlem klipper gräset, får **betalt** | Direkt | **JA** | Anställning eller F-skatt-faktura |
+| Styrelsearvoden | Ja | **JA** (alltid) | Kontrolluppgift + arbetsgivaravgifter |
+| Medlem handlar färg åt föreningen | Utlägg ersätts | **Nej** (bara material) | Kvitto |
+
+### ⚠ Avgiftsreduktionsfällan
+
+**Vanligt:** "Vi sänker avgiften med 200 kr/mån för de som tar trappstädningen."
+
+**Skatteverkets bedömning:** Avgiftsreduktion som motprestation för arbete är **skattepliktig ersättning**.
+
+Konsekvenser:
+- Medlemmen: beskattas för mellanskillnaden som inkomst av tjänst
+- Föreningen: ska betala arbetsgivaravgifter (~31.42%) på beloppet
+- Föreningen: ska lämna kontrolluppgift till Skatteverket
+- Om ej redovisat: skattetillägg + efterbeskattning retroaktivt
+
+**Samma gäller:**
+- "Du slipper avgiften i juni om du sköter trädgården"
+- "Vi betalar inte snöröjning — Kalle gör det mot kvittning"
+- Alla former av motprestation som reducerar avgift eller ger betalning
+
+### Vad som ÄR skattefritt
+
+- **Rent ideellt arbete** utan motprestation — samma regler som ideell förening
+- **Städdagar** där alla deltar frivilligt — social aktivitet
+- **Materialkostnader** som ersätts mot kvitto — utlägg, inte ersättning för arbete
+- **Trivselaktiviteter** (grillkväll, julglögg) — social verksamhet
+
+### Systemstöd i Hemmet
+
+**Skattefria insatser:**
+```
+Hemmet kan (frivilligt):
+├── Dokumentera städdagar (datum, deltagare) — för gemenskap, inte redovisning
+├── Hantera materialutlägg via Expense-modellen (kvitto)
+└── Inget redovisningskrav — ren dokumentation
+```
+
+**Skattepliktiga ersättningar:**
+```
+Hemmet bör:
+├── VARNA om avgiftsreduktion kopplas till arbete
+│   → "Varning: Avgiftsreduktion som motprestation för arbete
+│      är skattepliktig. Föreningen ska betala arbetsgivaravgifter
+│      och lämna kontrolluppgift. Kontakta er ekonomiska förvaltare."
+├── Styrelsearvoden → redan stödd via Decision (arvodesbeslut vid stämma)
+│   → Men systemet hanterar inte kontrolluppgifter (extern hantering)
+└── Betalning för arbete → hänvisa till lönesystem/F-skatt
+```
+
+**Designprincip:** Hemmet ska göra det **lätt att göra rätt**. Om en kassör försöker registrera avgiftsreduktion kopplad till arbetsinsats ska systemet informera om skatteplikten — inte blockera, men tydligt informera.
+
+### Gränsen ideellt → anställning
+
+| Indikator | Ideellt | Glidning mot anställning |
+|-----------|:-------:|:------------------------:|
+| Frivilligt | Y | Förväntat/schemalagt |
+| Tillfälligt | Y | Återkommande/regelbundet |
+| Ingen ersättning | Y | Avgiftsreduktion/betalning |
+| Egen takt | Y | Styrt av styrelsen |
+| Eget verktyg | Y | Föreningens utrustning |
+
+Om flera indikatorer i högerkolumnen uppfylls → Skatteverket kan omklassificera till anställning.
+
+---
+
 ## BRF:en som arbetsgivare — styrelsens ansvar
 
 ### Vad styrelsen måste ha koll på
