@@ -487,6 +487,7 @@ model AgendaItem {
   presenter   String?
   voteType    VoteType?
   specialType AgendaItemType? // Specialpunkter som renderas dynamiskt
+  notes       String?  @db.Text // Sekreterarens anteckningar under mötet
 
   meeting   Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   votes     Vote[]

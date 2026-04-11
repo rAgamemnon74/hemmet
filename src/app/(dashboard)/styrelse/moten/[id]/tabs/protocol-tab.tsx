@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Save, Lock, Unlock, PenLine, CheckCircle, Archive } from "lucide-react";
+import { Save, Lock, Unlock, PenLine, CheckCircle, Archive, Wand2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import { useSession } from "next-auth/react";
@@ -51,6 +51,7 @@ export function ProtocolTab({
   const [content, setContent] = useState(protocol?.content ?? "");
   const [hasChanges, setHasChanges] = useState(false);
 
+  const generateDraft = trpc.protocol.generate.useQuery({ meetingId }, { enabled: false });
   const upsertProtocol = trpc.protocol.upsert.useMutation({
     onSuccess: () => { setHasChanges(false); router.refresh(); },
   });
@@ -95,6 +96,24 @@ export function ProtocolTab({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Generate draft from meeting log */}
+          {canEditContent && status === "DRAFT" && !content && (
+            <button
+              onClick={async () => {
+                const result = await generateDraft.refetch();
+                if (result.data) {
+                  setContent(result.data);
+                  setHasChanges(true);
+                }
+              }}
+              disabled={generateDraft.isFetching}
+              className="inline-flex items-center gap-1.5 rounded-md border border-purple-300 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-50"
+            >
+              <Wand2 className="h-4 w-4" />
+              {generateDraft.isFetching ? "Genererar..." : "Generera utkast från möteslogg"}
+            </button>
+          )}
+
           {/* Save button */}
           {canEditContent && hasChanges && (
             <button onClick={handleSave} disabled={upsertProtocol.isPending}

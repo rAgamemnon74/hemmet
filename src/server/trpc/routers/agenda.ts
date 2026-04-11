@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { router, protectedProcedure, requirePermission } from "../trpc";
 import { createAgendaItemSchema, updateAgendaItemSchema, reorderAgendaSchema } from "@/lib/validators/meeting";
+import { logActivity } from "@/lib/audit";
 
 export const agendaRouter = router({
   create: protectedProcedure
@@ -35,6 +36,25 @@ export const agendaRouter = router({
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       return ctx.db.agendaItem.delete({ where: { id: input.id } });
+    }),
+
+  // Secretary notes per agenda item (real-time during meeting)
+  updateNotes: protectedProcedure
+    .use(requirePermission("meeting:protocol"))
+    .input(z.object({ id: z.string(), notes: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await ctx.db.agendaItem.update({
+        where: { id: input.id },
+        data: { notes: input.notes },
+      });
+      logActivity({
+        userId: ctx.user.id as string,
+        action: "agenda.updateNotes",
+        entityType: "AgendaItem",
+        entityId: input.id,
+        description: "Uppdaterade mötesanteckningar",
+      });
+      return result;
     }),
 
   reorder: protectedProcedure

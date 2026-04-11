@@ -3,8 +3,137 @@ import { router, protectedProcedure, requirePermission } from "../trpc";
 import { upsertProtocolSchema } from "@/lib/validators/meeting";
 import { TRPCError } from "@trpc/server";
 import { logActivity } from "@/lib/audit";
+import { format } from "date-fns";
+import { sv } from "date-fns/locale";
+
+function fmtDate(d: Date) { return format(d, "d MMMM yyyy", { locale: sv }); }
+function fmtTime(d: Date) { return format(d, "HH:mm"); }
+
+const decisionMethodLabels: Record<string, string> = {
+  ACCLAMATION: "acklamation",
+  COUNTED: "votering (räknade röster)",
+  ROLL_CALL: "votering (namnupprop)",
+};
 
 export const protocolRouter = router({
+  // Generate protocol draft from meeting log data
+  generate: protectedProcedure
+    .use(requirePermission("meeting:protocol"))
+    .input(z.object({ meetingId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const meeting = await ctx.db.meeting.findUnique({
+        where: { id: input.meetingId },
+        include: {
+          agendaItems: {
+            orderBy: { sortOrder: "asc" },
+            include: {
+              decisions: {
+                orderBy: { decidedAt: "asc" },
+                include: { recusals: true },
+              },
+            },
+          },
+          attendances: {
+            include: { user: { select: { firstName: true, lastName: true } } },
+          },
+          decisions: {
+            orderBy: { decidedAt: "asc" },
+            include: { recusals: true },
+          },
+        },
+      });
+      if (!meeting) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // Resolve role names
+      const [chairperson, secretary] = await Promise.all([
+        meeting.meetingChairpersonId
+          ? ctx.db.user.findUnique({ where: { id: meeting.meetingChairpersonId }, select: { firstName: true, lastName: true } })
+          : null,
+        meeting.meetingSecretaryId
+          ? ctx.db.user.findUnique({ where: { id: meeting.meetingSecretaryId }, select: { firstName: true, lastName: true } })
+          : null,
+      ]);
+      const adjusterUsers = meeting.adjusters.length > 0
+        ? await ctx.db.user.findMany({ where: { id: { in: meeting.adjusters } }, select: { firstName: true, lastName: true } })
+        : [];
+
+      const meetingTypeLabel = meeting.type === "BOARD" ? "Styrelsemöte" : meeting.type === "ANNUAL" ? "Ordinarie föreningsstämma" : "Extra föreningsstämma";
+      const present = meeting.attendances.filter((a) => a.status === "PRESENT" || a.status === "PROXY");
+      const absent = meeting.attendances.filter((a) => a.status === "ABSENT");
+
+      // Build protocol text
+      const lines: string[] = [];
+
+      lines.push(`PROTOKOLL — ${meetingTypeLabel}`);
+      lines.push(`${meeting.title}`);
+      lines.push(`Datum: ${fmtDate(meeting.scheduledAt)}`);
+      if (meeting.location) lines.push(`Plats: ${meeting.location}`);
+      lines.push("");
+
+      // Roles
+      if (chairperson) lines.push(`Mötesordförande: ${chairperson.firstName} ${chairperson.lastName}`);
+      if (secretary) lines.push(`Mötessekreterare: ${secretary.firstName} ${secretary.lastName}`);
+      if (adjusterUsers.length > 0) {
+        lines.push(`Justerare: ${adjusterUsers.map((a) => `${a.firstName} ${a.lastName}`).join(", ")}`);
+      }
+      lines.push("");
+
+      // Attendance
+      lines.push("Närvarande:");
+      for (const a of present) {
+        lines.push(`  ${a.user.firstName} ${a.user.lastName}${a.status === "PROXY" ? " (ombud)" : ""}`);
+      }
+      if (absent.length > 0) {
+        lines.push("Frånvarande:");
+        for (const a of absent) {
+          lines.push(`  ${a.user.firstName} ${a.user.lastName}`);
+        }
+      }
+      lines.push("");
+
+      // Agenda items
+      for (const item of meeting.agendaItems) {
+        lines.push(`§${item.sortOrder} ${item.title}`);
+        if (item.notes) {
+          lines.push(item.notes);
+        } else if (item.description) {
+          lines.push(item.description);
+        }
+
+        // Decisions under this item
+        for (const d of item.decisions) {
+          lines.push("");
+          lines.push(`Beslut ${d.reference}: ${d.decisionText}`);
+          lines.push(`Beslutsmetod: ${decisionMethodLabels[d.method] ?? d.method}`);
+          if (d.method === "COUNTED" && d.votesFor !== null) {
+            lines.push(`Röstresultat: Ja: ${d.votesFor}, Nej: ${d.votesAgainst ?? 0}, Avstår: ${d.votesAbstained ?? 0}`);
+          }
+          if (d.tiebrokenByChairperson) {
+            lines.push("Ordförandens utslagsröst avgjorde.");
+          }
+          if (d.recusals.length > 0) {
+            for (const r of d.recusals) {
+              lines.push(`Jäv: ${r.userName} deltog ej i beslutet (${r.reason})`);
+            }
+          }
+        }
+        lines.push("");
+      }
+
+      // Footer
+      lines.push("---");
+      lines.push(`Protokollet upprättat av ${secretary ? `${secretary.firstName} ${secretary.lastName}` : "[sekreterare]"}`);
+      lines.push("");
+      lines.push("Justeras:");
+      lines.push("");
+      if (chairperson) lines.push(`${chairperson.firstName} ${chairperson.lastName}, mötesordförande`);
+      for (const a of adjusterUsers) {
+        lines.push(`${a.firstName} ${a.lastName}, justerare`);
+      }
+
+      return lines.join("\n");
+    }),
+
   // Update protocol content — only if DRAFT or FINALIZED (by secretary)
   upsert: protectedProcedure
     .use(requirePermission("meeting:protocol"))
@@ -156,7 +285,36 @@ export const protocolRouter = router({
         where: { meetingId: input.meetingId },
         data: { status: "ARCHIVED", archivedAt: new Date() },
       });
+
       logActivity({ userId: ctx.user.id as string, action: "protocol.archive", entityType: "Protocol", entityId: protocol.id, description: "Arkiverade protokollet", before: { status: "SIGNED" }, after: { status: "ARCHIVED" } });
       return result;
+    }),
+
+  // Get protocols with overdue deadlines
+  getOverdue: protectedProcedure
+    .use(requirePermission("meeting:protocol"))
+    .query(async ({ ctx }) => {
+      const rules = await (await import("@/lib/rules")).getBrfRules();
+      const deadlineDate = new Date();
+      deadlineDate.setDate(deadlineDate.getDate() - rules.protocolDeadlineWeeks * 7);
+
+      // Meetings that ended (FINALIZING/COMPLETED) before deadline and protocol not finalized
+      return ctx.db.meeting.findMany({
+        where: {
+          status: { in: ["FINALIZING", "COMPLETED"] },
+          updatedAt: { lt: deadlineDate },
+          OR: [
+            { protocol: null },
+            { protocol: { status: "DRAFT" } },
+          ],
+        },
+        select: {
+          id: true,
+          title: true,
+          scheduledAt: true,
+          protocol: { select: { status: true } },
+        },
+        orderBy: { scheduledAt: "desc" },
+      });
     }),
 });
