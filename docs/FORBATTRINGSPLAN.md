@@ -151,14 +151,26 @@ Större integrationer och avancerade funktioner, planeras när grundplattformen 
 
 ## Sammanfattning
 
-| Fas | Tema | Leveranser | Uppskattad tid | Viktigaste utfall |
-|-----|------|:----------:|:--------------:|-------------------|
-| **1** | Juridiskt skyddsnät | 6 | 2-3 v | Jäv, beslutförhet, utslagsröst — skyddar styrelsen |
-| **2** | Protokoll | 4 | 1-2 v | Autogenererat utkast, deadline, anteckningar — sekreterarens vardag |
-| **3** | Styrelsemedlemmens vardag | 8 | 2-3 v | Dashboards, notifieringar, mötesförberedelse — alla styrelseroller |
-| **4** | Boende och medlem | 6 | 3-4 v | Andrahand, renovering, störning, bokning — de som bor i Hemmet |
-| **5** | Revision och val | 8 | 3-4 v | Revisor ser ekonomi, valberedning fungerar, val vid stämma |
-| **6** | GDPR och integrationer | 8 | 4-6 v | Kryptering, gallring, underhållsplan, leverantörer |
-| — | Framtida | 19 | — | Ekonomisystem, BankID, K3-beräkning, IoT |
+| Fas | Tema | Leveranser | Status |
+|-----|------|:----------:|:------:|
+| **1** | Juridiskt skyddsnät | 6 | KLAR — Jäv, beslutförhet, utslagsröst, utläggsvalidering |
+| **2** | Protokoll | 4 | KLAR — Autogenerering, deadline, anteckningar, livscykel |
+| **3** | Styrelsemedlemmens vardag | 8 | KLAR — Dashboards, notifieringar, mötesförberedelse |
+| **4** | Boende och medlem | 6 | KLAR — Andrahand, renovering, störning, bokning |
+| **5** | Revision och val | 8 | KLAR — Revisor ser ekonomi, valberedning, val-specialTypes |
+| **6** | GDPR och integrationer | 8 | KLAR — Kryptering, gallring, K3-komponenter, leverantörer |
+| — | Framtida | 19 | Ej påbörjad — Ekonomisystem, BankID, K3-beräkning, IoT |
 
-**Totalt:** 40 fasplanerade leveranser + 19 framtida = 59 identifierade förbättringar
+**Alla 40 fasplanerade leveranser implementerade.** 19 framtida förbättringar kvarstår.
+
+### Systemstatistik efter alla faser
+
+| Mått | Antal |
+|------|:-----:|
+| tRPC-routrar | 34 |
+| Roller | 15 |
+| Permissions | 62 |
+| Prisma-modeller | 48 |
+| Sidroutes | 46 |
+| Migrationer | 20 |
+| Analysdokument | 15 |

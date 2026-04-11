@@ -44,7 +44,7 @@ Digital plattform för svenska bostadsrättsföreningar (BRF). Stödjer styrelse
 | Framework | Next.js 16 (App Router) |
 | Språk | TypeScript |
 | Databas | PostgreSQL + Prisma 6 |
-| API | tRPC (21 routrar, end-to-end typsäkerhet) |
+| API | tRPC (34 routrar, end-to-end typsäkerhet) |
 | Auth | NextAuth v5 (e-post + lösenord) |
 | UI | Tailwind CSS 4 |
 | Validering | Zod |
@@ -73,8 +73,9 @@ make dev      # Starta dev-server
 | `ordforande@hemmet.se` | Ordförande | Allt styrelserelaterat |
 | `sekreterare@hemmet.se` | Sekreterare | Möten, protokoll, dagordning |
 | `kassor@hemmet.se` | Kassör | Godkänna utlägg |
-| `forvaltning@hemmet.se` | Förvaltningsansvarig | Hantera felanmälningar |
-| `revisor@hemmet.se` | Revisor | Granska årsberättelse, revisionsberättelse |
+| `forvaltning@hemmet.se` | Förvaltningsansvarig | Hantera felanmälningar, komponenter, besiktningar |
+| `ledamot@hemmet.se` | Ledamot | Styrelsearbete utan specialansvar |
+| `revisor@hemmet.se` | Revisor | Granska årsberättelse, ekonomi, protokoll |
 | `medlem@hemmet.se` | Medlem | Motioner, rösta, se information |
 | `boende@hemmet.se` | Boende | Felanmälan, förslag |
 
@@ -123,12 +124,12 @@ Djupanalyser av varje styrelseroll — nuläge i systemet, kritiska brister och 
 ```
 hemmet/
 ├── prisma/
-│   ├── schema.prisma        # 30+ entiteter
+│   ├── schema.prisma        # 48 entiteter, 20 migrationer
 │   └── seed.ts               # 10 testanvändare + testdata
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/           # Login, register
-│   │   ├── (dashboard)/      # 37 autentiserade sidor
+│   │   ├── (dashboard)/      # 46 autentiserade sidor
 │   │   │   ├── styrelse/     # Möten, ärenden, beslut, utlägg, årsberättelse, dokument
 │   │   │   ├── boende/       # Felanmälan, förslag
 │   │   │   ├── medlem/       # Motioner, register, lägenheter, ansökningar, organisationer
@@ -136,11 +137,11 @@ hemmet/
 │   │   │   └── info/         # Anslagstavla
 │   │   └── api/              # Auth + tRPC
 │   ├── server/
-│   │   ├── trpc/routers/     # 21 API-routrar
+│   │   ├── trpc/routers/     # 34 API-routrar
 │   │   ├── auth.ts
 │   │   └── db.ts
 │   ├── lib/
-│   │   ├── permissions.ts    # 12 roller, 35+ permissions
+│   │   ├── permissions.ts    # 15 roller, 62 permissions
 │   │   ├── rules.ts          # BrfRules cache
 │   │   ├── agenda-templates.ts
 │   │   └── validators/       # Zod-schemas
@@ -153,20 +154,35 @@ hemmet/
 
 ## Roller och behörigheter
 
-12 roller med hierarkisk RBAC:
+15 roller i tre kategorier med hierarkisk RBAC (62 permissions):
+
+**Styrelseroller:**
 
 | Roll | Beskrivning |
 |---|---|
-| **Admin** | Full åtkomst |
-| **Ordförande** | Skapa möten, godkänna utlägg, hantera användare |
-| **Sekreterare** | Möten, dagordning, mötesroller, protokoll |
-| **Kassör** | Godkänna/avslå utlägg |
-| **Förvaltningsansvarig** | Hantera felanmälningar |
+| **Admin** | Full åtkomst (teknisk förvaltare) |
+| **Ordförande** | Möten, utlägg, överlåtelser, användare, ansökningar |
+| **Sekreterare** | Möten, dagordning, protokoll med livscykel (DRAFT→SIGNED→ARCHIVED) |
+| **Kassör** | Utlägg, överlåtelseavgifter, pant, ekonomisk dashboard |
+| **Förvaltningsansvarig** | Felanmälningar, komponenter, besiktningar, leverantörer, renoveringar |
 | **Miljöansvarig / Festansvarig / Ledamot** | Styrelsefunktioner |
-| **Suppleant** | Läsrättigheter till styrelsematerial |
-| **Revisor** | Granska årsberättelse, revisionsberättelse |
-| **Medlem** | Motioner, rösta, se information |
-| **Boende** | Felanmälan, förslag |
+| **Suppleant** | Läsrättigheter, inträder vid jäv |
+
+**Granskningsroller:**
+
+| Roll | Beskrivning |
+|---|---|
+| **Revisor** | Granska ekonomi, protokoll, årsberättelse — revisionsberättelse |
+| **Revisorssuppleant** | Läsåtkomst, inträder vid behov |
+
+**Föreningsroller:**
+
+| Roll | Beskrivning |
+|---|---|
+| **Valberedare** | Hantera nomineringar, föreslå kandidater |
+| **Valberedningens sammankallande** | Finalisera och presentera förslag |
+| **Medlem** | Motioner, rösta, nomineringsförslag, andrahand, renovering |
+| **Boende** | Felanmälan, förslag, bokning |
 
 ## BrfRules — konfigurerbara stadgeregler
 

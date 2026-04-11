@@ -56,7 +56,7 @@ Dessa principer är OBLIGATORISKA för alla tRPC-mutations som ändrar data:
 - **Språk:** Svensk UI-text, svenska URL-sökvägar, all kod på engelska
 - **Routing:** Route groups `(auth)` och `(dashboard)` med svenska sökvägar
 - **Komponentmönster:** Server component (page.tsx) hämtar data via `serverTrpc()`, skickar till klient-komponent
-- **RBAC:** 12 roller, 35+ permissions i `src/lib/permissions.ts`, kontrolleras via `requirePermission()` i tRPC-middleware
+- **RBAC:** 15 roller, 62 permissions i `src/lib/permissions.ts`, kontrolleras via `requirePermission()` i tRPC-middleware
 - **Validering:** Zod-schemas i `src/lib/validators/`, delade mellan klient och server
 - **Pengar:** Alltid `Decimal` (Prisma) / `Prisma.Decimal`, aldrig float
 - **Konfiguration:** Föreningsspecifika regler i `BrfRules`-modellen, hämtas via `getBrfRules()` från `src/lib/rules.ts`
@@ -89,21 +89,24 @@ make help        # Visa alla kommandon
 | medlem@hemmet.se | Medlem |
 | boende@hemmet.se | Boende |
 
-## Roller (12 st)
+## Roller (15 st)
 
-`ADMIN`, `BOARD_CHAIRPERSON`, `BOARD_SECRETARY`, `BOARD_TREASURER`, `BOARD_PROPERTY_MGR`, `BOARD_ENVIRONMENT`, `BOARD_EVENTS`, `BOARD_SUBSTITUTE`, `BOARD_MEMBER`, `AUDITOR`, `MEMBER`, `RESIDENT`
+**Styrelse:** `ADMIN`, `BOARD_CHAIRPERSON`, `BOARD_SECRETARY`, `BOARD_TREASURER`, `BOARD_PROPERTY_MGR`, `BOARD_ENVIRONMENT`, `BOARD_EVENTS`, `BOARD_SUBSTITUTE`, `BOARD_MEMBER`
+**Granskning:** `AUDITOR`, `AUDITOR_SUBSTITUTE`
+**Förening:** `NOMINATING_COMMITTEE`, `NOMINATING_COMMITTEE_CHAIR`
+**Grund:** `MEMBER`, `RESIDENT`
 
 ## Nyckelkatalogstruktur
 
 ```
-prisma/schema.prisma           # Datamodell (30+ entiteter)
+prisma/schema.prisma           # Datamodell (48 entiteter, 20 migrationer)
 src/lib/permissions.ts          # RBAC (12 roller, 35+ permissions)
 src/lib/rules.ts                # BrfRules cache-hämtning
 src/lib/agenda-templates.ts     # Dagordningsmallar (styrelse/årsmöte/extra)
 src/lib/validators/             # Zod-schemas per modul
 src/server/trpc/trpc.ts         # tRPC-init med auth-context
-src/server/trpc/routers/        # 21 tRPC-routrar
-src/app/(dashboard)/            # Autentiserade sidor (37 routes)
+src/server/trpc/routers/        # 34 tRPC-routrar
+src/app/(dashboard)/            # Autentiserade sidor (46 routes)
 src/app/(auth)/                 # Login/register
 src/components/layout/          # Sidebar, topbar, mobilnav
 docs/gap-analysis.md            # Gapanalys stadgar vs plattform
@@ -122,7 +125,14 @@ docs/stadgar/                   # Nedladdade stadge-PDF:er
 **Ekonomi:** Expense (godkännandeflöde)
 **Årsmöte:** VoterRegistry, VoterRegistryEntry, MeetingProxy
 **Revision:** AnnualReport, Audit
-**Boende:** DamageReport, ReportComment, Suggestion
+**Boende:** DamageReport, ReportComment, Suggestion, SubletApplication, RenovationApplication, DisturbanceCase
+**Bokning:** BookableResource, Booking
+**Fastighet:** BuildingComponent, Inspection, Contractor
+**Överlåtelse:** TransferCase, MortgageNotation
+**Valberedning:** NominationPeriod, Nomination, MemberNomination
+**Jäv:** DecisionRecusal, ConflictOfInterest
+**Revision:** AnnualReport, Audit, AuditQuestion
+**GDPR:** PersonalDataAccessLog, UserConsent, ActivityLog
 **Övrigt:** Motion, Announcement, Document, Notification, IntegrationConfig
 
 ## BrfRules — konfigurerbara regler

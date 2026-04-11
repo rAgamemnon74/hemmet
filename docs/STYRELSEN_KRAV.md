@@ -524,14 +524,78 @@ Styrelser består av lekmän. Systemet bör vara deras **säkerhetsnät** — in
 
 | Skyddsfunktion | Skyddar mot | Prioritet | Nuläge |
 |---------------|------------|:---------:|:------:|
-| **Jävsdeklaration vid beslut** | Jäv och korruption (#1) | HÖG | Saknas |
-| **Strukturerad medlemsprövning** | Felaktiga avslag (#2) | HÖG | Delvis |
-| **Beslutsspår med deltagarlista** | Alla rättsliga tvister | HÖG | Delvis |
-| **Andrahandsflöde med tidsbegränsning** | Besittningsskydd (#4) | HÖG | Saknas |
-| **Underhållsplan med varningar** | Eftersatt underhåll (#7) | HÖG | Saknas |
-| **Kallelsetidsvalidering** | Ogiltiga stämmobeslut (#9) | MEDEL | Implementerad |
-| **GDPR-åtkomstkontroll** | Dataskyddsincidenter (#6) | HÖG | Saknas |
-| **Störningsärendehantering** | Felaktig störningshantering (#8) | MEDEL | Saknas |
-| **Ekonomisk transparens** | Vilseledande information (#5) | MEDEL | Grundläggande |
-| **Försäkringspåminnelse** | Personligt ansvar (#10) | LÅG | Saknas |
-| **Renoveringsansökan** | Otillåtna ombyggnationer (#3) | MEDEL | Saknas |
+| **Jävsdeklaration vid beslut** | Jäv och korruption (#1) | HÖG | IMPLEMENTERAD — DecisionRecusal + participantIds |
+| **Strukturerad medlemsprövning** | Felaktiga avslag (#2) | HÖG | IMPLEMENTERAD — TransferCase med kreditkontroll-checklist |
+| **Beslutsspår med deltagarlista** | Alla rättsliga tvister | HÖG | IMPLEMENTERAD — ActivityLog + participantIds per beslut |
+| **Andrahandsflöde med tidsbegränsning** | Besittningsskydd (#4) | HÖG | IMPLEMENTERAD — SubletApplication med status + period |
+| **Underhållsplan med varningar** | Eftersatt underhåll (#7) | HÖG | IMPLEMENTERAD — BuildingComponent + Inspection med deadline |
+| **Kallelsetidsvalidering** | Ogiltiga stämmobeslut (#9) | MEDEL | IMPLEMENTERAD |
+| **GDPR-åtkomstkontroll** | Dataskyddsincidenter (#6) | HÖG | IMPLEMENTERAD — fältnivåfiltrering, personnummermaskering, åtkomstloggning |
+| **Störningsärendehantering** | Felaktig störningshantering (#8) | MEDEL | IMPLEMENTERAD — DisturbanceCase med 8-stegs tidslinje |
+| **Ekonomisk transparens** | Vilseledande information (#5) | MEDEL | IMPLEMENTERAD — Kassör-dashboard, överlåtelseprocess |
+| **Försäkringspåminnelse** | Personligt ansvar (#10) | LÅG | Saknas — BrfSettings har data men ingen bevakning |
+| **Renoveringsansökan** | Otillåtna ombyggnationer (#3) | MEDEL | IMPLEMENTERAD — RenovationApplication med teknisk bedömning |
+
+---
+
+## Del VII — Styrelsens konstituering: Stämma vs intern organisering
+
+### Grundprincipen
+
+Hela styrelsen är **solidariskt ansvarig** (LEF 8 kap. 4 §) oavsett vem som har vilken roll. Rollfördelningen är en intern organisationsfråga — inte ett juridiskt ansvarsskifte.
+
+### Två modeller
+
+| Modell | Stämman väljer | Styrelsen väljer | Konsekvens vid avgång |
+|--------|:-------------:|:----------------:|----------------------|
+| **Stämman utser roller** | Ordförande + ledamöter namngivna per roll | Eventuellt sekreterare/kassör | Extra stämma krävs om stämmovald roll avgår |
+| **Styrelsen konstituerar sig** | Ledamöter (utan rollspecificering) | Alla roller internt | Styrelsen omfördelar — ingen extra stämma |
+
+### Stadgevarianter i verkligheten
+
+- **HSB normalstadgar:** Stämman väljer ordförande. Styrelsen konstituerar övriga roller.
+- **Riksbyggen:** Styrelsen konstituerar sig helt själv.
+- **Många fristående:** Stämman väljer ordförande, ibland kassör. Resten internt.
+- **Vissa äldre stadgar:** Alla roller specificerade i stämmobeslut.
+
+### Konsekvens vid avgång
+
+```
+Stämman valde Anna som ordförande
+    → Anna avgår efter 3 månader
+    → Styrelsen KAN INTE utse ny ordförande (stämmobeslut)
+    → Extra stämma måste kallas
+    → 2-6 veckors kallelsetid (BrfRules)
+    → Under tiden: vice ordförande eller äldste ledamot leder
+
+Styrelsen konstituerade Anna som ordförande
+    → Anna avgår efter 3 månader
+    → Suppleant Eva inträder
+    → Styrelsen omfördelar roller vid nästa möte
+    → Ingen extra stämma behövs
+```
+
+### Konstituerande möte
+
+Direkt efter stämman (eller vid behov) håller styrelsen ett **konstituerande sammanträde** där roller fördelas. Detta är ett vanligt styrelsemöte men med en specifik dagordning:
+
+1. Mötets öppnande
+2. Val av ordförande (om inte stämman valt)
+3. Val av vice ordförande
+4. Val av sekreterare
+5. Val av kassör
+6. Fördelning av övriga ansvarsområden
+7. Firmateckningsordning
+8. Mötets avslutande
+
+### Systemstöd (BrfRules-konfiguration)
+
+```
+BrfRules {
+  chairElectedByAssembly    Boolean @default(false)  // true = stämman väljer ordförande
+  boardSelfConstitutes      Boolean @default(true)   // true = styrelsen fördelar roller
+}
+```
+
+**Varning i systemet vid avgång:** Om `chairElectedByAssembly = true` och ordföranden avgår:
+> "Ordföranden valdes av stämman. Extra stämma krävs för att välja ny ordförande."
