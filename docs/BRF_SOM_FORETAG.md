@@ -613,6 +613,97 @@ Dashboard (kassör/ordförande):
 
 ## Operativa roller — specialiseringar
 
+### Tre organisationsmodeller
+
+Systemet måste fungera oavsett om föreningen har en driftchef eller inte.
+
+```
+Modell A — Stor BRF (anställd driftchef):
+    Styrelse → OPERATIONS_MANAGER (driftchef) → OPERATIONS_CARETAKER/CLEANER
+    BOARD_PROPERTY_MGR = tillsyn och styrelserapportering
+    OPERATIONS_MANAGER = operativ ledning
+
+Modell B — Medelstor BRF (delat ansvar):
+    Styrelse → BOARD_PROPERTY_MGR + OPERATIONS_CARETAKER (delar driften)
+    BOARD_PROPERTY_MGR = beslutar, beställer, attesterar, planerar
+    OPERATIONS_CARETAKER = utför, rapporterar
+    Ingen OPERATIONS_MANAGER behövs
+
+Modell C — Liten BRF (styrelsemedlem gör allt):
+    Styrelse → BOARD_PROPERTY_MGR / ordförande
+    Ringer rörmokaren själv
+    Inga operativa roller behövs
+```
+
+**Designprincip:** Permissions designas så att `BOARD_PROPERTY_MGR` redan har det som `OPERATIONS_MANAGER` behöver — skapa arbetsordrar, tilldela, attestera, bevaka besiktningar. Om en driftchef anställs flyttas det operativa ansvaret till `OPERATIONS_MANAGER` och `BOARD_PROPERTY_MGR` övergår till tillsyn.
+
+### Delat ansvar utan driftchef (Modell B)
+
+| Uppgift | Fastighetsansvarig (styrelse) | Fastighetsskötare (anställd) |
+|---------|:----------------------------:|:----------------------------:|
+| Besluta om åtgärder | Y | — |
+| Beställa leverantörer (inom delegation) | Y | — |
+| Attestera fakturor (inom beloppsgräns) | Y | — |
+| Planera underhåll | Y | Underlag |
+| Bevaka besiktningar | Y | Utför/rapporterar |
+| Skapa arbetsordrar | Y | — |
+| Utföra arbetsordrar | — | Y |
+| Ta emot felanmälningar | Y (i systemet) | Y (i verkligheten — boende knackar på) |
+| Kontakta boende vid reparation | Y | Y |
+
+### Permissions som fungerar i alla modeller
+
+```
+BOARD_PROPERTY_MGR (befintlig, utökas):
+├── Allt i BOARD_COMMON
+├── report:manage (befintlig)
+├── workorder:create          NYT — skapa arbetsordrar
+├── workorder:assign          NYT — tilldela till personal/leverantör
+├── workorder:view_all        NYT — se alla arbetsordrar
+├── inspection:manage         NYT — hantera besiktningskalender
+├── component:manage          NYT — hantera byggnadskomponenter
+├── contractor:manage         NYT — hantera leverantörer
+└── delegation:use            NYT — attestera inom delegerad beloppsgräns
+
+OPERATIONS_MANAGER (ny, för stor BRF med anställd driftchef):
+├── Samma operativa permissions som BOARD_PROPERTY_MGR ovan
+├── MINUS styrelsepermissions (meeting:edit, motion:respond etc.)
+├── personnel:view            NYT — se personalregister
+└── delegation:use            NYT — attestera inom delegerad beloppsgräns
+
+OPERATIONS_CARETAKER (ny):
+├── workorder:view_assigned   — se tilldelade arbetsordrar
+├── workorder:update          — uppdatera status (påbörjad/klar)
+├── report:view               — se felanmälningar
+├── report:update_status      — uppdatera felanmälningsstatus
+├── contact:view_phone        — se boendes telefonnummer
+└── announcement:view         — se meddelanden
+
+OPERATIONS_CLEANER (ny):
+├── workorder:view_assigned   — se tilldelade arbetsordrar
+├── workorder:update          — uppdatera status (påbörjad/klar)
+└── announcement:view         — se meddelanden
+
+OPERATIONS_ADMIN (ny):
+├── workorder:view_assigned   — se tilldelade arbetsordrar
+├── member:view_registry      — se medlemsregister
+├── booking:manage            — hantera bokningar
+├── document:upload           — hantera dokument
+└── announcement:view         — se meddelanden
+```
+
+**Nyckelinsikt:** `BOARD_PROPERTY_MGR` + `OPERATIONS_CARETAKER` tillsammans ger samma funktionalitet som `OPERATIONS_MANAGER` + `OPERATIONS_CARETAKER`. Systemet kräver aldrig en driftchef — det fungerar lika bra med styrelsemedlem + fastighetsskötare.
+
+### Övergång: Modell B → Modell A
+
+När en BRF anställer en driftchef:
+1. Skapa User med `OPERATIONS_MANAGER`-roll
+2. `BOARD_PROPERTY_MGR` behåller styrelsepermissions + tillsyn
+3. Driftchefen tar över operativa arbetsordrar, leverantörer, besiktningar
+4. Delegationsbeslut i styrelseprotokoll: "Driftchef X delegeras ansvar med beloppsgräns Y kr"
+
+Ingen systemändring behövs — bara rolltilldelning.
+
 ### Rollhierarki
 
 Samma mönster som styrelserollerna: en basroll med gemensamma permissions + specialiseringar.
