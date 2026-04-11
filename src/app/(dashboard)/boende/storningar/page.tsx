@@ -50,18 +50,17 @@ export default function DisturbancePage() {
       {showInfo && !showForm && (
         <div className="mb-6 rounded-lg border border-gray-200 bg-white p-5 space-y-4">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">Innan du anmäler</h2>
+            <h2 className="text-sm font-semibold text-gray-900">Knacka på först</h2>
             <p className="mt-1 text-sm text-gray-600">
-              Utgångspunkten i vår förening är en god grannrelation. De flesta störningar beror på missförstånd
-              eller omedvetenhet och löser sig bäst genom ett direkt samtal med din granne.
+              Vi har alla valt att bo tillsammans. Grunden för trivseln i vår förening är goda
+              grannrelationer — oavsett om vi bor dörr i dörr, på samma våningsplan eller i
+              samma hus. De flesta störningar beror på missförstånd eller omedvetenhet.
             </p>
-          </div>
-
-          <div>
-            <h3 className="text-xs font-semibold text-gray-700 uppercase">Har du pratat med din granne?</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Ofta vet grannen inte om att de stör. Ett vänligt samtal löser i de flesta fall problemet
-              utan att styrelsen behöver involveras.
+            <p className="mt-2 text-sm text-gray-600">
+              <span className="font-medium text-gray-900">Knacka på hos din granne och prata.</span> Det
+              är alltid första steget. Ofta vet grannen inte om att de stör, och ett vänligt samtal
+              löser problemet utan att styrelsen behöver involveras. Om din granne har delat sitt
+              telefonnummer i boenderegistret kan du också ringa eller skicka ett SMS.
             </p>
           </div>
 
@@ -95,8 +94,8 @@ export default function DisturbancePage() {
               <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)}
                 className="mt-0.5 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
               <span className="text-sm text-gray-700">
-                Jag har försökt lösa situationen direkt med min granne, eller situationen är sådan
-                att direkt kontakt inte är möjlig/lämplig.
+                Jag har knackat på och pratat med min granne om detta, eller situationen
+                är sådan att direkt kontakt inte är lämplig (t.ex. hot, otrygghet).
               </span>
             </label>
           </div>

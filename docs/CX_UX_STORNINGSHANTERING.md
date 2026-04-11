@@ -1,5 +1,31 @@
 # CX/UX-analys: Störningshantering — alla perspektiv
 
+## Grundfilosofi
+
+Vi har alla valt att bo tillsammans. Grunden för trivsel är goda grannrelationer — oavsett om vi bor dörr i dörr, på samma våningsplan eller i samma hus i en flerfastighetsförening.
+
+**Systemets tonläge:**
+
+1. **Knacka på först** — alltid. Direkt dialog löser de allra flesta situationer. Grannen vet sällan om att de stör.
+2. **Kontaktdelning underlättar dialog** — boende som delar sitt telefonnummer i registret möjliggör ett samtal/SMS istället för en konfrontation vid dörren.
+3. **Formell anmälan är sista utvägen** — inte första instansen. Systemet ska aldrig göra det enklare att anmäla formellt än att prata direkt.
+4. **Störningar är ovanliga** — de flesta boende stör aldrig. Systemet ska spegla detta — inte bygga en infrastruktur för konflikter utan ett skyddsnät för sällsynta fall.
+5. **Goda grannar, inte anonyma klagare** — systemet uppmuntrar öppenhet och dialog, inte anonym rapportering som första val.
+
+**Eskaleringsordningen:**
+
+```
+1. Knacka på / ring grannen (ALLTID först, utom vid akut fara)
+2. Om dialog inte fungerar → formell anmälan i systemet
+3. Styrelsen utreder → kontaktar lägenhetsägaren
+4. Tillsägelse → varning → styrelsebeslut (progressiv eskalering)
+5. Hyresnämnden (yttersta undantagsfall)
+```
+
+**Undantag:** Vid akut fara (hot, våld, misstanke om brott, brand, gaslukt) — ring 112. Knacka inte på.
+
+---
+
 ## Aktörer
 
 En störning involverar upp till 9 aktörer. Varje aktör har olika behov, rädslor och rättigheter.

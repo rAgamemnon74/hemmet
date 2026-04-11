@@ -35,6 +35,16 @@ Dessa principer är OBLIGATORISKA och gäller all kod som hanterar persondata:
 
 8. **"Det finns ju på Ratsit" är inget försvar.** BRF:en är självständig personuppgiftsansvarig. Att data publicerats av andra ger inte oss rätt att behandla den utan egen rättslig grund.
 
+## Boendefilosofi
+
+Systemets tonläge för allt som rör boende och grannrelationer:
+
+1. **Goda grannrelationer är normen.** Alla har valt att bo tillsammans. Systemet ska bygga på tillit, inte misstro.
+2. **Knacka på först.** Direkt dialog är alltid första steget vid störningar. Systemet ska aldrig göra det enklare att anmäla formellt än att prata med grannen.
+3. **Kontaktdelning uppmuntras.** Boende som delar telefonnummer möjliggör samtal/SMS istället för konfrontation. Frivilligt (GDPR opt-in) men uppmuntrat.
+4. **Formella processer är sista utvägen.** Störningsanmälan, varningar och eskalering finns som skyddsnät — inte som vardagsverktyg.
+5. **Störningar är ovanliga.** Designa inte för konflikter — designa för granngemenskap.
+
 ## Aktivitetsloggning (audit trail)
 
 Dessa principer är OBLIGATORISKA för alla tRPC-mutations som ändrar data:
