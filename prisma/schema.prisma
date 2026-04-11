@@ -130,7 +130,9 @@ model Building {
   energyRating        String?  // Energiklass (A-G)
   energyDeclarationExpiry DateTime? // Energideklaration giltig t.o.m.
 
-  apartments Apartment[]
+  apartments  Apartment[]
+  components  BuildingComponent[]
+  inspections Inspection[]
 }
 
 model Apartment {
@@ -1297,6 +1299,124 @@ model AuditQuestion {
   auditor       User      @relation("AuditQuestioner", fields: [auditorId], references: [id])
 
   @@index([auditorId])
+}
+
+// ============================================================
+// BUILDING COMPONENTS & INSPECTIONS (K3 underhållsplan)
+// ============================================================
+
+enum ComponentCondition {
+  GOOD
+  FAIR
+  POOR
+  CRITICAL
+}
+
+enum ComponentCategory {
+  ROOF              // Tak
+  FACADE            // Fasad
+  WINDOWS           // Fönster
+  PLUMBING          // Stammar/VVS
+  ELECTRICAL        // El
+  VENTILATION       // Ventilation
+  ELEVATOR          // Hiss
+  BALCONY           // Balkonger
+  FOUNDATION        // Grund
+  DRAINAGE          // Dränering
+  HEATING           // Värmesystem
+  COMMON_AREAS      // Gemensamma utrymmen
+  PARKING           // Garage/parkering
+  OUTDOOR           // Utemiljö
+  OTHER
+}
+
+model BuildingComponent {
+  id                String             @id @default(cuid())
+  buildingId        String
+  category          ComponentCategory
+  name              String             // "Yttertak — Hus A", "Stammar badrum"
+  installYear       Int?
+  expectedLifespan  Int?               // År
+  condition         ComponentCondition @default(GOOD)
+  lastInspectedAt   DateTime?
+  nextActionYear    Int?               // Planerat åtgärdsår
+  estimatedCost     Float?             // Beräknad åtgärdskostnad
+  notes             String?            @db.Text
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  building          Building           @relation(fields: [buildingId], references: [id])
+  inspections       Inspection[]
+
+  @@index([buildingId])
+  @@index([category])
+}
+
+enum InspectionType {
+  OVK               // Obligatorisk ventilationskontroll
+  ELEVATOR           // Hissbesiktning
+  FIRE_SAFETY        // Brandskydd (SBA)
+  ENERGY             // Energideklaration
+  RADON              // Radonmätning
+  PLAYGROUND         // Lekplatsbesiktning
+  CISTERN            // Cisternkontroll
+  COMPONENT          // Komponentbesiktning (kopplad till BuildingComponent)
+  OTHER
+}
+
+enum InspectionResult {
+  APPROVED
+  APPROVED_WITH_REMARKS
+  FAILED
+  PENDING
+}
+
+model Inspection {
+  id              String           @id @default(cuid())
+  buildingId      String
+  componentId     String?
+  type            InspectionType
+  scheduledAt     DateTime?
+  completedAt     DateTime?
+  result          InspectionResult @default(PENDING)
+  inspector       String?          // Namn/företag
+  certificateUrl  String?
+  nextDueAt       DateTime?        // Nästa besiktningsdatum
+  remarks         String?          @db.Text
+  createdAt       DateTime         @default(now())
+
+  building        Building         @relation(fields: [buildingId], references: [id])
+  component       BuildingComponent? @relation(fields: [componentId], references: [id])
+
+  @@index([buildingId])
+  @@index([type])
+  @@index([nextDueAt])
+}
+
+// ============================================================
+// CONTRACTORS (leverantörsregister)
+// ============================================================
+
+model Contractor {
+  id                String    @id @default(cuid())
+  name              String
+  orgNumber         String?
+  contactPerson     String?
+  phone             String?
+  email             String?
+  category          String    // PLUMBER, ELECTRICIAN, LOCKSMITH, PAINTER, CLEANING, etc.
+  contractStartDate DateTime?
+  contractEndDate   DateTime?
+  contractUrl       String?   // Avtalsdokument
+  pubAgreement      Boolean   @default(false) // PUB-avtal finns
+  pubAgreementDate  DateTime?
+  notes             String?   @db.Text
+  active            Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([category])
+  @@index([active])
 }
 
 // ============================================================

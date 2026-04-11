@@ -5,6 +5,7 @@ import { TRPCError } from "@trpc/server";
 import { Role } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 import { logPersonalDataAccess } from "@/lib/gdpr";
+import { logActivity } from "@/lib/audit";
 
 const BOARD_ROLES: Role[] = [
   Role.ADMIN, Role.BOARD_CHAIRPERSON, Role.BOARD_SECRETARY, Role.BOARD_TREASURER,
@@ -79,6 +80,21 @@ export const memberRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
       return ctx.db.user.update({ where: { id }, data });
+    }),
+
+  // Log CSV export (called by client before downloading)
+  logExport: protectedProcedure
+    .use(requirePermission("member:view_registry"))
+    .mutation(async ({ ctx }) => {
+      logPersonalDataAccess(ctx.user.id as string, "EXPORT_CSV");
+      logActivity({
+        userId: ctx.user.id as string,
+        action: "member.exportCsv",
+        entityType: "MemberRegistry",
+        entityId: "export",
+        description: "Exporterade medlemsregistret till CSV",
+      });
+      return { ok: true };
     }),
 
   addRole: protectedProcedure

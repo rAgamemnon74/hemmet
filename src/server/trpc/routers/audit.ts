@@ -2,6 +2,8 @@ import { z } from "zod";
 import { router, protectedProcedure, requirePermission } from "../trpc";
 import { submitAuditSchema, updateAuditSchema } from "@/lib/validators/annual-report";
 import { TRPCError } from "@trpc/server";
+import { logActivity } from "@/lib/audit";
+import { logPersonalDataAccess } from "@/lib/gdpr";
 
 export const auditRouter = router({
   getByReportId: protectedProcedure
@@ -94,5 +96,37 @@ export const auditRouter = router({
           email: true,
         },
       });
+    }),
+
+  // Export audit materials for external auditor
+  exportMaterials: protectedProcedure
+    .use(requirePermission("audit:perform"))
+    .input(z.object({ fiscalYear: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const [annualReport, expenses, meetings, decisions] = await Promise.all([
+        ctx.db.annualReport.findUnique({
+          where: { fiscalYear: input.fiscalYear },
+          include: { audit: true },
+        }),
+        ctx.db.expense.findMany({
+          where: { status: "PAID" },
+          select: { id: true, description: true, amount: true, category: true, submittedAt: true, approvedAt: true, paidAt: true },
+          orderBy: { paidAt: "desc" },
+        }),
+        ctx.db.meeting.findMany({
+          where: { status: "COMPLETED", type: "BOARD" },
+          select: { id: true, title: true, scheduledAt: true, _count: { select: { decisions: true } } },
+          orderBy: { scheduledAt: "desc" },
+        }),
+        ctx.db.decision.findMany({
+          select: { id: true, reference: true, title: true, decidedAt: true, method: true },
+          orderBy: { decidedAt: "desc" },
+        }),
+      ]);
+
+      logActivity({ userId: ctx.user.id as string, action: "audit.exportMaterials", entityType: "AuditExport", entityId: input.fiscalYear, description: `Exporterade revisionsunderlag för ${input.fiscalYear}` });
+      logPersonalDataAccess(ctx.user.id as string, "VIEW_REGISTRY", null, `audit-export:${input.fiscalYear}`);
+
+      return { annualReport, expenses, meetings, decisions, exportedAt: new Date() };
     }),
 });
