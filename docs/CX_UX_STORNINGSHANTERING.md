@@ -92,6 +92,37 @@ Systemet bör automatiskt resolva:
 
 ---
 
+## Vad som INTE är en störning
+
+### Normalt boendeljud
+
+Systemet måste aktivt informera om att normalt leverne inte är störning. Hyresnämnden avvisar konsekvent ärenden om:
+
+| Ljud | Störning? | Rätt kanal |
+|------|:---------:|-----------|
+| Barn som leker/springer | **Nej** | Barn har rätt att vara barn. Om ljudet hörs onormalt mycket → felanmälan om bristande ljudisolering |
+| Steg från övre våning | **Nej** | Byggnadstekniskt — felanmälan |
+| Matlagningsljud/-lukter | **Nej** | Normalt leverne |
+| Samtal i normal samtalston | **Nej** | Normalt leverne |
+| Toalettspol/dusch nattetid | **Nej** | Normalt leverne. Om ovanligt högt → felanmälan om stammar |
+| TV/musik på normal volym | **Nej** | Normalt leverne |
+| Pianospel under rimliga tider | **Gränsfall** | Beror på frekvens och tid — dialog först |
+| Hundskall dagligen i timmar | **Möjligen** | Om systematiskt och ägaren inte åtgärdar |
+| Fest varje helg kl 02-05 | **Ja** | Störningsanmälan |
+| Hotfullt beteende | **Ja** | Polis (akut) + störningsanmälan |
+| Renovering kl 22-07 | **Ja** | Bryter ordningsregler — störningsanmälan |
+
+### Systemstöd
+
+I störningssidans informationssektion visas:
+- "Normalt boendeljud är inte en störning"
+- Länk till felanmälan för byggnadstekniska problem (ljudisolering)
+- Exempel på vad som är/inte är störning
+
+**Designprincip:** Systemet ska aldrig göra det enkelt att formellt anmäla normalt barnljud. Istället ska det styra om till rätt kanal (felanmälan om byggnad, dialog med granne).
+
+---
+
 ## Anmälarmissbruk och mönsteranalys
 
 ### Varför logga anmälaren?

@@ -65,6 +65,16 @@ export default function DisturbancePage() {
             </p>
           </div>
 
+          <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
+            <h3 className="text-xs font-semibold text-blue-800">Normalt boendeljud är inte en störning</h3>
+            <p className="mt-1 text-sm text-blue-700">
+              Ljud från barn som leker, steg, samtal, matlagning och normalt leverne ingår i
+              flerfamiljsboende och utgör inte störning i juridisk mening. Om du upplever att
+              normala ljud hörs för mycket kan det bero på byggnadens ljudisolering — kontakta
+              styrelsen om en <a href="/boende/skadeanmalan/ny" className="underline font-medium">felanmälan</a> istället.
+            </p>
+          </div>
+
           <div>
             <h3 className="text-xs font-semibold text-gray-700 uppercase">Vad händer vid en formell anmälan?</h3>
             <div className="mt-2 space-y-1.5 text-sm text-gray-600">
