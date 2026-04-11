@@ -25,7 +25,9 @@ const statusColors: Record<string, string> = {
 };
 
 export default function DisturbancePage() {
+  const [showInfo, setShowInfo] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
   const [form, setForm] = useState({ type: "NOISE" as string, description: "", location: "" });
 
   const submit = trpc.disturbance.report.useMutation({
@@ -37,16 +39,67 @@ export default function DisturbancePage() {
       <h1 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
         <ShieldAlert className="h-6 w-6 text-amber-600" /> Störningsanmälan
       </h1>
-      <p className="text-sm text-gray-500 mb-6">
-        Anmäl störningar i boendet. Styrelsen hanterar ärendet enligt föreningens ordningsregler.
-      </p>
 
-      {!showForm ? (
-        <button onClick={() => setShowForm(true)}
-          className="mb-6 inline-flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700">
-          <Plus className="h-4 w-4" /> Ny anmälan
-        </button>
-      ) : (
+      {/* Akut-banner */}
+      <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3">
+        <p className="text-sm font-medium text-red-800">Vid akut fara — ring 112.</p>
+        <p className="text-xs text-red-600 mt-0.5">Hot, våld eller pågående brott hanteras av polisen, inte av styrelsen.</p>
+      </div>
+
+      {/* Information om processen */}
+      {showInfo && !showForm && (
+        <div className="mb-6 rounded-lg border border-gray-200 bg-white p-5 space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Innan du anmäler</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Utgångspunkten i vår förening är en god grannrelation. De flesta störningar beror på missförstånd
+              eller omedvetenhet och löser sig bäst genom ett direkt samtal med din granne.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="text-xs font-semibold text-gray-700 uppercase">Har du pratat med din granne?</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Ofta vet grannen inte om att de stör. Ett vänligt samtal löser i de flesta fall problemet
+              utan att styrelsen behöver involveras.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="text-xs font-semibold text-gray-700 uppercase">Vad händer vid en formell anmälan?</h3>
+            <div className="mt-2 space-y-1.5 text-sm text-gray-600">
+              <p>1. Styrelsen tar emot och utreder din anmälan.</p>
+              <p>2. Lägenhetsägaren kontaktas och informeras om störningen.</p>
+              <p>3. Om störningen fortsätter kan styrelsen utfärda en formell tillsägelse.</p>
+              <p>4. Upprepade störningar kan leda till varning med hänvisning till bostadsrättslagen.</p>
+              <p>5. I yttersta fall kan bostadsrätten förverkas.</p>
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              En formell anmälan är allvarlig och kan få konsekvenser för din granne. Använd den
+              när dialog inte fungerat — inte som första åtgärd.
+            </p>
+          </div>
+
+          <div className="border-t border-gray-100 pt-3">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)}
+                className="mt-0.5 rounded border-gray-300 text-amber-600 focus:ring-amber-500" />
+              <span className="text-sm text-gray-700">
+                Jag har försökt lösa situationen direkt med min granne, eller situationen är sådan
+                att direkt kontakt inte är möjlig/lämplig.
+              </span>
+            </label>
+          </div>
+
+          <button onClick={() => { if (confirmed) setShowForm(true); }}
+            disabled={!confirmed}
+            className="inline-flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed">
+            <Plus className="h-4 w-4" /> Gå vidare till anmälan
+          </button>
+        </div>
+      )}
+
+      {showForm && (
         <div className="mb-6 rounded-lg border border-gray-200 bg-white p-5 space-y-4">
           <h2 className="text-sm font-semibold text-gray-900">Anmäl störning</h2>
 
