@@ -67,7 +67,16 @@ type MeetingData = {
     proxyFor: string | null;
     user: { id: string; firstName: string; lastName: string; email: string };
   }>;
-  protocol: { id: string; content: string; signedAt: Date | null } | null;
+  protocol: {
+    id: string;
+    content: string;
+    status: string;
+    signedAt: Date | null;
+    signedBy: string[];
+    finalizedAt: Date | null;
+    finalizedBy: string | null;
+    archivedAt: Date | null;
+  } | null;
   decisions: Array<{
     id: string;
     reference: string;
@@ -387,6 +396,8 @@ export function MeetingDetail({
             meetingId={initialMeeting.id}
             protocol={initialMeeting.protocol}
             canEdit={canEdit}
+            meetingChairpersonId={initialMeeting.meetingChairpersonId}
+            adjusters={initialMeeting.adjusters}
           />
         )}
         {activeTab === "decisions" && (

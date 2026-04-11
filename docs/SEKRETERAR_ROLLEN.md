@@ -7,13 +7,90 @@
 - **Röstregistrering:** Under FINALIZING kan bara ordförande, sekreterare och justerare registrera röster
 - **Protokoll:** Kan skriva protokolltext (men vem som helst med `meeting:edit` kan det också)
 
+## Protokollets livscykel
+
+### Designprincip
+
+Alla styrelseledamöter kan bidra till protokollet (utkast). Sekreteraren äger slutbehandlingen. Ordförande och justerare signerar. Därefter är protokollet låst.
+
+### Flöde
+
+```
+1. UTKAST (DRAFT)
+   Alla styrelsemedlemmar kan redigera protokolltexten.
+   Mötesloggen (närvaro, beslut, röstresultat) autogenereras som underlag.
+   Sekreteraren sammanställer och redigerar.
+
+2. SLUTBEHANDLAT (FINALIZED)
+   Sekreteraren markerar protokollet som slutbehandlat.
+   → Protokollet låses för redigering av andra.
+   → Ordförande och justerare notifieras att signering krävs.
+   → Sekreteraren kan fortfarande göra mindre korrigeringar.
+
+3. SIGNERAT (SIGNED)
+   Ordförande signerar (digital bekräftelse).
+   Justerare signerar (digital bekräftelse).
+   → Alla signaturer registreras i Protocol.signedBy[] med tidsstämpel.
+   → Protocol.signedAt sätts till senaste signaturen.
+
+4. ARKIVERAT (ARCHIVED)
+   Protokollet är fullständigt justerat och låst.
+   → Ingen kan ändra, inte ens sekreteraren.
+   → Automatisk koppling till årsberättelse.
+   → Tillgängligt i dokumentarkivet.
+   → Protokolldeadline kontrolleras (BrfRules.protocolDeadlineWeeks).
+```
+
+### Datamodell (befintlig — utökas)
+
+```
+Protocol {
+  // Befintliga fält
+  content      String    // Protokolltext
+  signedBy     String[]  // Array av userId som signerat
+  signedAt     DateTime? // Senaste signering
+  pdfUrl       String?   // Genererad PDF
+
+  // Nya fält
+  status       ProtocolStatus  // DRAFT, FINALIZED, SIGNED, ARCHIVED
+  finalizedAt  DateTime?       // När sekreteraren slutbehandlade
+  finalizedBy  String?         // Sekreterarens userId
+  archivedAt   DateTime?       // När protokollet arkiverades
+}
+
+enum ProtocolStatus {
+  DRAFT       // Alla styrelsemedlemmar kan redigera
+  FINALIZED   // Sekreteraren har slutbehandlat — låst för andra
+  SIGNED      // Ordförande + justerare har signerat
+  ARCHIVED    // Fullständigt justerat och arkiverat
+}
+```
+
+### Behörighetsmatris per protokollstatus
+
+| Status | Sekreterare | Ordförande | Justerare | Övriga ledamöter |
+|--------|:-----------:|:----------:|:---------:|:----------------:|
+| DRAFT | Redigera | Redigera | Redigera | Redigera |
+| FINALIZED | Redigera (korrigeringar) | Signera | Signera | Läsa |
+| SIGNED | Läsa | Läsa | Läsa | Läsa |
+| ARCHIVED | Läsa | Läsa | Läsa | Läsa |
+
+### Kopplingar vid arkivering
+
+- **Årsberättelse:** Arkiverade protokoll kopplas automatiskt till rätt verksamhetsår
+- **Beslutslogg:** Beslut i protokollet är redan kopplade via Decision-modellen
+- **Dokumentarkiv:** Protokollet sparas som Document med kategori MEETING_PROTOCOL
+- **Notifiering:** Vid FINALIZED notifieras ordförande + justerare, vid ARCHIVED notifieras alla styrelsemedlemmar
+
 ## Kritiska brister
 
-### 1. Protokollsignering — databas klar, UI saknas
+### 1. Protokollsignering — databas delvis klar, UI och flöde saknas
 
 - `Protocol.signedBy[]` och `signedAt` finns i schemat men används aldrig
-- Ingen signeringsflöde: sekreterare skriver -> ordförande + justerare signerar
-- Ingen PDF-generering av protokoll
+- Protokollstatus (DRAFT → FINALIZED → SIGNED → ARCHIVED) saknas i schemat
+- Inget signeringsflöde i UI
+- Ingen låsning av protokoll efter slutbehandling
+- Ingen PDF-generering
 
 ### 2. Ingen sekreterar-specifik vy
 

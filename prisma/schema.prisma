@@ -598,15 +598,26 @@ model MeetingProxy {
   @@index([meetingId])
 }
 
+enum ProtocolStatus {
+  DRAFT         // Alla styrelsemedlemmar kan redigera
+  FINALIZED     // Sekreteraren har slutbehandlat — låst för andra
+  SIGNED        // Ordförande + justerare har signerat
+  ARCHIVED      // Fullständigt justerat, låst och arkiverat
+}
+
 model Protocol {
-  id        String    @id @default(cuid())
-  meetingId String    @unique
-  content   String    @db.Text
-  signedAt  DateTime?
-  signedBy  String[]
-  pdfUrl    String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id          String         @id @default(cuid())
+  meetingId   String         @unique
+  content     String         @db.Text
+  status      ProtocolStatus @default(DRAFT)
+  signedAt    DateTime?      // Senaste signering
+  signedBy    String[]       // Array av userId som signerat
+  finalizedAt DateTime?      // När sekreteraren slutbehandlade
+  finalizedBy String?        // Sekreterarens userId
+  archivedAt  DateTime?
+  pdfUrl      String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
 }
