@@ -51,6 +51,8 @@ model User {
   renovationApplications RenovationApplication[] @relation("RenovationApplicant")
   disturbanceReports  DisturbanceCase[]  @relation("DisturbanceReporter")
   bookings            Booking[]
+  conflictsOfInterest ConflictOfInterest[]
+  auditQuestions      AuditQuestion[]    @relation("AuditQuestioner")
 }
 
 model Session {
@@ -84,6 +86,9 @@ enum Role {
   BOARD_SUBSTITUTE
   BOARD_MEMBER
   AUDITOR
+  AUDITOR_SUBSTITUTE
+  NOMINATING_COMMITTEE
+  NOMINATING_COMMITTEE_CHAIR
   MEMBER
   RESIDENT
 }
@@ -467,21 +472,28 @@ model Meeting {
   attendances   MeetingAttendance[]
   protocol      Protocol?
   decisions     Decision[]
-  documents     Document[]      @relation("MeetingDocuments")
+  documents         Document[]      @relation("MeetingDocuments")
+  nominationPeriod  NominationPeriod?
   motions       Motion[]
   voterRegistry VoterRegistry?
   proxies       MeetingProxy[]
 }
 
 enum AgendaItemType {
-  OPENING          // Mötets öppnande
-  ATTENDANCE       // Närvarokontroll (styrelse) / Upprättande av röstlängd (stämma)
-  QUORUM_CHECK     // Behörighetsprövning — beslutförhet (styrelse) / behörig kallelse (stämma)
-  ELECT_CHAIR      // Val av mötesordförande
-  ELECT_SECRETARY  // Val av mötessekreterare
-  ELECT_ADJUSTERS  // Val av justerare
-  MOTIONS          // Visar kopplade motioner (årsmöte)
-  BOARD_MATTERS    // Visar inkomna ärenden — motioner + förslag (styrelsemöte)
+  OPENING                    // Mötets öppnande
+  ATTENDANCE                 // Närvarokontroll (styrelse) / Upprättande av röstlängd (stämma)
+  QUORUM_CHECK               // Behörighetsprövning — beslutförhet (styrelse) / behörig kallelse (stämma)
+  ELECT_CHAIR                // Val av mötesordförande
+  ELECT_SECRETARY            // Val av mötessekreterare
+  ELECT_ADJUSTERS            // Val av justerare
+  AUDIT_REPORT               // Revisionsberättelse — visar revisorns yttrande + rekommendation
+  DISCHARGE_VOTE             // Ansvarsfrihet — visar revisorns rekommendation, varnar vid DENY
+  BOARD_ELECTION             // Val av styrelseledamöter — visar valberedningens förslag
+  SUBSTITUTE_ELECTION        // Val av styrelsesuppleanter
+  AUDITOR_ELECTION           // Val av revisor
+  ELECT_NOMINATING_COMMITTEE // Val av valberedning
+  MOTIONS                    // Visar kopplade motioner (årsmöte)
+  BOARD_MATTERS              // Visar inkomna ärenden — motioner + förslag (styrelsemöte)
 }
 
 model AgendaItem {
@@ -1166,6 +1178,128 @@ model Booking {
 }
 
 // ============================================================
+// NOMINATIONS (valberedning)
+// ============================================================
+
+enum NominationPeriodStatus {
+  PLANNING          // Valberedningen förbereder
+  OPEN              // Nomineringsperiod öppen för medlemmar
+  CLOSED            // Nomineringsperiod stängd
+  PRESENTED         // Förslag presenterat
+}
+
+enum NominationPosition {
+  CHAIRPERSON       // Ordförande
+  BOARD_MEMBER      // Styrelseledamot
+  BOARD_SUBSTITUTE  // Styrelsesuppleant
+  AUDITOR           // Revisor
+  AUDITOR_SUBSTITUTE // Revisorssuppleant
+}
+
+enum NominationStatus {
+  PROPOSED          // Föreslagen av valberedning eller medlem
+  CONTACTED         // Valberedningen har kontaktat kandidaten
+  ACCEPTED          // Kandidaten accepterat
+  DECLINED          // Kandidaten avböjt
+  WITHDRAWN         // Dragit tillbaka
+  ELECTED           // Vald vid stämma
+  NOT_ELECTED       // Ej vald
+}
+
+model NominationPeriod {
+  id              String                  @id @default(cuid())
+  meetingId       String                  // Vilket årsmöte detta gäller
+  status          NominationPeriodStatus  @default(PLANNING)
+  chairpersonId   String?                 // Sammankallande
+  opensAt         DateTime?               // Nomineringsperiod öppnar
+  closesAt        DateTime?               // Sista dag
+  presentedAt     DateTime?               // När förslaget presenterades
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  meeting         Meeting                 @relation(fields: [meetingId], references: [id])
+  nominations     Nomination[]
+  memberNominations MemberNomination[]
+
+  @@unique([meetingId])
+}
+
+model Nomination {
+  id                  String           @id @default(cuid())
+  nominationPeriodId  String
+  position            NominationPosition
+  candidateId         String?          // userId (om befintlig medlem)
+  candidateName       String           // Namn (alltid, även om userId finns)
+  status              NominationStatus @default(PROPOSED)
+  source              String           @default("COMMITTEE") // COMMITTEE, MEMBER, SELF
+  motivation          String?          @db.Text
+  competenceAreas     String?          // Kompetensområden (fritext)
+  acceptedAt          DateTime?
+  declinedReason      String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  nominationPeriod    NominationPeriod @relation(fields: [nominationPeriodId], references: [id], onDelete: Cascade)
+
+  @@index([nominationPeriodId])
+  @@index([position])
+}
+
+model MemberNomination {
+  id                  String   @id @default(cuid())
+  nominationPeriodId  String
+  submittedById       String   // Medlemmen som föreslår
+  candidateId         String?  // Vem som föreslås (userId)
+  candidateName       String?  // Fritext om ej medlem
+  position            NominationPosition
+  motivation          String?  @db.Text
+  createdAt           DateTime @default(now())
+
+  nominationPeriod    NominationPeriod @relation(fields: [nominationPeriodId], references: [id], onDelete: Cascade)
+
+  @@index([nominationPeriodId])
+}
+
+// ============================================================
+// CONFLICT OF INTEREST REGISTRY (jävsregister)
+// ============================================================
+
+model ConflictOfInterest {
+  id              String   @id @default(cuid())
+  userId          String   // Styrelsemedlemmen
+  type            String   // BUSINESS, FAMILY, PROPERTY, OTHER
+  description     String   @db.Text // "Ägare av Bygg & Måler AB"
+  relatedEntity   String?  // Företagsnamn, person, lägenhetsnr
+  active          Boolean  @default(true)
+  registeredAt    DateTime @default(now())
+  deactivatedAt   DateTime?
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ============================================================
+// AUDIT QUESTIONS (löpande revision)
+// ============================================================
+
+model AuditQuestion {
+  id            String    @id @default(cuid())
+  auditorId     String    // Revisorn som ställer frågan
+  targetUserId  String?   // Riktad till (t.ex. kassör)
+  subject       String
+  question      String    @db.Text
+  answer        String?   @db.Text
+  answeredById  String?
+  answeredAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  auditor       User      @relation("AuditQuestioner", fields: [auditorId], references: [id])
+
+  @@index([auditorId])
+}
+
+// ============================================================
 // ANNOUNCEMENTS
 // ============================================================
 
@@ -1499,6 +1633,13 @@ model BrfRules {
 
   // Andrahandsuthyrning
   subletRequiresApproval   Boolean @default(true)
+
+  // Valberedning
+  nominatingCommitteeSize          Int     @default(3)
+  nominationPeriodWeeks            Int     @default(8)
+  nominationDeadlineBeforeMeeting  Int     @default(4) // Veckor före stämma
+  allowSelfNomination              Boolean @default(true)
+  allowMemberNomination            Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

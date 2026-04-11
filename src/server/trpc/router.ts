@@ -31,6 +31,7 @@ import { subletRouter } from "./routers/sublet";
 import { renovationRouter } from "./routers/renovation";
 import { disturbanceRouter } from "./routers/disturbance";
 import { bookingRouter } from "./routers/booking";
+import { nominationRouter } from "./routers/nomination";
 
 export const appRouter = router({
   meeting: meetingRouter,
@@ -65,6 +66,7 @@ export const appRouter = router({
   renovation: renovationRouter,
   disturbance: disturbanceRouter,
   booking: bookingRouter,
+  nomination: nominationRouter,
 });
 
 export type AppRouter = typeof appRouter;

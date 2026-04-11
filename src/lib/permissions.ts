@@ -46,6 +46,11 @@ export type Permission =
   // Membership applications
   | "application:submit"
   | "application:review"
+  // Nominations
+  | "nomination:view"
+  | "nomination:submit"
+  | "nomination:manage"
+  | "nomination:finalize"
   // Transfers
   | "transfer:create"
   | "transfer:review"
@@ -131,13 +136,37 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "annual:view",
     "annual_report:view",
     "audit:perform", "audit:view",
+    "meeting:view", "meeting:protocol",   // Förvaltningsrevision kräver protokollgranskning
+    "expense:view_all",                    // Kan inte revidera utan att se ekonomin
     "document:view_board",
     "announcement:view",
     "member:view_registry",
   ],
+  AUDITOR_SUBSTITUTE: [
+    "annual:view",
+    "annual_report:view",
+    "audit:view",
+    "meeting:view",
+    "document:view_board",
+    "announcement:view",
+    "member:view_registry",
+  ],
+  NOMINATING_COMMITTEE: [
+    "annual:view", "annual:vote",
+    "nomination:view", "nomination:manage",
+    "member:view_registry",
+    "announcement:view",
+  ],
+  NOMINATING_COMMITTEE_CHAIR: [
+    "annual:view", "annual:vote",
+    "nomination:view", "nomination:manage", "nomination:finalize",
+    "member:view_registry",
+    "announcement:view",
+  ],
   MEMBER: [
     "annual:view", "annual:vote",
     "motion:submit",
+    "nomination:view", "nomination:submit",
     "report:submit",
     "suggestion:submit",
     "announcement:view",

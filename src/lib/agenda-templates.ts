@@ -2,7 +2,7 @@ export type AgendaTemplate = {
   title: string;
   description?: string;
   duration?: number;
-  specialType?: "OPENING" | "ATTENDANCE" | "QUORUM_CHECK" | "ELECT_CHAIR" | "ELECT_SECRETARY" | "ELECT_ADJUSTERS" | "MOTIONS" | "BOARD_MATTERS";
+  specialType?: "OPENING" | "ATTENDANCE" | "QUORUM_CHECK" | "ELECT_CHAIR" | "ELECT_SECRETARY" | "ELECT_ADJUSTERS" | "AUDIT_REPORT" | "DISCHARGE_VOTE" | "BOARD_ELECTION" | "SUBSTITUTE_ELECTION" | "AUDITOR_ELECTION" | "ELECT_NOMINATING_COMMITTEE" | "MOTIONS" | "BOARD_MATTERS";
 };
 
 export const BOARD_MEETING_TEMPLATE: AgendaTemplate[] = [
@@ -31,16 +31,16 @@ export const ANNUAL_MEETING_TEMPLATE: AgendaTemplate[] = [
   { title: "Fråga om stämman blivit behörigen kallad", description: "Kallelse ska ha skickats senast 2 veckor före ordinarie stämma.", duration: 2, specialType: "QUORUM_CHECK" },
   { title: "Godkännande av dagordning", duration: 2 },
   { title: "Styrelsens årsredovisning", description: "Förvaltningsberättelse samt resultat- och balansräkning.", duration: 15 },
-  { title: "Revisionsberättelse", description: "Revisorn redogör för sin granskning.", duration: 10 },
+  { title: "Revisionsberättelse", description: "Revisorn redogör för sin granskning.", duration: 10, specialType: "AUDIT_REPORT" },
   { title: "Fastställande av resultat- och balansräkning", duration: 5 },
-  { title: "Fråga om ansvarsfrihet för styrelsen", description: "Stämman beslutar om styrelseledamöterna beviljas ansvarsfrihet.", duration: 5 },
+  { title: "Fråga om ansvarsfrihet för styrelsen", description: "Stämman beslutar om styrelseledamöterna beviljas ansvarsfrihet.", duration: 5, specialType: "DISCHARGE_VOTE" },
   { title: "Beslut om resultatdisposition", description: "Hantering av årets resultat (vinst eller förlust).", duration: 5 },
   { title: "Beslut om arvoden", description: "Arvoden för styrelse och revisor kommande verksamhetsår.", duration: 5 },
   { title: "Beslut om årsavgift och budget", description: "Styrelsens förslag till budget och eventuell avgiftsändring.", duration: 10 },
-  { title: "Val av styrelseledamöter", description: "Val av ordinarie ledamöter enligt stadgarna.", duration: 10 },
-  { title: "Val av styrelsesuppleanter", duration: 5 },
-  { title: "Val av revisor", description: "Val av revisor och eventuell revisorssuppleant.", duration: 5 },
-  { title: "Val av valberedning", duration: 5 },
+  { title: "Val av styrelseledamöter", description: "Val av ordinarie ledamöter enligt stadgarna.", duration: 10, specialType: "BOARD_ELECTION" },
+  { title: "Val av styrelsesuppleanter", duration: 5, specialType: "SUBSTITUTE_ELECTION" },
+  { title: "Val av revisor", description: "Val av revisor och eventuell revisorssuppleant.", duration: 5, specialType: "AUDITOR_ELECTION" },
+  { title: "Val av valberedning", duration: 5, specialType: "ELECT_NOMINATING_COMMITTEE" },
   { title: "Motioner", description: "Behandling av inkomna motioner från medlemmar. Motioner från verksamhetsåret kopplas automatiskt.", duration: 20, specialType: "MOTIONS" },
   { title: "Övriga ärenden", duration: 10 },
   { title: "Mötets avslutande", duration: 1 },
