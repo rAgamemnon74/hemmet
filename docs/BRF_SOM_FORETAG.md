@@ -359,32 +359,41 @@ En oäkta BRF kräver att driftlagret hanterar:
 | Investeringsavdrag | — | Avdragsgilla | Kostnadsfördelning |
 | Fastighetsskatt per enhet | Reducerad schablonmässigt | Per typ (bostad/lokal/garage) | Konfigurerbart |
 
-### Designprincip: Bygg för oäkta, skala av för äkta
+### Designprincip: Alla funktioner alltid tillgängliga
+
+Kommersiella funktioner (hyresavtal, fakturering, moms) döljs **inte** baserat på äkta/oäkta-status. En äkta BRF med en butikslokal i gatuplan behöver hyresavtal och fakturering lika mycket som en oäkta.
 
 ```
-Oäkta BRF (fullständig):
-    Hyresavtal: lokaler, garage, gästlägenhet
-    Hyresavisering: hyra + moms + tillägg + index
-    Momsredovisning: kvartalsvis
-    Resultaträkning: per enhet
-    Kommersiella hyresgäster: fullständigt register
-    ↓
-Äkta BRF (förenklad):
-    Hyresavtal: inaktivt / dolt
-    Hyresavisering: månadsavgift (ingen moms)
-    Momsredovisning: inaktivt
-    Resultaträkning: totalt (inte per enhet)
-    Kommersiella hyresgäster: inaktivt
+Alla BRF:er (oavsett status):
+    Hyresavtal: alltid tillgängligt (om commercialUnitsExist=true)
+    Hyresavisering: med moms om vatRegistered, utan annars
+    Momsredovisning: om vatRegistered=true
+    Resultaträkning: per enhet om kommersiella enheter finns
+    Kommersiella hyresgäster: om hyresavtal finns
+
+Äkta/oäkta-bevakning körs i bakgrunden:
+    → Varnar om andelen glider mot 40%-gränsen
+    → Kassör/ordförande ser på dashboard
+    → Ingen funktion blockeras — bara information
 ```
+
+**Notera:** En äkta BRF kan ha kommersiella lokaler, garage och andra externa intäkter — så länge de inte överstiger 40%. `isAuthentic` är därför inte en manuell konfiguration utan en **beräknad status** baserad på faktiska intäkter. Hyresavtal, fakturering och momshantering ska alltid vara tillgängliga — de behövs oavsett klassificering.
 
 Konfigureras via:
 ```
 BrfRules {
-  isAuthentic              Boolean @default(true)   // Äkta förening
+  // Beräknas automatiskt baserat på intäkter — kan manuellt överridas vid behov
+  authenticStatusOverride  String? @default(null)   // null = automatisk beräkning, "AUTHENTIC"/"INAUTHENTIC" = manuellt satt
   commercialUnitsExist     Boolean @default(false)  // Har kommersiella lokaler
   vatRegistered            Boolean @default(false)  // Momsregistrerad
   vatReportingPeriod       String? @default("QUARTERLY") // MONTHLY, QUARTERLY, YEARLY
 }
+```
+
+Systemet beräknar löpande:
+```
+Kvalificerade intäkter (bostäder) / Totala intäkter ≥ 60% → Äkta
+                                                    < 60% → Oäkta → Varning
 ```
 
 ---
@@ -510,10 +519,11 @@ Dashboard (kassör/ordförande):
 ### Skalning
 
 ```
-Liten äkta BRF:     Fas A (1-5) — räcker gott
-Medelstor äkta BRF:  Fas A (1-5) — räcker
-Stor äkta BRF:       Fas A (1-5) + eventuellt 12
-Oäkta BRF:           Fas A + Fas B (6-12) — allt behövs
+Liten BRF utan lokaler:          Fas A (1-5)
+Medelstor BRF utan lokaler:      Fas A (1-5)
+BRF med 1-2 lokaler (äkta):     Fas A + Fas B (7-8, 11)
+BRF med många lokaler (äkta):   Fas A + Fas B (6-12) + bevakning
+Oäkta BRF:                      Fas A + Fas B (6-12) — allt behövs + momsredovisning
 ```
 
 ---
@@ -526,6 +536,6 @@ BRF:en har två ansikten:
 
 Hemmet stödjer föreningssidan väl. Företagssidan saknas nästan helt. Delegationsmodellen är bryggan — den kopplar styrelsebeslut till operativ befogenhet med spårbarhet och gränser.
 
-**Designprincip:** Bygg för oäkta (det komplexa fallet). Äkta BRF:er använder samma system med kommersiella funktioner inaktiverade. En konfigurationsflagga (`BrfRules.isAuthentic`) styr vad som visas.
+**Designprincip:** Kommersiella funktioner (hyresavtal, fakturering, moms) är alltid tillgängliga — en äkta BRF med en butikslokal behöver dem lika mycket. Äkta/oäkta är en beräknad status, inte en konfigurationsväljare.
 
-**Bevakningsprincip:** Systemet beräknar löpande andelen kvalificerade intäkter och varnar om föreningen närmar sig oäkta-gränsen — innan det är för sent att agera.
+**Bevakningsprincip:** Systemet beräknar löpande andelen kvalificerade intäkter och varnar om föreningen närmar sig oäkta-gränsen — innan det är för sent att agera. Ingen funktion blockeras — bara information och varningar.
