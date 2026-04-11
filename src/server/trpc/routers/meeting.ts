@@ -5,6 +5,7 @@ import { getTemplate } from "@/lib/agenda-templates";
 import { getBrfRules } from "@/lib/rules";
 import { TRPCError } from "@trpc/server";
 import { logActivity } from "@/lib/audit";
+import { notifyRole } from "@/lib/notifications";
 
 export const meetingRouter = router({
   list: protectedProcedure
@@ -105,6 +106,10 @@ export const meetingRouter = router({
         });
       }
 
+      // Notify board members about new meeting
+      const typeLabel = input.type === "BOARD" ? "Styrelsemöte" : input.type === "ANNUAL" ? "Årsmöte" : "Extra stämma";
+      notifyRole("BOARD_CHAIRPERSON", { title: `Nytt möte: ${typeLabel}`, body: meeting.title, link: `/styrelse/moten/${meeting.id}` });
+
       return meeting;
     }),
 
@@ -155,6 +160,11 @@ export const meetingRouter = router({
         before: before as Record<string, unknown>,
         after: data as Record<string, unknown>,
       });
+
+      // Notify on key status changes
+      if (data.status === "SCHEDULED" && before) {
+        notifyRole("BOARD_MEMBER", { title: "Kallelse publicerad", body: before.title as string, link: `/styrelse/moten/${id}` });
+      }
 
       return result;
     }),

@@ -83,6 +83,7 @@ make help        # Visa alla kommandon
 | kassor@hemmet.se | Kassör |
 | forvaltning@hemmet.se | Förvaltningsansvarig |
 | miljo@hemmet.se | Miljöansvarig |
+| ledamot@hemmet.se | Ledamot |
 | suppleant@hemmet.se | Suppleant |
 | revisor@hemmet.se | Revisor |
 | medlem@hemmet.se | Medlem |

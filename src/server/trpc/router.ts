@@ -25,6 +25,8 @@ import { meetingLiveRouter } from "./routers/meeting-live";
 import { documentRouter } from "./routers/document";
 import { profileRouter } from "./routers/profile";
 import { transferRouter } from "./routers/transfer";
+import { dashboardRouter } from "./routers/dashboard";
+import { notificationRouter } from "./routers/notification";
 
 export const appRouter = router({
   meeting: meetingRouter,
@@ -53,6 +55,8 @@ export const appRouter = router({
   document: documentRouter,
   profile: profileRouter,
   transfer: transferRouter,
+  dashboard: dashboardRouter,
+  notification: notificationRouter,
 });
 
 export type AppRouter = typeof appRouter;

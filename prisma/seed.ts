@@ -154,11 +154,18 @@ async function main() {
       apartmentIndex: 3,
     },
     {
+      email: "ledamot@hemmet.se",
+      firstName: "Gustav",
+      lastName: "Ledamot",
+      roles: [Role.BOARD_MEMBER, Role.MEMBER],
+      apartmentIndex: 4,
+    },
+    {
       email: "suppleant@hemmet.se",
       firstName: "Eva",
       lastName: "Suppleant",
       roles: [Role.BOARD_SUBSTITUTE, Role.MEMBER],
-      apartmentIndex: 4,
+      apartmentIndex: 5,
     },
     {
       email: "revisor@hemmet.se",
@@ -445,6 +452,7 @@ async function main() {
   console.log("  kassor@hemmet.se         - Kassör");
   console.log("  forvaltning@hemmet.se    - Förvaltningsansvarig");
   console.log("  miljo@hemmet.se          - Miljöansvarig");
+  console.log("  ledamot@hemmet.se        - Ledamot");
   console.log("  suppleant@hemmet.se      - Suppleant");
   console.log("  revisor@hemmet.se        - Revisor");
   console.log("  medlem@hemmet.se         - Medlem");

@@ -3,6 +3,7 @@ import { router, protectedProcedure, requirePermission } from "../trpc";
 import { upsertProtocolSchema } from "@/lib/validators/meeting";
 import { TRPCError } from "@trpc/server";
 import { logActivity } from "@/lib/audit";
+import { notify, notifyMany } from "@/lib/notifications";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
 
@@ -193,6 +194,14 @@ export const protocolRouter = router({
         },
       });
       logActivity({ userId: ctx.user.id as string, action: "protocol.finalize", entityType: "Protocol", entityId: protocol.id, description: "Slutbehandlade protokollet", before: { status: "DRAFT" }, after: { status: "FINALIZED" } });
+
+      // Notify chairperson + adjusters that signing is needed
+      const meeting = await ctx.db.meeting.findUnique({ where: { id: input.meetingId }, select: { title: true, meetingChairpersonId: true, adjusters: true } });
+      if (meeting) {
+        const signers = [meeting.meetingChairpersonId, ...meeting.adjusters].filter(Boolean) as string[];
+        notifyMany(signers, { title: "Protokoll att signera", body: `Protokollet för ${meeting.title} är slutbehandlat och väntar på din signatur.`, link: `/styrelse/moten/${input.meetingId}` });
+      }
+
       return result;
     }),
 
