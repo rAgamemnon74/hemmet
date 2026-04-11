@@ -89,35 +89,80 @@ Antingen korrigerar... eller det eskalerar
 
 ---
 
-## Perspektiv 3: Lägenhetsägaren (vid andrahand)
+## Perspektiv 3: Ansvarskedjan vid andrahand
 
-### Resa
+### Grundprincip
+
+Föreningen har **ingen direkt relation** med andrahandshyresgästen. All kommunikation går via lägenhetsägaren (medlemmen). Hyresgästen (RESIDENT) har inga rättigheter i störningsprocessen gentemot föreningen.
+
+### Ansvarskedjan
 
 ```
-Ägaren har hyrt ut i andrahand
+Störning uppstår
     ↓
-Hyresgästen stör
+Vem stör? → Andrahandshyresgäst
     ↓
-Styrelsen kontaktar ÄGAREN (inte hyresgästen direkt)
-    → Ägaren är ansvarig för sin hyresgäst (BrfL 7:9)
+Föreningen har INGEN avtalsrelation med hyresgästen
+    → Kan inte kontakta hyresgästen direkt
+    → Kan inte varna hyresgästen
+    → Kan inte säga upp hyresgästen
     ↓
-Ägaren måste:
-    → Prata med hyresgästen
+Systemet identifierar:
+    → targetApartmentId → ApartmentOwnership → ägare (medlemmen)
+    → Aktiv SubletApplication? → JA → andrahandssituation
+    ↓
+ÄGAREN informeras av föreningen:
+    "Din lägenhet (2001) har anmälts för störning.
+     Lägenheten är uthyrd i andrahand.
+     Som bostadsrättsinnehavare är du ansvarig för
+     din hyresgästs beteende (BrfL 7 kap. 9 §)."
+    ↓
+Ägarens ansvar:
+    → Kontakta sin hyresgäst
+    → Säkerställa att störningen upphör
     → Eventuellt säga upp andrahandskontraktet
     → Rapportera tillbaka till styrelsen
     ↓
-Om ägaren inte agerar:
-    → Styrelsens nästa steg riktas mot ÄGAREN
-    → Kan leda till förverkande av bostadsrätten
+Om ägaren INTE agerar (eller störningen fortsätter):
+    → Eskalering riktas mot ÄGAREN, inte hyresgästen
+    → Tillsägelse → varning → styrelsebeslut → förverkande
+    → Det är ägarens bostadsrätt som förverkas
+    ↓
+Konsekvens vid förverkande:
+    → Ägaren förlorar bostadsrätten
+    → Andrahandskontraktet faller automatiskt
+    → Hyresgästen måste flytta
 ```
+
+### Tre scenarier
+
+| Scenario | Vem stör | Vem kontaktas | Vem riskerar |
+|----------|---------|:-------------:|:------------:|
+| Ägare bor själv | Ägaren | Ägaren | Ägaren |
+| Andrahand — hyresgäst stör | Hyresgästen | **Ägaren** | **Ägaren** |
+| Andrahand — ägare stör (t.ex. renoverar nattetid) | Ägaren | Ägaren | Ägaren |
+
+### Systemstöd som krävs
+
+| Steg | Systemlogik |
+|------|-------------|
+| 1. Identifiera andrahand | `targetApartmentId` → kolla `SubletApplication` med status ACTIVE |
+| 2. Hitta ägare | `ApartmentOwnership` med `active: true` → `userId` |
+| 3. Flagga i ärende | `isSubletSituation: true` + visa ägare + hyresgästens namn |
+| 4. Informera ägare | Notifiering till ägaren med explicit ansvarstext |
+| 5. Tidsgräns | Ägaren får X veckor att hantera hyresgästen |
+| 6. Eskalering | Om ingen åtgärd → varning till ägaren, inte hyresgästen |
 
 ### Behov som systemet inte tillgodoser
 
 | Behov | Status idag | Åtgärd |
 |-------|:----------:|--------|
-| **Koppla störning till lägenhetsägare, inte bara lägenhet** | targetApartmentId finns men ingen koppling till ägarskap | Resolve ägare via ApartmentOwnership + visa i ärendet |
-| **Skilja ägare från andrahandshyresgäst** | Ingen åtskillnad | Om SubletApplication finns aktiv → visa "Lägenheten är uthyrd i andrahand" |
-| **Spårbarhet** | Saknas | Koppla störningsärende till lägenhetens historik |
+| **Automatisk andrahandsdetektering** | Saknas — `isSubletSituation` finns men sätts inte automatiskt | Vid ärendeskapande: kolla om aktiv SubletApplication finns för targetApartment |
+| **Koppla till rätt ägare** | targetApartmentId finns men ingen resolution till ägare | Resolve ägare via ApartmentOwnership och visa i ärendet |
+| **Explicit ansvarstext till ägare** | Saknas — generisk notifiering | Mall: "Du är ansvarig för din hyresgästs beteende enligt BrfL 7:9" |
+| **Skilja ägare-stör vs hyresgäst-stör** | Ingen åtskillnad | Fält: "Vem orsakar störningen? (ägare/hyresgäst/okänt)" |
+| **Spåra ägarens respons** | Saknas | Fält: ägaren har vidtagit åtgärd (datum, beskrivning) |
+| **Koppling till andrahandsavtal** | Saknas | Länk till SubletApplication — styrelsen kan se avtalstid, hyresgästuppgifter |
 
 ---
 
