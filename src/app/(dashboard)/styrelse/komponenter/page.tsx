@@ -110,12 +110,16 @@ export default function ComponentRegistryPage() {
                 <Calendar className="h-4 w-4 text-blue-600" /> Underhållsplan — 30 år
               </h2>
               <div className="text-sm text-gray-500">
-                Total: <span className="font-bold text-gray-900">
-                  {allComponents.reduce((s, c) => s + (c.estimatedCost ?? 0), 0).toLocaleString("sv-SE")} kr
+                Uppskattad total: <span className="font-bold text-gray-900">
+                  ~{allComponents.reduce((s, c) => s + (c.estimatedCost ?? 0), 0).toLocaleString("sv-SE")} kr
                 </span>
+                <span className="text-xs text-gray-400 ml-1">({currentYear} års priser)</span>
               </div>
             </div>
           </div>
+          <p className="text-xs text-gray-400 mb-3">
+            Alla belopp är uppskattningar i {currentYear} års penningvärde. Faktisk kostnad påverkas av inflation, marknadspriser och åtgärdens omfattning.
+          </p>
           {componentsByYear.length === 0 ? (
             <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
               <p className="text-sm text-gray-500">Inga planerade åtgärder. Ange planerat åtgärdsår i registret.</p>
@@ -304,7 +308,7 @@ function BuildingSection({ building, onAddComponent, onUpdateComponent, onToggle
                                 className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs" />
                             </div>
                             <div>
-                              <label className="text-xs text-gray-500">Kostnad (kr)</label>
+                              <label className="text-xs text-gray-500">Uppskattad kostnad (kr)</label>
                               <input type="number" value={form.estimatedCost} onChange={(e) => setForm((f) => ({ ...f, estimatedCost: e.target.value }))}
                                 className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1 text-xs" />
                             </div>
@@ -373,7 +377,7 @@ function BuildingSection({ building, onAddComponent, onUpdateComponent, onToggle
                         <input type="number" value={form.nextActionYear} onChange={(e) => setForm((f) => ({ ...f, nextActionYear: e.target.value }))}
                           placeholder="Åtgärdsår" className="rounded-md border border-gray-300 px-2 py-1 text-xs" />
                         <input type="number" value={form.estimatedCost} onChange={(e) => setForm((f) => ({ ...f, estimatedCost: e.target.value }))}
-                          placeholder="Kostnad (kr)" className="rounded-md border border-gray-300 px-2 py-1 text-xs" />
+                          placeholder="Uppskattad kostnad (kr)" className="rounded-md border border-gray-300 px-2 py-1 text-xs" />
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => {
