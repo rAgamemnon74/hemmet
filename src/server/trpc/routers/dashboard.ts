@@ -244,9 +244,14 @@ export const dashboardRouter = router({
       }),
     ]);
 
-    // Check if user needs to sign annual report
+    // Annual report: signing needed or work in progress
     const annualReportToSign = annualReport?.status === "FINAL_UPLOADED" && !annualReport.allSigned
-      ? { id: annualReport.id, alreadySigned: false } // simplified — would need to check signedBy
+      ? { id: annualReport.id, type: "sign" as const }
+      : null;
+
+    // Annual report in progress (DRAFT or FINAL_UPLOADED) — relevant for board members
+    const annualReportInProgress = annualReport && ["DRAFT", "FINAL_UPLOADED"].includes(annualReport.status)
+      ? { id: annualReport.id, status: annualReport.status, fiscalYear: previousFiscalYear }
       : null;
 
     return {
@@ -265,6 +270,7 @@ export const dashboardRouter = router({
         protocolsToSign,
         tasks: myTasks,
         annualReportToSign,
+        annualReportInProgress,
       },
     };
   }),

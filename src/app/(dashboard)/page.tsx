@@ -8,7 +8,7 @@ import { sv } from "date-fns/locale";
 import {
   CalendarDays, AlertTriangle, CheckSquare, FileText, Receipt,
   ArrowRightLeft, Wrench, UserPlus, Loader2, ChevronDown,
-  PenLine, Key, Hammer, Clock,
+  PenLine, Key, Hammer, Clock, Plus, BookOpen, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
@@ -52,7 +52,7 @@ export default function DashboardPage() {
   const hasPersonalItems = personal && (
     personal.damageReports.length > 0 || personal.sublets.length > 0 ||
     personal.renovations.length > 0 || personal.protocolsToSign.length > 0 ||
-    personal.tasks.length > 0 || personal.annualReportToSign
+    personal.tasks.length > 0 || personal.annualReportToSign || personal.annualReportInProgress
   );
 
   return (
@@ -61,10 +61,26 @@ export default function DashboardPage() {
         Välkommen, {session?.user?.name?.split(" ")[0]}
       </h1>
 
-      {/* ═══ MITT JUST NU ═══ */}
-      {hasPersonalItems && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-5">
-          <h2 className="text-xs font-semibold text-blue-700 uppercase mb-3">Mitt just nu</h2>
+      {/* ═══ MITT JUST NU — alltid synlig ═══ */}
+      <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-semibold text-blue-700 uppercase">Mitt just nu</h2>
+          {/* Snabbåtgärder per roll */}
+          <div className="flex gap-2">
+            {hasPermission(userRoles, "meeting:create") && (
+              <Link href="/styrelse/moten/nytt" className="inline-flex items-center gap-1 rounded-md border border-blue-300 bg-white px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50">
+                <Plus className="h-3 w-3" /> Nytt möte
+              </Link>
+            )}
+            {hasPermission(userRoles, "report:submit") && (
+              <Link href="/boende/skadeanmalan/ny" className="inline-flex items-center gap-1 rounded-md border border-blue-300 bg-white px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50">
+                <Plus className="h-3 w-3" /> Felanmälan
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {personal && hasPersonalItems ? (
           <div className="space-y-2">
             {personal.protocolsToSign.map((p) => (
               <PersonalItem key={p.id} icon={PenLine} color="text-green-600"
@@ -72,9 +88,14 @@ export default function DashboardPage() {
                 href={`/styrelse/moten/${p.meetingId}?tab=protocol`} />
             ))}
             {personal.annualReportToSign && (
-              <PersonalItem icon={FileText} color="text-green-600"
+              <PersonalItem icon={PenLine} color="text-green-600"
                 label="Årsberättelse att signera"
                 href={`/styrelse/arsberattelse/${personal.annualReportToSign.id}`} />
+            )}
+            {personal.annualReportInProgress && !personal.annualReportToSign && (
+              <PersonalItem icon={BookOpen} color="text-blue-600"
+                label={`Årsberättelse ${personal.annualReportInProgress.fiscalYear} — ${personal.annualReportInProgress.status === "DRAFT" ? "under arbete" : "inväntar signering"}`}
+                href={`/styrelse/arsberattelse/${personal.annualReportInProgress.id}`} />
             )}
             {personal.tasks.map((t) => (
               <PersonalItem key={t.id} icon={CheckSquare}
@@ -100,8 +121,10 @@ export default function DashboardPage() {
                 detail={r.status} href="/boende/renovering" />
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-blue-600/60">Inga pågående ärenden — allt lugnt!</p>
+        )}
+      </div>
 
       {/* ═══ ÅRSHJULET ═══ */}
       {timeline && (
