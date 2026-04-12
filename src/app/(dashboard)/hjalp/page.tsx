@@ -152,21 +152,21 @@ OVK — Obligatorisk ventilationskontroll:
 • Intervall: var 3 år (FTX/FT-system) eller var 6 år (S-system/bostäder)
 • Utförs av: certifierad kontrollant
 • Vid underkänt: åtgärda inom angiven tid, annars kan kommunen förelägga
-• Mer info: boverket.se/ovk
+• Mer info: [Boverket — OVK](https://www.boverket.se/sv/byggande/halsa-och-inomhusmiljo/ventilation/ovk/)
 
 Hissbesiktning:
 • Lagkrav: Arbetsmiljöverkets föreskrifter AFS 2003:6 + AFS 2024:1
 • Intervall: årlig revisionsbesiktning + fördjupad besiktning var 6:e år
 • Utförs av: ackrediterat besiktningsföretag (KONE, Schindler, Otis, Cibes m.fl.)
 • Driftstopp vid underkänt tills åtgärdat
-• Mer info: av.se (Arbetsmiljöverket)
+• Mer info: [Arbetsmiljöverket — Hissar](https://www.av.se/halsa-och-sakerhet/maskiner-och-arbetsutrustning/hissar/)
 
 Brandskydd — Systematiskt brandskyddsarbete (SBA):
 • Lagkrav: Lagen om skydd mot olyckor (2003:778)
 • Krav: dokumenterad brandskyddsorganisation, utrymningsplan, regelbundna kontroller
 • Utförs av: styrelsen/fastighetsansvarig + brandskyddskonsult
 • Inkluderar: brandvarnare, brandsläckare, utrymningsskyltar, rökluckor, brandcellsgränser
-• Mer info: msb.se (Myndigheten för samhällsskydd och beredskap)
+• Mer info: [MSB — Systematiskt brandskyddsarbete](https://www.msb.se/sv/amnesomraden/skydd-mot-olyckor-och-farliga-amnen/brandskydd/)
 
 Energideklaration:
 • Lagkrav: Lag (2006:985) om energideklaration för byggnader
@@ -174,33 +174,33 @@ Energideklaration:
 • Utförs av: certifierad energiexpert
 • Ska finnas anslaget synligt i byggnaden
 • Ny EPBD-lagstiftning (EU) skärper kraven 2026
-• Mer info: boverket.se/energideklaration
+• Mer info: [Boverket — Energideklaration](https://www.boverket.se/sv/byggande/energideklaration/)
 
 Radonmätning:
 • Lagkrav: Miljöbalken (egenkontroll) + Strålsäkerhetsmyndighetens riktvärden
 • Riktvärde: max 200 Bq/m³ i bostäder
 • Intervall: mät vid misstanke eller om tidigare mätning saknas, samt efter ombyggnation
 • Utförs av: radonmätningsföretag (mätdosor under eldningssäsong, minst 2 mån)
-• Mer info: stralsakerhetsmyndigheten.se
+• Mer info: [Strålsäkerhetsmyndigheten — Radon](https://www.stralsakerhetsmyndigheten.se/omraden/radon/)
 
 Lekplatsbesiktning:
 • Krav: SS-EN 1176/1177 (produktsäkerhet) + PBL (underhållsansvar)
 • Intervall: årlig säkerhetsbesiktning + regelbunden tillsyn
 • Utförs av: certifierad lekplatsbesiktare
 • Ansvar: föreningen ansvarar för olyckor orsakade av bristande underhåll
-• Mer info: konsumentverket.se
+• Mer info: [Konsumentverket — Lekplatssäkerhet](https://www.konsumentverket.se/for-foretag/produktsakerhet/lekredskap/)
 
 Cisternkontroll (om föreningen har oljetank eller liknande):
 • Lagkrav: NFS 2021:10 (Naturvårdsverkets föreskrifter)
 • Intervall: var 6:e år (inomhus) eller var 12:e år (utomhus med korrosionsskydd)
 • Utförs av: ackrediterat företag
-• Mer info: naturvardsverket.se
+• Mer info: [Naturvårdsverket — Cisterner](https://www.naturvardsverket.se/vagledning-och-stod/cisterner/)
 
 Asbest (vid renovering av äldre fastigheter):
 • Lagkrav: AFS 2006:1 (Arbetsmiljöverket)
 • Krav: inventering före rivning/renovering i byggnader före 1979
 • Utförs av: certifierat laboratorium (provtagning) + sanering av specialistföretag
-• Mer info: av.se/asbest
+• Mer info: [Arbetsmiljöverket — Asbest](https://www.av.se/halsa-och-sakerhet/asbest/)
 
 **Underhållsplan:**
 Föreningen ska ha en underhållsplan (K3-krav från 2026). Den listar alla byggnadskomponenter med skick, livslängd och planerat åtgärdsår. Du ansvarar för att hålla den uppdaterad.
@@ -531,6 +531,20 @@ export default function HelpPage() {
   );
 }
 
+function renderHelpContent(content: string) {
+  // Split on **bold** and [text](url) patterns
+  const parts = content.split(/(\*\*.*?\*\*|\[.*?\]\(.*?\))/g);
+  return parts.map((part, i) => {
+    // Bold
+    const boldMatch = part.match(/^\*\*(.*?)\*\*$/);
+    if (boldMatch) return <strong key={i}>{boldMatch[1]}</strong>;
+    // Link
+    const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+    if (linkMatch) return <a key={i} href={linkMatch[2].startsWith("http") ? linkMatch[2] : `https://${linkMatch[2]}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">{linkMatch[1]}</a>;
+    return part;
+  });
+}
+
 function HelpAccordion({ section, isOpen, onToggle, highlight }: {
   section: HelpSection; isOpen: boolean; onToggle: () => void; highlight?: boolean;
 }) {
@@ -549,9 +563,7 @@ function HelpAccordion({ section, isOpen, onToggle, highlight }: {
       {isOpen && (
         <div className="px-4 py-4 border-t border-gray-100 bg-white">
           <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
-            {section.content.split(/\*\*(.*?)\*\*/g).map((part, i) =>
-              i % 2 === 1 ? <strong key={i}>{part}</strong> : part
-            )}
+            {renderHelpContent(section.content)}
           </div>
         </div>
       )}
