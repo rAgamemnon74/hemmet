@@ -302,6 +302,17 @@ Om du är sammankallande leder du valberedningens arbete:
 **Oberoende:**
 Valberedningen ska arbeta oberoende av styrelsen. Sittande styrelsemedlemmar ska inte styra vilka som nomineras. Om en styrelsemedlem försöker påverka — stå emot.
 
+**Externa valberedare:**
+I vissa föreningar — särskilt de anslutna till HSB eller Riksbyggen — kan en extern person sitta i valberedningen. Det kan vara en representant från moderorganisationen eller en person utanför föreningen som stämman valt. Fördelen med en extern är oberoendet — ingen personlig relation med kandidaterna. Nackdelen är att de kanske inte känner grannskapet lika väl. Externa valberedare har tillgång till systemet och ser medlemsregistret (namn och lägenhet) men inte personnummer eller ekonomisk data.
+
+**Externa styrelsekandidater:**
+Valberedningen kan i vissa fall föreslå personer som inte är medlemmar i föreningen som styrelseledamöter. Det kräver att stadgarna tillåter det (kontrollera i föreningens stadgar eller fråga ordförande). Några saker att tänka på:
+• Det är vanligare i HSB- och Riksbyggen-anslutna föreningar där moderorganisationen har reserverade poster
+• En extern ledamot kan tillföra professionell kompetens som saknas internt (ekonomi, juridik, teknik)
+• En extern ledamot har samma solidariska ansvar som alla andra styrelsemedlemmar
+• Föreningen kan ha en gräns för hur många externa som tillåts (se stadgarna)
+• En extern har inte alltid samma känsla för vad de boende behöver — balansera med interna kandidater
+
 **Vanliga misstag:**
 • Vänta för länge — börja arbeta direkt efter att ni valts, inte månaden före stämman
 • Bara fråga "vem vill?" — sök aktivt efter kompetens föreningen behöver
