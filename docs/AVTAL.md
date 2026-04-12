@@ -154,6 +154,29 @@ UTKAST → GRANSKNING → AKTIVT → UPPSÄGNINGSPERIOD → LÖPER UT / FÖRNYAT
 | Teknisk förvaltning | 1–3 år | 30 000–150 000 kr |
 | Revisionsavtal | 1 år (stämma väljer) | 10 000–40 000 kr |
 
+### Ramavtal (löpande avrop)
+
+Ramavtal är föreningen mest effektiva verktyg för att hantera löpande fastighetsskötsel. Avtalet upphandlas en gång med kända priser — sedan kan förvaltaren avropa direkt utan nytt styrelsebeslut per tillfälle.
+
+| Ramavtal | Typiskt innehåll | Avropstempo |
+|----------|-----------------|-------------|
+| VVS-jour | Timpris normal/jour, material med rabatt | Vid behov (5–15 ggr/år) |
+| Elektriker | Timpris, jour dygnet runt | Vid behov (3–10 ggr/år) |
+| Lås/säkerhet | Låsbyte fast pris, jour | Vid behov (2–5 ggr/år) |
+| Snickare | Timpris, vanliga reparationer fast pris | Vid behov |
+| Golvläggare | Per kvm, vanliga ytor | Vid behov |
+| Glasmästare | Per ruta, standardstorlekar | Vid behov |
+| Skadedjur | Fast pris per besök + årsinspektion | Kvartalsvis + akut |
+| Fastighetsjour | Månadskostnad + per utryckning | Löpande |
+
+**Karaktäristik:**
+- Upphandlas ordentligt (styrelsen godkänner, ibland 2–3 offerter)
+- Styrelsen sätter **årstak** (budget) — förvaltaren avropar fritt inom taket
+- Prislista med fasta priser eller avtalade timpriser
+- Inga nya beslut vid varje avrop — det är hela poängen
+- Avrop loggas automatiskt → kassören ser kostnadsuppbyggnad
+- Årstotalen rapporteras till styrelsen kvartalsvis/vid möte
+
 ### Projektavtal (tillfälliga)
 
 | Avtal | Period | Belopp |
@@ -213,11 +236,16 @@ model Contract {
   // Avtalsdokument
   documentUrl       String?         // Länk till signerat avtal i dokumentarkivet
   
+  // Avtalstyp
+  isFrameworkAgreement Boolean      @default(false) // Ramavtal med löpande avrop
+  annualCeiling     Float?          // Årstak för ramavtal (budget)
+  
   // Ekonomi
   annualCost        Float?          // Årskostnad (för budgetering)
   totalValue        Float?          // Totalt avtalsvärde
   currency          String          @default("SEK")
   paymentTerms      String?         // "Kvartalsvis i förskott"
+  paymentMethod     String?         // INVOICE, CARD, AUTOGIRO
   
   // Tidsperiod
   startDate         DateTime
@@ -260,6 +288,170 @@ model Contract {
   @@index([category])
   @@index([noticeDeadline])
 }
+
+// Avrop — löpande beställningar mot ramavtal
+model ContractCallOff {
+  id            String   @id @default(cuid())
+  contractId    String
+  
+  // Vad avropades
+  description   String              // "Akut VVS-reparation källare B"
+  
+  // Kopplingar
+  damageReportId String?            // Kopplad felanmälan
+  inspectionId   String?            // Kopplad besiktning
+  
+  // Ekonomi
+  estimatedCost Float?              // Förväntat (vid avrop)
+  actualCost    Float?              // Faktiskt (vid faktura)
+  expenseId     String?             // Kopplad utgift/faktura
+  
+  // Tid
+  calledOffAt   DateTime @default(now())  // När avropet gjordes
+  completedAt   DateTime?                  // När arbetet avslutades
+  
+  // Vem
+  calledOffById String              // Vem som avropade (normalt förvaltare)
+  
+  createdAt     DateTime @default(now())
+
+  contract      Contract @relation(fields: [contractId], references: [id])
+  calledOffBy   User     @relation(fields: [calledOffById], references: [id])
+
+  @@index([contractId])
+  @@index([calledOffAt])
+}
+```
+
+---
+
+## Ramavtal — effektiv fastighetsskötsel
+
+### Grundprincip
+
+```
+┌────────────────────────────────────────────────────────┐
+│                                                        │
+│  UPPHANDLING (en gång)                                 │
+│  Styrelsen upphandlar VVS-ramavtal: 3 offerter,        │
+│  jämförelse, beslut → Andersson VVS väljs.             │
+│                                                        │
+│  RAMAVTAL (2 år)                                       │
+│  Prislista:                                            │
+│    Timpris vardag 07–17: 650 kr/h                      │
+│    Timpris jour (kvällar, helg): 950 kr/h              │
+│    Material: listpris −15%                             │
+│    Akut utryckning: 1 500 kr startavgift               │
+│  Årstak: 100 000 kr (styrelsen godkänt)                │
+│                                                        │
+│  AVROP (löpande, förvaltare ringer)                    │
+│    → Avrop 1: Läcka lgh 2003 (3 h × 650 + material)   │
+│    → Avrop 2: Stopp kök lgh 1004 (1,5 h × 650)        │
+│    → Avrop 3: Jourutryckning ventil källare (950 × 2)  │
+│    → ...                                                │
+│  Totalt avropat hittills: 42 300 kr av 100 000 kr      │
+│                                                        │
+│  FAKTURA (kassören matchar)                            │
+│    Faktura från Andersson VVS: 18 750 kr               │
+│    → Matchar avrop 1 ✅                                │
+│    → Timpris stämmer med ramavtal ✅                   │
+│    → Inom årstak ✅                                    │
+│                                                        │
+└────────────────────────────────────────────────────────┘
+```
+
+### Vad förvaltaren ser
+
+```
+┌─ Ramavtal: VVS — Andersson VVS AB ────────────────────┐
+│                                                         │
+│  Status: Aktivt (t.o.m. 2027-12-31)                    │
+│  Årstak: 100 000 kr                                    │
+│  Avropat 2026: 42 300 kr (42%)                         │
+│  ████████░░░░░░░░░░░░░░░░ 42%                          │
+│                                                         │
+│  Prislista:                                             │
+│    Timpris vardag: 650 kr/h                             │
+│    Timpris jour: 950 kr/h                               │
+│    Material: listpris −15%                              │
+│    Startavgift jour: 1 500 kr                           │
+│                                                         │
+│  Senaste avrop:                                         │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │ 2026-04-10 Läcka källare B           18 750 kr   │  │
+│  │   → Felanmälan #142 · Faktura betald ✅          │  │
+│  │                                                    │  │
+│  │ 2026-03-15 Stopp kök lgh 1004           975 kr   │  │
+│  │   → Felanmälan #138 · Faktura betald ✅          │  │
+│  │                                                    │  │
+│  │ 2026-02-01 Jourutryckning ventil     12 400 kr   │  │
+│  │   → Felanmälan #131 · Faktura betald ✅          │  │
+│  └──────────────────────────────────────────────────┘  │
+│                                                         │
+│  [Nytt avrop]  [Visa prislista]  [Kontakta leverantör] │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Nytt avrop — förvaltarens vy
+
+```
+┌─ Nytt avrop — VVS Andersson ──────────────────────────┐
+│                                                         │
+│  Beskrivning: [Läcka i kök lgh 2003, under disk     ]  │
+│                                                         │
+│  Kopplad till:                                          │
+│  ● Felanmälan #142 — Vattenläcka källare B              │
+│  ○ Besiktning                                           │
+│  ○ Inget ärende (löpande underhåll)                     │
+│                                                         │
+│  Uppskattad kostnad: [15 000] kr                       │
+│  (Baserat på ramavtalspriser: ~3h vardag + material)    │
+│                                                         │
+│  Årstak: 100 000 kr                                    │
+│  Avropat hittills: 42 300 kr                           │
+│  Efter detta avrop: ~57 300 kr (57%)                    │
+│  ✅ Inom årstak                                        │
+│                                                         │
+│  [Registrera avrop]                                     │
+│                                                         │
+│  💡 Kontaktuppgifter:                                  │
+│  Anders Andersson: 073-456 7890                         │
+│  Jour: 08-123 456 (dygnet runt)                        │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Årstaksvarning
+
+```
+⚠ Avropet överskrider årstaktet!
+
+  Årstak: 100 000 kr
+  Avropat hittills: 92 000 kr
+  Detta avrop: ~15 000 kr
+  = 107 000 kr (107%)
+
+  Styrelsen måste godkänna överskridande.
+  [Registrera ändå — flagga för styrelsen]
+  [Avbryt — ta upp på styrelsemöte först]
+```
+
+### Kvartalsrapport till styrelsen
+
+```
+📊 Ramavtal — kvartalsrapport Q1 2026
+
+  VVS Andersson: 32 100 kr / 100 000 kr (32%)
+    4 avrop, snitt 8 025 kr
+    
+  El Johansson: 12 400 kr / 60 000 kr (21%)
+    2 avrop, snitt 6 200 kr
+    
+  Lås SafeLock: 4 800 kr / 25 000 kr (19%)
+    3 avrop, snitt 1 600 kr
+
+  Totalt avropat Q1: 49 300 kr
+  Årsbudget ramavtal: 185 000 kr
+  Förbrukningstakt: 27% (Q1 av 4 = 25%, i linje med budget)
 ```
 
 ---

@@ -32,6 +32,11 @@ type MockContract = {
   decisionRef?: string;
   pubAgreement: boolean;
   documentUrl?: string;
+  isFrameworkAgreement: boolean;
+  annualCeiling?: number;
+  calledOffAmount?: number;
+  callOffCount?: number;
+  paymentMethod?: string;
 };
 
 const categoryLabels: Record<string, string> = {
@@ -61,7 +66,7 @@ const MOCK_CONTRACTS: MockContract[] = [
     autoRenewal: true, renewalPeriodMonths: 24, noticePeriodMonths: 9,
     noticeDeadline: new Date("2026-03-31"),
     mandateLevel: "BOARD", decisionRef: "Styrelsemöte 2023-11-20, §12",
-    pubAgreement: false,
+    pubAgreement: false, isFrameworkAgreement: false,
   },
   {
     id: "c2", title: "Städning trapphus", category: "SERVICE", status: "ACTIVE",
@@ -70,7 +75,7 @@ const MOCK_CONTRACTS: MockContract[] = [
     autoRenewal: false, noticePeriodMonths: 3,
     noticeDeadline: new Date("2026-09-30"),
     mandateLevel: "BOARD", decisionRef: "Styrelsemöte 2024-10-15, §8",
-    pubAgreement: true,
+    pubAgreement: true, isFrameworkAgreement: false,
   },
   {
     id: "c3", title: "Trädgårdsskötsel", category: "SERVICE", status: "ACTIVE",
@@ -79,7 +84,7 @@ const MOCK_CONTRACTS: MockContract[] = [
     autoRenewal: true, renewalPeriodMonths: 12, noticePeriodMonths: 3,
     noticeDeadline: new Date("2027-07-31"),
     mandateLevel: "BOARD",
-    pubAgreement: false,
+    pubAgreement: false, isFrameworkAgreement: false,
   },
   {
     id: "c4", title: "Snöröjning", category: "SERVICE", status: "ACTIVE",
@@ -88,7 +93,7 @@ const MOCK_CONTRACTS: MockContract[] = [
     autoRenewal: true, renewalPeriodMonths: 12, noticePeriodMonths: 3,
     noticeDeadline: new Date("2027-01-31"),
     mandateLevel: "BOARD",
-    pubAgreement: false,
+    pubAgreement: false, isFrameworkAgreement: false,
   },
   {
     id: "c5", title: "Bredband", category: "UTILITY", status: "ACTIVE",
@@ -97,7 +102,7 @@ const MOCK_CONTRACTS: MockContract[] = [
     autoRenewal: true, renewalPeriodMonths: 12, noticePeriodMonths: 6,
     noticeDeadline: new Date("2026-03-31"),
     mandateLevel: "BOARD", decisionRef: "Styrelsemöte 2023-08-20, §5",
-    pubAgreement: false,
+    pubAgreement: false, isFrameworkAgreement: false,
   },
   {
     id: "c6", title: "Larm och bevakning", category: "SERVICE", status: "EXPIRING",
@@ -106,7 +111,7 @@ const MOCK_CONTRACTS: MockContract[] = [
     autoRenewal: false,
     noticeDeadline: null,
     mandateLevel: "BOARD",
-    pubAgreement: true,
+    pubAgreement: true, isFrameworkAgreement: false,
   },
   {
     id: "c7", title: "Fastighetsförsäkring", category: "INSURANCE", status: "ACTIVE",
@@ -115,7 +120,7 @@ const MOCK_CONTRACTS: MockContract[] = [
     autoRenewal: true, renewalPeriodMonths: 12, noticePeriodMonths: 1,
     noticeDeadline: new Date("2026-11-30"),
     mandateLevel: "BOARD",
-    pubAgreement: false,
+    pubAgreement: false, isFrameworkAgreement: false,
   },
   {
     id: "c8", title: "Styrelseförsäkring", category: "INSURANCE", status: "ACTIVE",
@@ -124,7 +129,7 @@ const MOCK_CONTRACTS: MockContract[] = [
     autoRenewal: true, renewalPeriodMonths: 12, noticePeriodMonths: 1,
     noticeDeadline: new Date("2026-11-30"),
     mandateLevel: "BOARD",
-    pubAgreement: false,
+    pubAgreement: false, isFrameworkAgreement: false,
   },
   {
     id: "c9", title: "Fastighetslån (räntebindning)", category: "FINANCIAL", status: "ACTIVE",
@@ -133,7 +138,7 @@ const MOCK_CONTRACTS: MockContract[] = [
     autoRenewal: false, noticePeriodMonths: 3,
     noticeDeadline: new Date("2027-02-28"),
     mandateLevel: "ANNUAL_MEETING", decisionRef: "Stämma 2024-05-22",
-    pubAgreement: false,
+    pubAgreement: false, isFrameworkAgreement: false,
   },
   {
     id: "c10", title: "Ekonomisk förvaltning", category: "MANAGEMENT", status: "ACTIVE",
@@ -142,7 +147,7 @@ const MOCK_CONTRACTS: MockContract[] = [
     autoRenewal: true, renewalPeriodMonths: 12, noticePeriodMonths: 6,
     noticeDeadline: new Date("2026-06-30"),
     mandateLevel: "BOARD",
-    pubAgreement: true,
+    pubAgreement: true, isFrameworkAgreement: false,
   },
   {
     id: "c11", title: "Fasadmålning Byggnad A", category: "PROJECT", status: "ACTIVE",
@@ -151,7 +156,41 @@ const MOCK_CONTRACTS: MockContract[] = [
     autoRenewal: false,
     noticeDeadline: null,
     mandateLevel: "ANNUAL_MEETING", decisionRef: "Stämma 2025-05-20",
-    pubAgreement: false,
+    pubAgreement: false, isFrameworkAgreement: false,
+  },
+  // Ramavtal
+  {
+    id: "c12", title: "Ramavtal VVS", category: "SERVICE", status: "ACTIVE",
+    counterpartyName: "Andersson VVS AB", counterpartyOrg: "556789-0123",
+    annualCost: null, startDate: new Date("2025-01-01"), endDate: new Date("2026-12-31"),
+    autoRenewal: true, renewalPeriodMonths: 12, noticePeriodMonths: 3,
+    noticeDeadline: new Date("2026-09-30"),
+    mandateLevel: "BOARD", decisionRef: "Styrelsemöte 2024-11-18, §9",
+    pubAgreement: false, isFrameworkAgreement: true,
+    annualCeiling: 100000, calledOffAmount: 42300, callOffCount: 4,
+    paymentMethod: "INVOICE",
+  },
+  {
+    id: "c13", title: "Ramavtal el", category: "SERVICE", status: "ACTIVE",
+    counterpartyName: "El-Johansson AB", counterpartyOrg: "556111-2222",
+    annualCost: null, startDate: new Date("2025-01-01"), endDate: new Date("2026-12-31"),
+    autoRenewal: true, renewalPeriodMonths: 12, noticePeriodMonths: 3,
+    noticeDeadline: new Date("2026-09-30"),
+    mandateLevel: "BOARD", decisionRef: "Styrelsemöte 2024-11-18, §9",
+    pubAgreement: false, isFrameworkAgreement: true,
+    annualCeiling: 60000, calledOffAmount: 12400, callOffCount: 2,
+    paymentMethod: "INVOICE",
+  },
+  {
+    id: "c14", title: "Ramavtal lås och säkerhet", category: "SERVICE", status: "ACTIVE",
+    counterpartyName: "SafeLock AB",
+    annualCost: null, startDate: new Date("2025-06-01"), endDate: new Date("2027-05-31"),
+    autoRenewal: false, noticePeriodMonths: 3,
+    noticeDeadline: new Date("2027-02-28"),
+    mandateLevel: "BOARD",
+    pubAgreement: false, isFrameworkAgreement: true,
+    annualCeiling: 25000, calledOffAmount: 4800, callOffCount: 3,
+    paymentMethod: "INVOICE",
   },
 ];
 
@@ -305,6 +344,11 @@ function ContractCard({ contract: c, expanded, onToggle }: {
                 <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", categoryColors[c.category])}>
                   {categoryLabels[c.category]}
                 </span>
+                {c.isFrameworkAgreement && (
+                  <span className="rounded-full bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-xs font-medium text-blue-600">
+                    Ramavtal
+                  </span>
+                )}
                 {c.pubAgreement && (
                   <span className="rounded-full bg-green-50 px-1.5 py-0.5 text-xs text-green-600 flex items-center gap-0.5">
                     <Shield className="h-3 w-3" /> PUB
@@ -314,7 +358,24 @@ function ContractCard({ contract: c, expanded, onToggle }: {
               <p className="text-xs text-gray-500 mt-0.5">
                 {c.counterpartyName}
                 {c.annualCost !== null && <span className="ml-2 text-gray-400">{formatCost(c.annualCost)}</span>}
+                {c.isFrameworkAgreement && c.annualCeiling && (
+                  <span className="ml-2 text-gray-400">Årstak: {c.annualCeiling.toLocaleString("sv-SE")} kr</span>
+                )}
               </p>
+              {c.isFrameworkAgreement && c.annualCeiling && c.calledOffAmount !== undefined && (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-full", (c.calledOffAmount / c.annualCeiling) > 0.8 ? "bg-amber-500" : "bg-blue-500")}
+                      style={{ width: `${Math.min(100, (c.calledOffAmount / c.annualCeiling) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-gray-400 shrink-0">
+                    {c.calledOffAmount.toLocaleString("sv-SE")} / {c.annualCeiling.toLocaleString("sv-SE")} kr
+                    ({Math.round((c.calledOffAmount / c.annualCeiling) * 100)}%)
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -389,8 +450,40 @@ function ContractCard({ contract: c, expanded, onToggle }: {
             )}
           </div>
 
+          {/* Framework agreement details */}
+          {c.isFrameworkAgreement && c.annualCeiling && (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-1.5">Ramavtal — avrop</h4>
+              <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-sm text-blue-700">Årstak: {c.annualCeiling.toLocaleString("sv-SE")} kr</span>
+                  <span className="text-sm font-medium text-blue-700">
+                    {c.calledOffAmount?.toLocaleString("sv-SE") ?? 0} kr avropat ({c.callOffCount ?? 0} avrop)
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-blue-100 overflow-hidden">
+                  <div
+                    className={cn("h-full rounded-full",
+                      (c.calledOffAmount ?? 0) / c.annualCeiling > 0.8 ? "bg-amber-500" : "bg-blue-500"
+                    )}
+                    style={{ width: `${Math.min(100, ((c.calledOffAmount ?? 0) / c.annualCeiling) * 100)}%` }}
+                  />
+                </div>
+                <p className="mt-1.5 text-xs text-blue-600">
+                  Kvar: {(c.annualCeiling - (c.calledOffAmount ?? 0)).toLocaleString("sv-SE")} kr
+                  ({Math.round(((c.annualCeiling - (c.calledOffAmount ?? 0)) / c.annualCeiling) * 100)}% av tak)
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex items-center gap-2 pt-2 border-t border-gray-50">
+            {c.isFrameworkAgreement && c.status === "ACTIVE" && (
+              <button className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700">
+                <Plus className="h-3 w-3" /> Nytt avrop
+              </button>
+            )}
             {(c.status === "RENEWAL_PENDING" || c.status === "EXPIRING" || urgency.level !== "ok") && (
               <>
                 <button className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700">
