@@ -7,7 +7,8 @@ import { format } from "date-fns";
 import { sv } from "date-fns/locale";
 import { ArrowLeft, Send, Lock, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { trpc } from "@/lib/trpc";
+import { trpc } from "@/lib/trpc"
+import { AttachmentSection } from "@/components/attachments";
 import { useSession } from "next-auth/react";
 import { hasPermission, isBoardMember } from "@/lib/permissions";
 import type { Role, ReportStatus, Severity } from "@prisma/client";
@@ -322,6 +323,11 @@ export function DamageReportDetail({ report }: { report: ReportData }) {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Bilagor */}
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <AttachmentSection entityType="DamageReport" entityId={report.id} canEdit={canManage} />
         </div>
       </div>
     </div>

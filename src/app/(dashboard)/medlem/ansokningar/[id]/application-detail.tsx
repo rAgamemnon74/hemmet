@@ -8,7 +8,8 @@ import { format } from "date-fns";
 import { sv } from "date-fns/locale";
 import { ArrowLeft, Check, X, AlertTriangle, Users, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { trpc } from "@/lib/trpc";
+import { trpc } from "@/lib/trpc"
+import { AttachmentSection } from "@/components/attachments";
 import { calculateTransferFee, getPriceBaseAmount } from "@/lib/fees";
 import type { ApplicationStatus } from "@prisma/client";
 
@@ -386,6 +387,10 @@ export function ApplicationDetail({ application: app }: { application: Applicati
               <p className="text-sm text-gray-500">Inga registrerade ägare</p>
             )}
           </div>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <AttachmentSection entityType="MembershipApplication" entityId={app.id} canEdit={canReview} />
         </div>
       </div>
     </div>

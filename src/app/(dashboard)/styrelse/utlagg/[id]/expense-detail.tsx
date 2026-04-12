@@ -7,7 +7,8 @@ import { format } from "date-fns";
 import { sv } from "date-fns/locale";
 import { ArrowLeft, Check, X, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { trpc } from "@/lib/trpc";
+import { trpc } from "@/lib/trpc"
+import { AttachmentSection } from "@/components/attachments";
 import { useSession } from "next-auth/react";
 import { hasPermission } from "@/lib/permissions";
 import type { Role, ExpenseStatus } from "@prisma/client";
@@ -210,6 +211,10 @@ export function ExpenseDetail({ expense }: { expense: ExpenseData }) {
             </button>
           </div>
         )}
+      </div>
+
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <AttachmentSection entityType="Expense" entityId={expense.id} canEdit={canApprove} />
       </div>
     </div>
   );

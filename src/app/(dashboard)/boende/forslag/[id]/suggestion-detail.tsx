@@ -7,7 +7,8 @@ import { format } from "date-fns";
 import { sv } from "date-fns/locale";
 import { ArrowLeft, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { trpc } from "@/lib/trpc";
+import { trpc } from "@/lib/trpc"
+import { AttachmentSection } from "@/components/attachments";
 import { useSession } from "next-auth/react";
 import { hasPermission } from "@/lib/permissions";
 import type { Role, ReportStatus } from "@prisma/client";
@@ -121,6 +122,10 @@ export function SuggestionDetail({ suggestion }: { suggestion: SuggestionData })
             </div>
           </div>
         )}
+
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <AttachmentSection entityType="Suggestion" entityId={suggestion.id} canEdit={false} />
+        </div>
       </div>
     </div>
   );

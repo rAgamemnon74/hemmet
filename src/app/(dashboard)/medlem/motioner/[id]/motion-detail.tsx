@@ -7,7 +7,8 @@ import { format } from "date-fns";
 import { sv } from "date-fns/locale";
 import { ArrowLeft, Send, Undo2, CheckCircle, Plus, FileText, Vote, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { trpc } from "@/lib/trpc";
+import { trpc } from "@/lib/trpc"
+import { AttachmentSection } from "@/components/attachments";
 import { useSession } from "next-auth/react";
 import { hasPermission } from "@/lib/permissions";
 import type { Role, MotionStatus, MotionRecommendation, MotionProposalSource } from "@prisma/client";
@@ -328,6 +329,10 @@ export function MotionDetail({ motion }: { motion: MotionData }) {
             </button>
           </div>
         )}
+
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <AttachmentSection entityType="Motion" entityId={motion.id} canEdit={canRespond} />
+        </div>
       </div>
     </div>
   );

@@ -9,7 +9,8 @@ import {
   CreditCard, Building2, User, FileText, Loader2, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { trpc } from "@/lib/trpc";
+import { trpc } from "@/lib/trpc"
+import { AttachmentSection } from "@/components/attachments";
 import { useSession } from "next-auth/react";
 import { hasPermission } from "@/lib/permissions";
 import type { Role } from "@prisma/client";
@@ -183,6 +184,11 @@ export default function TransferDetailPage() {
             </div>
           )}
         </Section>
+      </div>
+
+      {/* Attachments */}
+      <div className="rounded-lg border border-gray-200 bg-white p-4 mt-6">
+        <AttachmentSection entityType="TransferCase" entityId={id} canEdit={canReview} />
       </div>
 
       {/* Actions */}
