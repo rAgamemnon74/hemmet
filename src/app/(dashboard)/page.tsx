@@ -201,6 +201,10 @@ export default function DashboardPage() {
             <CountCard icon={Receipt} label="Utlägg att godkänna" count={chair.pendingExpenses} href="/styrelse/utlagg" color="amber" />
             <CountCard icon={ArrowRightLeft} label="Överlåtelser" count={chair.pendingTransfers} href="/styrelse/overlatelser" color="purple"
               alert={chair.overdueTransfers > 0 ? `${chair.overdueTransfers} försenade` : undefined} />
+            {chair.unownedApartments > 0 && (
+              <CountCard icon={AlertTriangle} label="Utan ägare" count={chair.unownedApartments} href="/medlem/lagenheter" color="red"
+                alert="Lägenheter utan registrerad ägare" />
+            )}
           </>
         )}
         {treasurer && !chair && (

@@ -83,7 +83,7 @@ export const dashboardRouter = router({
     const isChairperson = userRoles.includes(Role.BOARD_CHAIRPERSON) || userRoles.includes(Role.ADMIN);
     if (!isChairperson) return null;
 
-    const [pendingApplications, pendingExpenses, pendingTransfers, pendingMotions, overdueTransfers] = await Promise.all([
+    const [pendingApplications, pendingExpenses, pendingTransfers, pendingMotions, overdueTransfers, unownedApartments] = await Promise.all([
       ctx.db.membershipApplication.count({ where: { status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } }),
       ctx.db.expense.count({ where: { status: "SUBMITTED" } }),
       ctx.db.transferCase.count({ where: { status: { in: ["INITIATED", "MEMBERSHIP_REVIEW"] } } }),
@@ -94,9 +94,16 @@ export const dashboardRouter = router({
           createdAt: { lt: new Date(Date.now() - 4 * 7 * 24 * 60 * 60 * 1000) },
         },
       }),
+      // Lägenheter utan aktiv ägare
+      ctx.db.apartment.count({
+        where: {
+          type: "APARTMENT",
+          ownerships: { none: { active: true } },
+        },
+      }),
     ]);
 
-    return { pendingApplications, pendingExpenses, pendingTransfers, pendingMotions, overdueTransfers };
+    return { pendingApplications, pendingExpenses, pendingTransfers, pendingMotions, overdueTransfers, unownedApartments };
   }),
 
   // Kassör-specifik dashboard
