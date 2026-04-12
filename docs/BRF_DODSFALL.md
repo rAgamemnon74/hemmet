@@ -17,15 +17,63 @@ Ett dödsfall är en **ärendetyp** — inte en separat process. Det hanteras so
 | **Skatteverket** | Folkbokföring, dödsfallsintyg, bouppteckningsregistrering | Extern — offentlig handling |
 | **Tingsrätten** | Utser boutredningsman vid behov | Extern |
 
-## Dödsborepresentanter
+## Dödsborepresentant — EN kontaktperson
+
+### Grundprincip
+
+Ett dödsbo kan ha flera delägare (barn, make, syskon) men styrelsen hanterar **en kontaktperson**. Vem det är bestämmer dödsboet internt — det är inte styrelsens angelägenhet.
+
+```
+Dödsbo med 3 barn (Anna, Erik, Lisa):
+    → De bestämmer sinsemellan: "Lisa sköter kontakten med BRF:en"
+    → Styrelsen har EN kontaktperson: Lisa
+    → Alla frågor, avgifter, nycklar → Lisa
+
+Om de inte kan enas:
+    → Tingsrätten utser EN boutredningsman (jurist)
+    → Styrelsen kontaktar boutredningsmannen
+
+Oavsett scenario: styrelsen pratar med EN person.
+```
+
+### Vem kan vara kontaktperson?
 
 | Representant | Vanligast vid | Hur styrelsen kontaktar |
 |-------------|:------------:|------------------------|
 | Efterlevande make/maka | Gift par — bor ofta kvar | Redan känd |
 | Barn/barnbarn | Förälder avliden | Via bouppteckning eller den avlidnes kontakter |
 | Annan släkting | Inga barn/make | Via bouppteckning |
-| Boutredningsman (jurist) | Komplicerade dödsbon, tvister | Tingsrätten utser, kontaktas formellt |
+| Boutredningsman (jurist) | Komplicerade dödsbon, tvister | Tingsrätten utser |
 | God man | Omyndiga/sjuka arvingar | Överförmyndarnämnden |
+
+### Identitetsverifiering (personnummer)
+
+Styrelsen hanterar en tillgång värd potentiellt miljoner kronor. De **måste** verifiera att kontaktpersonen har rätt att företräda dödsboet.
+
+**Verifieringskedja:**
+```
+Kontaktperson uppger sitt personnummer
+    ↓
+Styrelsen begär bouppteckning från Skatteverket (offentlig handling)
+    ↓
+Bouppteckningen listar alla dödsbodelägare med personnummer
+    ↓
+Kontaktpersonens personnummer matchar bouppteckningen?
+    → JA → verifierad — registrera som kontaktperson
+    → NEJ → "Du finns inte i bouppteckningen"
+```
+
+**Rättslig grund för personnummer (GDPR Art. 6.1f + Dataskyddslagen 3:10):**
+- Berättigat intresse — skydda den avlidnes tillgångar
+- Klart motiverat — bostadsrättens ekonomiska värde
+- Nödvändigt — utan personnummer kan styrelsen inte verifiera mot bouppteckning
+
+**Personnumret i systemet:**
+- Lagras krypterat (`encrypt()` från `src/lib/crypto.ts`)
+- Visas maskerat i UI (`maskPersonalId()`)
+- Synligt fullständigt bara för ordförande/kassör
+- Åtkomst loggas (`logPersonalDataAccess`)
+- Gallras 3 månader efter ärendets avslutning
 
 ---
 
@@ -198,20 +246,25 @@ Styrelse → Ärenden
 
 ---
 
-## Systemstöd: Nya fält på User
+## Systemstöd: Fält på User
 
 ```
 User {
   // Befintliga exit-fält
-  exitedAt        DateTime?
-  exitReason      String?       // TRANSFER, EXCLUSION, VOLUNTARY, DEATH
-  exitDocumentId  String?       // Personbevis/dödsfallsintyg
+  exitedAt              DateTime?
+  exitReason            String?       // TRANSFER, EXCLUSION, VOLUNTARY, DEATH
+  exitDocumentId        String?       // Personbevis/dödsfallsintyg
 
-  // Nytt: dödsbo-kontakt (temporära, gallras efter ärendet)
-  estateContactName   String?   // "Lisa Svensson (dotter)"
-  estateContactPhone  String?
-  estateContactEmail  String?
+  // Dödsbo-kontaktperson (EN person, temporärt, gallras efter ärende)
+  estateContactName       String?     // "Lisa Svensson"
+  estateContactPersonalId String?     // Personnummer — krypterat, verifierat mot bouppteckning
+  estateContactPhone      String?
+  estateContactEmail      String?
+  estateContactRelation   String?     // "Dotter", "Son", "Boutredningsman"
 }
 ```
 
-Dödsbo-kontaktuppgifterna gallras automatiskt 3 månader efter att överlåtelsen slutförts (GDPR — temporär behandling, berättigat intresse under pågående ärende).
+**Gallring:**
+- Dödsbo-kontaktuppgifter (inkl. personnummer): 3 månader efter att ärendet avslutats
+- Den avlidnes persondata: 7 år efter utträde (bokföringslagen)
+- Namn + lägenhetshistorik: bevaras permanent

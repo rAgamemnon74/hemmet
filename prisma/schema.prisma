@@ -23,9 +23,11 @@ model User {
   exitedAt      DateTime?       // Utträdesdatum (medlem → ej längre medlem)
   exitReason    String?         // TRANSFER, EXCLUSION, VOLUNTARY, DEATH
   exitDocumentId String?        // Länk till scannat brev/beslut
-  estateContactName  String?    // Dödsbo-kontakt (gallras efter ärende)
-  estateContactPhone String?
-  estateContactEmail String?
+  estateContactName       String?    // Dödsbo-kontaktperson (EN person, gallras efter ärende)
+  estateContactPersonalId String?    // Personnummer — verifieras mot bouppteckning
+  estateContactPhone      String?
+  estateContactEmail      String?
+  estateContactRelation   String?    // "Dotter", "Son", "Boutredningsman" etc.
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
