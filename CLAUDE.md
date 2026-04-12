@@ -66,7 +66,7 @@ Dessa principer är OBLIGATORISKA för alla tRPC-mutations som ändrar data:
 - **Språk:** Svensk UI-text, svenska URL-sökvägar, all kod på engelska
 - **Routing:** Route groups `(auth)` och `(dashboard)` med svenska sökvägar
 - **Komponentmönster:** Server component (page.tsx) hämtar data via `serverTrpc()`, skickar till klient-komponent
-- **RBAC:** 15 roller, 62 permissions i `src/lib/permissions.ts`, kontrolleras via `requirePermission()` i tRPC-middleware
+- **RBAC:** 15 roller, 44 permissions i `src/lib/permissions.ts`, kontrolleras via `requirePermission()` i tRPC-middleware
 - **Validering:** Zod-schemas i `src/lib/validators/`, delade mellan klient och server
 - **Pengar:** Alltid `Decimal` (Prisma) / `Prisma.Decimal`, aldrig float
 - **Konfiguration:** Föreningsspecifika regler i `BrfRules`-modellen, hämtas via `getBrfRules()` från `src/lib/rules.ts`
@@ -109,14 +109,14 @@ make help        # Visa alla kommandon
 ## Nyckelkatalogstruktur
 
 ```
-prisma/schema.prisma           # Datamodell (48 entiteter, 20 migrationer)
+prisma/schema.prisma           # Datamodell (59 modeller, 45 enums)
 src/lib/permissions.ts          # RBAC (12 roller, 35+ permissions)
 src/lib/rules.ts                # BrfRules cache-hämtning
 src/lib/agenda-templates.ts     # Dagordningsmallar (styrelse/årsmöte/extra)
 src/lib/validators/             # Zod-schemas per modul
 src/server/trpc/trpc.ts         # tRPC-init med auth-context
 src/server/trpc/routers/        # 34 tRPC-routrar
-src/app/(dashboard)/            # Autentiserade sidor (46 routes)
+src/app/(dashboard)/            # Autentiserade sidor (55 routes)
 src/app/(auth)/                 # Login/register
 src/components/layout/          # Sidebar, topbar, mobilnav
 docs/gap-analysis.md            # Gapanalys stadgar vs plattform
@@ -126,7 +126,7 @@ docs/stadgar/                   # Nedladdade stadge-PDF:er
 
 ## Datamodell — huvudentiteter
 
-**Förening:** BrfSettings, BrfRules, Building, Apartment, ApartmentOwnership
+**Förening:** BrfSettings, BrfRules, Property, Building, Apartment, ApartmentOwnership
 **Användare:** User, UserRole, Session
 **Organisationer:** Organization, OrganizationRepresentative, OrganizationMandate
 **Medlemskap:** MembershipApplication (person + juridisk person)

@@ -163,14 +163,29 @@ Större integrationer och avancerade funktioner, planeras när grundplattformen 
 
 **Alla 40 fasplanerade leveranser implementerade.** 19 framtida förbättringar kvarstår.
 
-### Systemstatistik efter alla faser
+### Systemstatistik (aktuell)
 
 | Mått | Antal |
 |------|:-----:|
 | tRPC-routrar | 34 |
 | Roller | 15 |
-| Permissions | 62 |
-| Prisma-modeller | 48 |
-| Sidroutes | 46 |
-| Migrationer | 20 |
-| Analysdokument | 15 |
+| Permissions | 44 |
+| Prisma-modeller | 59 |
+| Prisma-enums | 45 |
+| Sidroutes | 55 |
+| Analysdokument | 21 |
+| Hjälpsektioner | 12 |
+
+### Tillagt efter fasplanen
+
+- Property-modell (fastighet → byggnad → komponent hierarki)
+- Förvaltningssektion med gap-analys, besiktningar, leverantörer
+- K3-komponentregister med 39 mallar och underhållsplan
+- Samlad ärendevy (8 ärendetyper i en lista)
+- Hjälpsida med rollspecifika guider
+- Dashboard med årshjul och profil integrerade
+- Dödsfall-, utträdes- och överlåtelseprocess
+- Störningshantering med boendefilosofi
+- Årsberättelse med PDF-signering
+- SMS-notifieringar
+- Laddinfrastruktur i K3-mallar

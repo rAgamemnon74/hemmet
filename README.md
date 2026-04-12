@@ -44,7 +44,7 @@ Digital plattform för svenska bostadsrättsföreningar (BRF). Stödjer styrelse
 | Framework | Next.js 16 (App Router) |
 | Språk | TypeScript |
 | Databas | PostgreSQL + Prisma 6 |
-| API | tRPC (34 routrar, end-to-end typsäkerhet) |
+| API | tRPC (34 routrar, end-to-end typsäkerhet, 59 modeller) |
 | Auth | NextAuth v5 (e-post + lösenord) |
 | UI | Tailwind CSS 4 |
 | Validering | Zod |
@@ -112,6 +112,23 @@ Djupanalyser av varje styrelseroll — nuläge i systemet, kritiska brister och 
 | [BRF-processer](docs/BRF_PROCESSER.md) | ~50 processer för små/medelstora/stora BRF:er, processkarta per roll, prioriteringsmatris med 15 utvecklingsområden |
 | [Styrelseroller och externa tjänster](docs/STYRELSEN_KRAV.md) | 8 styrelseroller med delegerade tjänster, integrationsmatris, gap-analys, 10 juridiska fallgropar (jäv, felaktigt nekade medlemskap, eftersatt underhåll m.m.) |
 
+### CX/UX-analyser
+
+| Dokument | Innehåll |
+|----------|----------|
+| [Styrelsemöte CX/UX](docs/CX_UX_STYRELSEMOTE.md) | Komplett mötesresa: före, under, efter — 12 prioriterade förbättringar |
+| [Flödesanalys](docs/CX_UX_FLODEN.md) | 7 användarresor kartlagda, saknade UI-sidor identifierade |
+| [Störningshantering](docs/CX_UX_STORNINGSHANTERING.md) | Alla 7 perspektiv, ansvarskedja vid andrahand, anmälarmissbruk |
+| [Årshjulet](docs/CX_UX_ARSHJUL.md) | Vertikal tvåspårig tidslinje integrerad i dashboard |
+
+### Organisationsanalyser
+
+| Dokument | Innehåll |
+|----------|----------|
+| [BRF som företag](docs/BRF_SOM_FORETAG.md) | Styrning vs drift, operativa roller, äkta/oäkta, hyresavtal, personal |
+| [Dödsfall](docs/BRF_DODSFALL.md) | Process, verifiering, dödsborepresentant, ärendetyp |
+| [Överlåtelseprocess](docs/OVERLATELSE_PROCESS.md) | 7 överlåtelsetyper, 5-stegs BRF-process, TransferCase-modell |
+
 ### Stadgeanalys
 
 | Dokument | Innehåll |
@@ -124,13 +141,14 @@ Djupanalyser av varje styrelseroll — nuläge i systemet, kritiska brister och 
 ```
 hemmet/
 ├── prisma/
-│   ├── schema.prisma        # 48 entiteter, 20 migrationer
+│   ├── schema.prisma        # 59 modeller, 45 enums
 │   └── seed.ts               # 10 testanvändare + testdata
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/           # Login, register
-│   │   ├── (dashboard)/      # 46 autentiserade sidor
-│   │   │   ├── styrelse/     # Möten, ärenden, beslut, utlägg, årsberättelse, dokument
+│   │   ├── (dashboard)/      # 55 autentiserade sidor
+│   │   │   ├── styrelse/     # Möten, ärenden, beslut, utlägg, årsberättelse, överlåtelser, dokument
+│   │   │   ├── forvaltning/ # Komponentregister, besiktningar, leverantörer, gap-analys
 │   │   │   ├── boende/       # Felanmälan, förslag
 │   │   │   ├── medlem/       # Motioner, register, lägenheter, ansökningar, organisationer
 │   │   │   ├── revision/     # Årsrevision
@@ -141,7 +159,7 @@ hemmet/
 │   │   ├── auth.ts
 │   │   └── db.ts
 │   ├── lib/
-│   │   ├── permissions.ts    # 15 roller, 62 permissions
+│   │   ├── permissions.ts    # 15 roller, 44 permissions
 │   │   ├── rules.ts          # BrfRules cache
 │   │   ├── agenda-templates.ts
 │   │   └── validators/       # Zod-schemas
