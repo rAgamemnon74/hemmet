@@ -6,6 +6,8 @@ import { sv } from "date-fns/locale";
 import { ShieldAlert, Plus, Loader2, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
+import { AttachmentInput, type PendingAttachment } from "@/components/attachment-input";
+import { useAttachmentSubmitter } from "@/lib/use-create-with-attachments";
 
 const typeLabels: Record<string, string> = {
   NOISE: "Buller", SMOKE: "Rök/lukt", THREATS: "Hot/otrygghet",
@@ -29,9 +31,16 @@ export default function DisturbancePage() {
   const [showForm, setShowForm] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [form, setForm] = useState({ type: "NOISE" as string, description: "", location: "" });
+  const { submitAttachments } = useAttachmentSubmitter();
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
 
   const submit = trpc.disturbance.report.useMutation({
-    onSuccess: () => { setShowForm(false); setForm({ type: "NOISE", description: "", location: "" }); },
+    onSuccess: async (result) => {
+      if (attachments.length > 0) {
+        await submitAttachments("DisturbanceCase", result.id, attachments);
+      }
+      setShowForm(false); setForm({ type: "NOISE", description: "", location: "" }); setAttachments([]);
+    },
   });
 
   return (
@@ -133,6 +142,8 @@ export default function DisturbancePage() {
               placeholder="T.ex. Lägenhet 2001, trapphus B, innergården..."
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm" />
           </div>
+
+          <AttachmentInput attachments={attachments} onChange={setAttachments} />
 
           <div className="flex gap-2">
             <button onClick={() => submit.mutate({ type: form.type as never, description: form.description, location: form.location || undefined })}

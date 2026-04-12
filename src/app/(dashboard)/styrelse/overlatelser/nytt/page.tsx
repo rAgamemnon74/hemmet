@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRightLeft, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { AttachmentInput, type PendingAttachment } from "@/components/attachment-input";
+import { useAttachmentSubmitter } from "@/lib/use-create-with-attachments";
 
 const typeLabels: Record<string, string> = {
   SALE: "Försäljning (via mäklare)",
@@ -18,6 +20,8 @@ const typeLabels: Record<string, string> = {
 
 export default function NewTransferPage() {
   const router = useRouter();
+  const { submitAttachments } = useAttachmentSubmitter();
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [form, setForm] = useState({
     apartmentId: "", type: "SALE" as string, accessDate: "",
     contractDate: "", transferPrice: "",
@@ -26,7 +30,12 @@ export default function NewTransferPage() {
 
   const apartmentsQuery = trpc.member.getApartments.useQuery();
   const create = trpc.transfer.create.useMutation({
-    onSuccess: (data) => router.push(`/styrelse/overlatelser/${data.id}`),
+    onSuccess: async (data) => {
+      if (attachments.length > 0) {
+        await submitAttachments("TransferCase", data.id, attachments);
+      }
+      router.push(`/styrelse/overlatelser/${data.id}`);
+    },
   });
 
   const apartments = apartmentsQuery.data ?? [];
@@ -95,6 +104,8 @@ export default function NewTransferPage() {
             </div>
           </div>
         </div>
+
+        <AttachmentInput attachments={attachments} onChange={setAttachments} />
 
         <div className="flex gap-2 pt-2">
           <button onClick={() => create.mutate({

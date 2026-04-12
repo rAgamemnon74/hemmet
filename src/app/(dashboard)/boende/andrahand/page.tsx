@@ -7,6 +7,8 @@ import { Key, Plus, Loader2, CheckCircle, XCircle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import { useSession } from "next-auth/react";
+import { AttachmentInput, type PendingAttachment } from "@/components/attachment-input";
+import { useAttachmentSubmitter } from "@/lib/use-create-with-attachments";
 
 const statusLabels: Record<string, string> = {
   SUBMITTED: "Inskickad", UNDER_REVIEW: "Granskas", APPROVED: "Godkänd",
@@ -22,11 +24,18 @@ export default function SubletPage() {
   const { data: session } = useSession();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ reason: "", startDate: "", endDate: "", tenantName: "", tenantEmail: "", tenantPhone: "" });
+  const { submitAttachments } = useAttachmentSubmitter();
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
 
   const rulesQuery = trpc.brfRules.get.useQuery();
   const profileQuery = trpc.profile.get.useQuery();
   const listQuery = trpc.sublet.list.useQuery(undefined, { enabled: false });
-  const submit = trpc.sublet.submit.useMutation({ onSuccess: () => { setShowForm(false); setForm({ reason: "", startDate: "", endDate: "", tenantName: "", tenantEmail: "", tenantPhone: "" }); } });
+  const submit = trpc.sublet.submit.useMutation({ onSuccess: async (result) => {
+    if (attachments.length > 0) {
+      await submitAttachments("SubletApplication", result.id, attachments);
+    }
+    setShowForm(false); setForm({ reason: "", startDate: "", endDate: "", tenantName: "", tenantEmail: "", tenantPhone: "" }); setAttachments([]);
+  } });
 
   const rules = rulesQuery.data;
   const profile = profileQuery.data;
@@ -106,6 +115,8 @@ export default function SubletPage() {
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm" />
             </div>
           </div>
+
+          <AttachmentInput attachments={attachments} onChange={setAttachments} />
 
           <div className="flex gap-2">
             <button onClick={() => {

@@ -6,11 +6,20 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { EXPENSE_CATEGORIES } from "@/lib/validators/expense";
+import { AttachmentInput, type PendingAttachment } from "@/components/attachment-input";
+import { useAttachmentSubmitter } from "@/lib/use-create-with-attachments";
 
 export default function NewExpensePage() {
   const router = useRouter();
+  const { submitAttachments } = useAttachmentSubmitter();
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const createExpense = trpc.expense.create.useMutation({
-    onSuccess: (expense) => router.push(`/styrelse/utlagg/${expense.id}`),
+    onSuccess: async (expense) => {
+      if (attachments.length > 0) {
+        await submitAttachments("Expense", expense.id, attachments);
+      }
+      router.push(`/styrelse/utlagg/${expense.id}`);
+    },
   });
 
   const [form, setForm] = useState({
@@ -99,6 +108,8 @@ export default function NewExpensePage() {
             </select>
           </div>
         </div>
+
+        <AttachmentInput attachments={attachments} onChange={setAttachments} />
 
         <div className="flex justify-end gap-3 pt-2">
           <Link

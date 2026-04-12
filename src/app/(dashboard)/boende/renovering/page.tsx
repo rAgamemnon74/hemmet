@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Hammer, Plus, Loader2, CheckCircle } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { AttachmentInput, type PendingAttachment } from "@/components/attachment-input";
+import { useAttachmentSubmitter } from "@/lib/use-create-with-attachments";
 
 const typeLabels: Record<string, string> = {
   KITCHEN: "Kök", BATHROOM: "Badrum", FLOORING: "Golv", WALLS: "Väggar",
@@ -16,10 +18,17 @@ export default function RenovationPage() {
     affectsPlumbing: false, affectsElectrical: false, affectsVentilation: false,
     plannedStartDate: "", plannedEndDate: "", estimatedCost: "",
   });
+  const { submitAttachments } = useAttachmentSubmitter();
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
 
   const profileQuery = trpc.profile.get.useQuery();
   const submit = trpc.renovation.submit.useMutation({
-    onSuccess: () => { setShowForm(false); },
+    onSuccess: async (result) => {
+      if (attachments.length > 0) {
+        await submitAttachments("RenovationApplication", result.id, attachments);
+      }
+      setShowForm(false); setAttachments([]);
+    },
   });
 
   const profile = profileQuery.data;
@@ -98,6 +107,8 @@ export default function RenovationPage() {
               placeholder="Valfritt"
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm" />
           </div>
+
+          <AttachmentInput attachments={attachments} onChange={setAttachments} />
 
           <div className="flex gap-2">
             <button onClick={() => {
