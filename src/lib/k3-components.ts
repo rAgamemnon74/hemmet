@@ -67,6 +67,9 @@ export const K3_COMPONENT_TEMPLATES: ComponentTemplate[] = [
   // Garage/parkering
   { category: "PARKING", name: "Garage — betongdäck", typicalLifespan: 40, description: "Betongdäck, membran, avvattning" },
   { category: "PARKING", name: "Garageport", typicalLifespan: 20, description: "Garageport med motor och styrning" },
+  { category: "PARKING", name: "Laddinfrastruktur — ledning/kabelstegar", typicalLifespan: 30, description: "Tomrör, kabelstegar, elmatning till parkeringsplatser. Krav vid nybyggnation (BBR) och >20 platser." },
+  { category: "PARKING", name: "Laddstolpar/laddboxar", typicalLifespan: 10, description: "Laddpunkter för elfordon. Lastbalansering, mätning, underhåll." },
+  { category: "PARKING", name: "Lastbalanseringssystem", typicalLifespan: 8, description: "Smart styrning som fördelar tillgänglig effekt mellan laddpunkter." },
 
   // Utemiljö
   { category: "OUTDOOR", name: "Asfaltytor", typicalLifespan: 25, description: "Parkering, gångvägar" },

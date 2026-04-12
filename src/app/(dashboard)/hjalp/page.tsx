@@ -202,6 +202,14 @@ Asbest (vid renovering av äldre fastigheter):
 • Utförs av: certifierat laboratorium (provtagning) + sanering av specialistföretag
 • Mer info: [Arbetsmiljöverket — Asbest](https://www.av.se/halsa-och-sakerhet/asbest/)
 
+Laddinfrastruktur (elfordon):
+• Lagkrav: BBR kräver ledningsinfrastruktur vid nybyggnation och större renovering
+• Befintliga byggnader med >20 parkeringsplatser: minst en laddpunkt krävs
+• Planera för: effektkapacitet (räcker elen?), lastbalansering, individuell mätning
+• Kostnadsfördelning: styrelsen beslutar — gemensam investering eller individuell kostnad
+• Livslängd: infrastruktur ~30 år, laddboxar ~10 år, lastbalansering ~8 år
+• Mer info: [Boverket — Laddning av elfordon](https://www.boverket.se/sv/byggande/regler-for-byggande/)
+
 **Underhållsplan:**
 Föreningen ska ha en underhållsplan (K3-krav från 2026). Den listar alla byggnadskomponenter med skick, livslängd och planerat åtgärdsår. Du ansvarar för att hålla den uppdaterad.
 
