@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import type { Role } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
+import { ProfileSection } from "@/components/dashboard/profile-section";
 
 const statusIcon: Record<string, string> = {
   DONE: "●", ACTIVE: "◉", UPCOMING: "○", WARNING: "◉", OVERDUE: "●",
@@ -195,19 +196,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Non-board: enkla ingångar */}
-      {!isBoard && !timelineQuery.isLoading && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Link href="/min-sida" className="rounded-lg border border-gray-200 bg-white p-6 hover:bg-gray-50">
-            <h2 className="text-lg font-semibold text-gray-900">Min sida</h2>
-            <p className="text-sm text-gray-500 mt-1">Profil, lägenhet och ärenden.</p>
-          </Link>
-          <Link href="/boende/skadeanmalan/ny" className="rounded-lg border border-gray-200 bg-white p-6 hover:bg-gray-50">
-            <h2 className="text-lg font-semibold text-gray-900">Felanmälan</h2>
-            <p className="text-sm text-gray-500 mt-1">Rapportera skador eller fel.</p>
-          </Link>
-        </div>
-      )}
+      {/* Profil, lägenhet, samtycke */}
+      <ProfileSection />
     </div>
   );
 }

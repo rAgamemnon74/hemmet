@@ -45,7 +45,6 @@ export const navigation: NavSection[] = [
     title: "Översikt",
     items: [
       { label: "Dashboard", href: "/", icon: Home },
-      { label: "Min sida", href: "/min-sida", icon: UserCircle },
     ],
   },
   {
