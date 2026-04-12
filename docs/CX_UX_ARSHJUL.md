@@ -2,248 +2,287 @@
 
 ## Koncept
 
-Årshjulet är en visuell representation av alla formella processer som återkommer under ett verksamhetsår. Det är:
+Årshjulet är en vertikal tidslinje som visar föreningens formella och vardagliga processer. Det är:
 
 1. **Öppet för alla** — transparens, alla boende ser vad som händer
-2. **Navigerbart** — berörda roller klickar vidare till detaljer
-3. **Levande** — visar status (gjort/pågår/kommande) i realtid
-4. **Konfigurerbart** — baseras på föreningens räkenskapsår och BrfRules
+2. **Tvåspårigt** — vänster: mitt boende (personligt), höger: föreningen (formellt)
+3. **Logiskt grupperat** — per verksamhetsår, inte per kalendermånad
+4. **Levande** — visar status (gjort/pågår/kommande) i realtid
 
 ---
 
-## Årshjulets processer
+## Grundinsikt: Två verksamhetsår lever parallellt
 
-### Formella basprocesser (alla BRF:er)
+Det pågår alltid två verksamhetsår samtidigt:
 
-| Månad (jan-dec) | Process | Ansvarig | Systemkoppling |
-|:-:|-----------|---------|---------------|
-| **Jan** | Prisbasbelopp uppdateras | Kassör | BrfRules.prisbasbelopp |
-| **Jan-Feb** | Bokslutsarbete | Kassör + förvaltare | Externt (SIE-import) |
-| **Feb** | Motionsdeadline | Medlemmar | BrfRules.motionDeadlineMonth/Day |
-| **Feb-Mar** | Årsberättelse sammanställs | Styrelsen | AnnualReport (DRAFT) |
-| **Mar** | Årsberättelse layoutas + signeras | Styrelsen | AnnualReport (FINAL_UPLOADED → SIGNED) |
-| **Mar-Apr** | Revision | Revisor | Audit (PENDING → COMPLETED) |
-| **Apr** | Kallelse + dagordning | Sekreterare | Meeting (DRAFT → SCHEDULED) |
-| **Maj** | **Ordinarie stämma** | Styrelsen | Meeting (type=ANNUAL) |
-| **Maj** | Konstituerande styrelsemöte | Nya styrelsen | Meeting (type=BOARD) |
-| **Jun** | Deadline stämma (LEF 7:10) | — | Varning om ej genomförd |
-| **Jul** | Bolagsverket inlämning | Kassör/förvaltare | Externt |
-| **Sep** | Budgetarbete nästa år | Kassör | — |
-| **Okt** | Underhållsplan granskning | Fastighetsansvarig | BuildingComponent |
-| **Nov** | Avgiftskalkyl + beslut | Kassör + styrelse | Decision |
-| **Dec** | Räkenskapsåret avslutas | — | BrfSettings.fiscalYearEnd |
+- **Föregående året** stängs successivt (bokslut → årsberättelse → revision → stämma → ansvarsfrihet)
+- **Innevarande året** rullar på (avgifter, underhåll, felanmälningar, styrelsemöten)
 
-### Löpande processer (visas i hjulets mitt)
+Stämman hör **logiskt** till det föregående verksamhetsåret — den är slutpunkten, inte en händelse i det nya. Konstituerande mötet (nya styrelsen tillträder) är det logiskt första steget i det innevarande året.
 
-| Process | Frekvens | Ansvarig |
-|---------|----------|---------|
-| Styrelsemöten | 6-12/år | Ordförande |
-| Felanmälningar | Löpande | Fastighetsansvarig |
-| Överlåtelser | Vid behov | Ordförande + kassör |
-| Besiktningar | Enligt kalender | Fastighetsansvarig |
-| Utlägg/fakturor | Löpande | Kassör |
+```
+Verksamhetsår 2025:
+    Jan 2025 — Verksamheten börjar
+    Dec 2025 — Verksamheten avslutas, bokslut
+    Feb 2026 — Årsberättelse
+    Apr 2026 — Revision
+    Maj 2026 — STÄMMA (sista punkten för 2025)
 
-### Säsongsprocesser (valfria)
-
-| Process | Typisk period | Ansvarig |
-|---------|:------------:|---------|
-| Vår-städdag | April-maj | Aktivitetsansvarig/alla |
-| Höst-städdag | September-oktober | Aktivitetsansvarig/alla |
-| Trädgårdsskötsel | Maj-september | Fastighetsansvarig |
-| Snöröjning | November-mars | Fastighetsansvarig |
-| Julglögg/grillkväll | December/juni | Aktivitetsansvarig |
+Verksamhetsår 2026:
+    Maj 2026 — Konstituerande möte (första punkten för 2026)
+    ...verksamheten pågår...
+    Dec 2026 — Bokslut
+```
 
 ---
 
-## UX-design
+## Tvåspårsmodellen
 
-### Visuellt årshjul
+### Design
 
 ```
-                        JAN
-                    ╱    │    ╲
-                DEC      │      FEB
-               ╱    Prisbasbelopp  ╲
-              │     Bokslut    Motions- │
-         NOV  │                deadline │  MAR
-        Avgift│    ┌──────────┐  Årsber.│
-         kalkyl    │ LÖPANDE  │  Layout │
-              │    │          │  Signera│
-         OKT  │    │ Möten    │        │  APR
-        Under-│    │ Felanm.  │  Revis.│
-        hålls-│    │ Överlåt. │ Kallelse│
-        plan  │    └──────────┘        │
-               ╲                      ╱  MAJ
-           SEP  ╲    Budget    STÄMMA ╱
-                 ╲              ╱
-                   AUG  JUL  JUN
-                        │
-                    Bolagsverket
+    MITT BOENDE                          FÖRENINGEN
+    (personligt)                         (formellt)
+    
+    ═══ Verksamhetsår 2025 (avslutande) ═════════════════════
+    
+                                         ● Bokslut                     ✓
+                                         │ Räkenskapsåret avslutades
+                                         │
+                                         ● Årsberättelse               ✓
+                                         │ Signerad av styrelsen
+                                         │
+                                         ● Revision                    → Pågår
+                                         │ Revisorns granskning
+                                         │
+    Motioner du lämnat ──────────────── ● Stämma 15 maj               ○
+    resultat presenteras                 │ Årsredovisning, ansvarsfrihet,
+                                         │ val av styrelse och revisor
+                                         │
+                                         ● Ansvarsfrihet               ○
+                                         │ Stämman beslutar
+                                         │
+                                         ● Bolagsverket                ○
+                                           Senast 31 juli 2026
+    
+    ═══ Verksamhetsår 2026 (pågående) ═══════════════════════
+    
+                                         ● Konstituerande möte         ○
+                                         │ Nya styrelsen tillträder
+                                         │
+    Ny avgift: 4 500 kr/mån ────────── ● Budget 2026 beslutad        ✓
+    sedan januari                        │
+                                         │
+    Din felanmälan: kran lgh 2001 ───── ● Styrelsemöte mars           ✓
+    → åtgärdas denna vecka              │ 5 beslut fattade
+                                         │
+    Renovering: ditt badrum ──────────── ● Styrelsemöte april          → Pågår
+    ansökan under behandling             │
+                                         │
+    Städdag 10 maj ─────────────────── ● Aktiviteter                  ○
+    anmäl dig!                           │
+                                         │
+    Andrahand: din ansökan ───────────── │
+    godkänd t.o.m. december              │
+                                         │
+                                         ● Underhåll: tak Hus A       ○
+                                         │ Planerat augusti
+                                         │
+                                         ● Budgetarbete 2027          ○
+                                         │ September-november
+                                         │
+                                         ● Avgiftskalkyl 2027         ○
+                                           November
 ```
 
-Hjulet renderas som en cirkulär grafik (SVG/Canvas) med:
-- **12 segment** — ett per månad
-- **Aktuell månad markerad** (t.ex. blå sektor)
-- **Klickbara processer** — text/ikon per process
-- **Statusfärger** — grön (klart), blå (pågår), grå (kommande), röd (försenat)
-- **Centrum** — löpande processer med räknare (3 öppna felanmälningar, 1 pågående överlåtelse)
+### Designprinciper
 
-### Tre vyer
+**1. Logisk gruppering, inte kalender**
+Processer grupperas per verksamhetsår. Stämman i maj 2026 visas under "Verksamhetsår 2025 (avslutande)" — inte under 2026.
 
-**1. Fullvy (desktop) — /arshjul**
-Stor cirkulär grafik med alla processer synliga. Hover visar detaljer. Klick navigerar till relevant sida.
+**2. Vänster = mig, höger = föreningen**
+Vänster spåret visar bara saker som berör den inloggade användaren personligen. Höger spåret visar föreningens formella processer. Kopplingslinjerna visar sambandet.
 
-**2. Kompaktvy (dashboard-widget)**
-Mindre version som visar nuvarande + nästa 2 processer:
+**3. Vänster spåret är personligt**
+Det renderas dynamiskt baserat på vem som är inloggad:
+- Boende ser: sin avgift, sina felanmälningar, sina ansökningar, aktiviteter
+- Medlem ser: ovan + motioner, stämma (rösta), nomineringar
+- Styrelsemedlem ser: ovan + "mina styrelsebeslut", protokoll att signera
+
+**4. Höger spåret är gemensamt**
+Alla ser samma formella processer. Statusfärgerna är identiska för alla. Det enda som skiljer: vilka processer man kan **klicka vidare** på beror på roll.
+
+**5. Det föregående året tonas ner successivt**
+Processer som är klara visas dimmat/kompakt. Pågående processer framhävs. Kommande visas normalt.
+
+---
+
+## Vad varje roll ser i vänster spåret
+
+### Boende (RESIDENT)
+
 ```
-┌─────────────────────────────────┐
-│  Årshjulet                      │
-│                                 │
-│  ← April 2026 →                │
-│                                 │
-│  ✓ Årsberättelse signerad       │
-│  → Revision pågår               │
-│  ○ Kallelse (deadline 15 april) │
-│                                 │
-│  Nästa: Stämma (5 maj)         │
-└─────────────────────────────────┘
-```
-
-**3. Mobilvy**
-Vertikal tidslinje istället för cirkel — lättare att scrolla:
-```
-┌────────────────────┐
-│ ✓ Jan — Prisbasb.  │
-│ ✓ Feb — Motioner   │
-│ ✓ Mar — Signering  │
-│ → Apr — REVISION   │  ← du är här
-│ ○ Maj — STÄMMA     │
-│ ○ Jun — Deadline   │
-│ ...                │
-└────────────────────┘
+MITT BOENDE:
+├── Min avgift/hyra
+├── Mina felanmälningar (status)
+├── Mina förslag (status)
+├── Mina bokningar (tvättstuga, bastu)
+├── Aktiviteter (städdag, grillkväll)
+└── Störningsärende (om berörd)
 ```
 
-### Vem ser vad
+### Medlem (MEMBER)
 
-| Element | Alla boende | Medlem | Styrelse | Roll-specifik |
-|---------|:----------:|:------:|:--------:|:-------------:|
-| Årshjulet (översikt) | Y | Y | Y | — |
-| Processstatus (klart/pågår) | Y | Y | Y | — |
-| Klicka → detaljsida | — | Delvis | Y | Bara sin roll |
-| Redigera/agera | — | — | — | Y (berörd roll) |
+```
+MITT BOENDE:
+├── Allt ovan +
+├── Min lägenhet (andelstal, avgift)
+├── Mina motioner (status, resultat vid stämma)
+├── Min andrahandsansökan (status)
+├── Min renoveringsansökan (status)
+├── Stämma (datum, dagordning, rösta)
+├── Nomineringsförslag (om period öppen)
+└── Överlåtelse (om pågående)
+```
 
-**Exempel:**
-- Alla ser: "April — Revision pågår"
-- Medlem klickar: ser årsberättelsen (läs)
-- Kassör klickar: ser revisionsdetaljer + kan agera
-- Boende klickar: ser "Stämma planerad 5 maj" (info)
+### Styrelsemedlem (BOARD_*)
 
-### Interaktion per process
+```
+MITT BOENDE:
+├── Allt ovan +
+├── Mina uppgifter (tilldelade tasks)
+├── Protokoll att signera
+├── Årsberättelse att signera
+├── Jävsdeklarationer jag gjort
+└── Nästa styrelsemöte (dagordning)
+```
 
-| Process i hjulet | Klick leder till | Vem kan klicka vidare |
-|-----------------|-----------------|:---------------------:|
-| Prisbasbelopp | Inställningar → BrfRules | Kassör, Admin |
-| Bokslutsarbete | Info-ruta: "Hanteras av förvaltaren" | Alla (info) |
-| Motionsdeadline | /medlem/motioner | Alla medlemmar |
-| Årsberättelse | /styrelse/arsberattelse/[id] | Styrelse (redigera), alla (läsa efter publicering) |
-| Revision | /revision/[id] | Revisor (agera), styrelse (läsa) |
-| Kallelse | /styrelse/moten/[id] (årsmöte) | Sekreterare, ordförande |
-| Stämma | /medlem/arsmote/[id] | Alla medlemmar |
-| Konstituerande möte | /styrelse/moten/[id] | Styrelse |
-| Bolagsverket | Info-ruta: "Hanteras av förvaltaren" | Alla (info) |
-| Budgetarbete | Info-ruta + beslut | Kassör |
-| Underhållsplan | /förvaltning/komponenter | Fastighetsansvarig |
-| Avgiftskalkyl | Styrelsebeslut → Decision | Kassör, styrelse |
-| Felanmälningar (löpande) | /boende/skadeanmalan | Alla boende |
-| Överlåtelser (löpande) | /styrelse/overlatelser | Kassör, ordförande |
-| Besiktningar (löpande) | /förvaltning/besiktningar | Fastighetsansvarig |
+---
+
+## Interaktion
+
+### Klick på höger spåret (föreningens processer)
+
+| Process | Alla | Medlem | Styrelse | Berörd roll |
+|---------|:----:|:------:|:--------:|:-----------:|
+| Bokslut | Info | Info | Info | Kassör → SIE-import |
+| Årsberättelse | Läs (efter publicering) | Läs | Redigera/signera | Sekreterare → layout |
+| Revision | Info | Info | Läs | Revisor → granska |
+| Stämma | Datum/plats | Dagordning + rösta | Admin + presentation | Ordförande → leda |
+| Ansvarsfrihet | Info | Rösta | Presenteras | — |
+| Budget | Info | Se | Redigera | Kassör → kalkylera |
+| Underhåll | Info | Info | Planera | Fastighetsansv. → schemalägga |
+| Styrelsemöte | — | — | Detaljer | Ordförande → dagordning |
+
+### Klick på vänster spåret (mina saker)
+
+Alltid: navigera direkt till relevant detaljsida.
+- "Din felanmälan: kran" → `/boende/skadeanmalan/{id}`
+- "Renovering: ditt badrum" → `/boende/renovering`
+- "Städdag 10 maj" → `/info` (meddelande)
+- "Protokoll att signera" → `/styrelse/moten/{id}?tab=protocol`
+
+---
+
+## Tre renderingslägen
+
+### 1. Fullvy (`/arshjul`)
+
+Hela tidslinjen med båda spår synliga. Scroll ner = framåt i tiden.
+Expanderbara sektioner: klicka på en process → visa detaljer inline.
+
+### 2. Dashboard-widget
+
+Kompakt: bara aktuella och nästa 2-3 processer per spår:
+
+```
+┌─────────────────────────────────────────────┐
+│  Årshjulet                                  │
+│                                             │
+│  2025 (avslutas):    → Revision pågår       │
+│                      ○ Stämma 15 maj        │
+│                                             │
+│  2026 (pågående):    Din felanmälan →       │
+│                      åtgärdas denna vecka    │
+│                      ○ Städdag 10 maj        │
+└─────────────────────────────────────────────┘
+```
+
+### 3. Mobilvy
+
+Samma vertikala tidslinje men enkelspårig — "mitt boende" och "föreningen" alternerar:
+
+```
+┌──────────────────────┐
+│ ── 2025 (avslutas) ──│
+│ ✓ Bokslut            │
+│ ✓ Årsberättelse      │
+│ → Revision pågår     │
+│ ○ Stämma 15 maj      │
+│   Din motion behandlas│
+│                      │
+│ ── 2026 (pågående) ──│
+│ ✓ Avgift 4 500 kr    │
+│ → Felanmälan: kran   │
+│ ○ Städdag 10 maj     │
+│ ○ Underhåll tak aug  │
+└──────────────────────┘
+```
+
+Personliga poster markeras visuellt (t.ex. blå vänsterkant) för att skilja från formella.
 
 ---
 
 ## Dynamisk statusberäkning
 
-Systemet beräknar automatiskt status per process baserat på data:
+Systemet beräknar status per process:
 
-```typescript
-function getProcessStatus(process, fiscalYear, now) {
-  switch (process) {
-    case "PRISBASBELOPP":
-      // Kolla om BrfRules.prisbasbelopp uppdaterats i januari
-      return rules.updatedAt > fiscalYearStart ? "DONE" : "PENDING";
+| Status | Visuellt | Betydelse |
+|--------|----------|-----------|
+| `DONE` | ● grön + bock | Slutfört |
+| `ACTIVE` | ◉ blå + puls | Pågår just nu |
+| `UPCOMING` | ○ grå | Kommande, inget att göra ännu |
+| `WARNING` | ◉ gul | Deadline närmar sig |
+| `OVERDUE` | ● röd | Försenat — kräver handling |
+| `PERSONAL` | ◉ blå + vänsterkant | Min personliga post |
 
-    case "MOTIONSDEADLINE":
-      // Kolla om deadline passerat
-      const deadline = new Date(now.getFullYear(), rules.motionDeadlineMonth - 1, rules.motionDeadlineDay);
-      return now > deadline ? "DONE" : now.getMonth() === deadline.getMonth() ? "ACTIVE" : "UPCOMING";
-
-    case "ARSBERATTELSE":
-      // Kolla AnnualReport status
-      const report = getReportForFiscalYear(fiscalYear);
-      if (!report) return "UPCOMING";
-      if (report.status === "PUBLISHED") return "DONE";
-      if (["DRAFT", "FINAL_UPLOADED", "SIGNED"].includes(report.status)) return "ACTIVE";
-      return "UPCOMING";
-
-    case "STAMMA":
-      // Kolla Meeting type=ANNUAL
-      const meeting = getAnnualMeeting(fiscalYear);
-      if (!meeting) return "UPCOMING";
-      if (meeting.status === "COMPLETED") return "DONE";
-      if (meeting.status === "IN_PROGRESS") return "ACTIVE";
-      return "UPCOMING";
-
-    case "DEADLINE_STAMMA":
-      // 6 mån efter räkenskapsårets slut
-      const deadlineDate = addMonths(fiscalYearEnd, 6);
-      if (stammaCompleted) return "DONE";
-      if (now > deadlineDate) return "OVERDUE";
-      if (now > subMonths(deadlineDate, 1)) return "WARNING";
-      return "UPCOMING";
-  }
-}
-```
-
-Status renderas som:
-- 🟢 **DONE** — grön, bock
-- 🔵 **ACTIVE** — blå, pulsande
-- ⚪ **UPCOMING** — grå
-- 🟡 **WARNING** — gul, snart deadline
-- 🔴 **OVERDUE** — röd, försenat
+Beräknas automatiskt från systemdata:
+- Årsberättelse: `AnnualReport.status` → DONE om PUBLISHED
+- Revision: `Audit.status` → ACTIVE om IN_PROGRESS
+- Stämma: `Meeting.status` (type=ANNUAL) → DONE om COMPLETED
+- Felanmälan: `DamageReport.status` → ACTIVE om IN_PROGRESS
+- Deadline stämma: `fiscalYearEnd + 6 mån` → OVERDUE om passerat utan stämma
 
 ---
 
-## Konfiguration per förening
+## Konfiguration
 
-Årshjulet anpassas baserat på:
+Tidslinjen anpassas baserat på:
 
 | Källa | Påverkar |
 |-------|---------|
-| `BrfSettings.fiscalYearStart/End` | Hela hjulets rotation — jan-dec vs jul-jun |
-| `BrfRules.motionDeadlineMonth/Day` | Motionsdeadline-processen |
-| `BrfRules.noticePeriodMinWeeks` | Kallelse-deadline relativt stämma |
-| `BrfRules.protocolDeadlineWeeks` | Protokolldeadline efter möten |
-| `BrfRules.commercialUnitsExist` | Visa/dölj momsredovisning |
-| `BrfRules.maintenancePlanRequired` | Visa/dölj underhållsplan-granskning |
+| `BrfSettings.fiscalYearStart/End` | Gruppering av verksamhetsår |
+| `BrfRules.motionDeadlineMonth/Day` | Motionsdeadline-position |
+| `BrfRules.noticePeriodMinWeeks` | Kallelsedeadline relativt stämma |
+| Användarens roller | Vad som visas i vänster spåret |
+| Användarens ärenden | Personliga poster (felanmälan, ansökningar etc.) |
 
 ### Icke-kalenderår
 
-Om räkenskapsåret är jul-jun roteras hela hjulet:
-- Juli = "start" (istället för januari)
-- Stämma typiskt i november-december
-- Allt förskjuts 6 månader
+Vid räkenskapsår jul-jun förskjuts hela tidslinjen. Grupperna "avslutande" och "pågående" roterar 6 månader. Logiken förblir densamma — bara månaderna skiftar.
 
 ---
 
 ## Navigationsplacering
 
 ```
-Översikt (ny layout):
-├── Dashboard (rollspecifikt)
-├── Årshjulet (gemensamt)    ← NY
-└── Min sida (personligt)
+Översikt:
+├── Dashboard (rollspecifikt)      ← befintlig
+├── Årshjulet (/arshjul)          ← NY sida, länk i nav + dashboard-widget
+└── Min sida (personligt)          ← befintlig
 ```
 
-Årshjulet syns för **alla inloggade** — det är föreningens gemensamma klocka. Ingen permission krävs för att se det. Permission krävs bara för att klicka vidare till detaljsidor.
+Ingen permission krävs för att se årshjulet. Det är föreningens gemensamma klocka.
 
 ---
 
@@ -251,9 +290,9 @@ Om räkenskapsåret är jul-jun roteras hela hjulet:
 
 | Prio | Komponent | Komplexitet |
 |------|-----------|:-----------:|
-| 1 | **Dashboard-widget** (kompaktvy) — nästa 3 processer med status | Låg |
-| 2 | **tRPC endpoint** — beräkna status per process baserat på data | Medel |
-| 3 | **Fullvy** (/arshjul) — cirkulär grafik med alla processer | Medel |
-| 4 | **Mobilvy** — vertikal tidslinje | Låg |
-| 5 | **Konfiguration** — anpassning per räkenskapsår | Låg |
-| 6 | **Klicknavigation** — process → detaljsida med rollcheck | Medel |
+| 1 | **tRPC endpoint** — beräkna processstatus + personliga poster per användare | Medel |
+| 2 | **Dashboard-widget** — kompakt tvåspår med aktuella processer | Låg |
+| 3 | **Fullvy** (`/arshjul`) — vertikal tvåspårig tidslinje | Medel |
+| 4 | **Mobilvy** — enkelspårig med visuell markering personligt/formellt | Låg |
+| 5 | **Klicknavigation** — process → detaljsida med rollcheck | Medel |
+| 6 | **Konfiguration** — anpassning per räkenskapsår | Låg |
