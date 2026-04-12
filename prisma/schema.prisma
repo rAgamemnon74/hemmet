@@ -1461,23 +1461,76 @@ model Attachment {
 model Contractor {
   id                String    @id @default(cuid())
   name              String
-  orgNumber         String?
+  category          String    // PLUMBER, ELECTRICIAN, LOCKSMITH, PAINTER, CLEANING, etc.
+  active            Boolean   @default(true)
+
+  // Identifiering
+  orgNumber         String?   // Svenska: 556XXX-XXXX (10 siffror)
+  vatNumber         String?   // EU-momsnr: SE556XXXXXXXX01, FI12345678 etc.
+  dunsNumber        String?   // Dun & Bradstreet (9 siffror, universellt)
+  country           String    @default("SE") // ISO 3166-1 alpha-2
+
+  // Skatt och juridik
+  fTax              Boolean   @default(false) // F-skattsedel — utan = BRF gör skatteavdrag 30%
+  fTaxVerifiedAt    DateTime?
+  vatRegistered     Boolean   @default(false) // Momsregistrerad
+  insuranceCoverage Boolean   @default(false) // Ansvarsförsäkring finns
+  insuranceExpiry   DateTime?               // Försäkringens giltighetstid
+
+  // Kontakt (primär)
   contactPerson     String?
   phone             String?
   email             String?
-  category          String    // PLUMBER, ELECTRICIAN, LOCKSMITH, PAINTER, CLEANING, etc.
+  website           String?
+
+  // Adress
+  streetAddress     String?
+  postalCode        String?
+  city              String?
+
+  // PUB-avtal (GDPR art. 28)
+  pubAgreement      Boolean   @default(false)
+  pubAgreementDate  DateTime?
+
+  // Intern bedömning
+  notes             String?   @db.Text   // Fritt: "pålitlig", "dyra men snabba"
+  rating            Int?                  // 1-5, intern bedömning
+
+  // Betalning — registrerade betalvägar (för bedrägeriskydd/verifiering)
+  bankgiro          String?
+  plusgiro           String?
+  iban              String?
+  bic               String?   // SWIFT/BIC för IBAN-betalningar
+  swish             String?
+
+  // Legacy — migreras till Contract-modellen
   contractStartDate DateTime?
   contractEndDate   DateTime?
-  contractUrl       String?   // Avtalsdokument
-  pubAgreement      Boolean   @default(false) // PUB-avtal finns
-  pubAgreementDate  DateTime?
-  notes             String?   @db.Text
-  active            Boolean   @default(true)
+  contractUrl       String?
+
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  contacts          ContractorContact[]
+
   @@index([category])
   @@index([active])
+  @@index([orgNumber])
+}
+
+// Flera kontaktpersoner per leverantör (offert, faktura, jour etc.)
+model ContractorContact {
+  id            String  @id @default(cuid())
+  contractorId  String
+  name          String
+  role          String? // "Offert", "Faktura", "Jour", "Kundansvarig"
+  phone         String?
+  email         String?
+  isPrimary     Boolean @default(false)
+
+  contractor Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+
+  @@index([contractorId])
 }
 
 // ============================================================
