@@ -137,6 +137,7 @@ model Building {
   taxationValue       Float?   // Taxeringsvärde (kr)
   energyRating        String?  // Energiklass (A-G)
   energyDeclarationExpiry DateTime? // Energideklaration giltig t.o.m.
+  excludedComponentCategories String[] // K3-kategorier som ej är aktuella (t.ex. ELEVATOR om ingen hiss)
 
   apartments  Apartment[]
   components  BuildingComponent[]

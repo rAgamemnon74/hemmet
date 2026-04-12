@@ -3,7 +3,48 @@ import { router, protectedProcedure, requirePermission } from "../trpc";
 import { logActivity } from "@/lib/audit";
 
 export const propertyRouter = router({
-  // Building components
+  // Buildings with components grouped — for registry view
+  listBuildingsWithComponents: protectedProcedure
+    .use(requirePermission("meeting:view"))
+    .query(async ({ ctx }) => {
+      return ctx.db.building.findMany({
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          constructionYear: true,
+          excludedComponentCategories: true,
+          components: {
+            orderBy: [{ category: "asc" }, { name: "asc" }],
+            select: {
+              id: true, category: true, name: true, installYear: true,
+              expectedLifespan: true, condition: true, lastInspectedAt: true,
+              nextActionYear: true, estimatedCost: true, notes: true,
+            },
+          },
+        },
+        orderBy: { name: "asc" },
+      });
+    }),
+
+  // Toggle category exclusion for a building
+  toggleCategoryExclusion: protectedProcedure
+    .use(requirePermission("report:manage"))
+    .input(z.object({ buildingId: z.string(), category: z.string(), excluded: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const building = await ctx.db.building.findUnique({ where: { id: input.buildingId }, select: { excludedComponentCategories: true } });
+      if (!building) return;
+
+      const current = building.excludedComponentCategories;
+      const updated = input.excluded
+        ? [...new Set([...current, input.category])]
+        : current.filter((c) => c !== input.category);
+
+      await ctx.db.building.update({ where: { id: input.buildingId }, data: { excludedComponentCategories: updated } });
+      logActivity({ userId: ctx.user.id as string, action: "property.toggleCategory", entityType: "Building", entityId: input.buildingId, description: `${input.excluded ? "Uteslöt" : "Aktiverade"} kategori: ${input.category}` });
+    }),
+
+  // Building components (flat list, kept for backward compatibility)
   listComponents: protectedProcedure
     .use(requirePermission("meeting:view"))
     .input(z.object({ buildingId: z.string().optional() }).optional())
