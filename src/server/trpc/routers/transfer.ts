@@ -236,6 +236,40 @@ export const transferRouter = router({
             data: { status: "APPROVED", reviewedAt: new Date(), reviewedBy: ctx.user.id as string },
           });
         }
+
+        // Auto-exit seller if no remaining ownerships
+        if (transfer.sellerId) {
+          const remainingOwnerships = await tx.apartmentOwnership.count({
+            where: { userId: transfer.sellerId, active: true },
+          });
+
+          if (remainingOwnerships === 0) {
+            // Deactivate MEMBER role
+            await tx.userRole.updateMany({
+              where: { userId: transfer.sellerId, role: "MEMBER", active: true },
+              data: { active: false },
+            });
+
+            // Mark user as exited
+            await tx.user.update({
+              where: { id: transfer.sellerId },
+              data: {
+                exitedAt: transfer.accessDate ?? new Date(),
+                exitReason: "TRANSFER",
+                apartmentId: null,
+              },
+            });
+          }
+        }
+      });
+
+      logActivity({
+        userId: ctx.user.id as string,
+        action: "transfer.complete",
+        entityType: "TransferCase",
+        entityId: input.id,
+        description: `Ägarskifte slutfört${transfer.sellerId ? " — säljaren utträdd" : ""}`,
+        after: { status: "COMPLETED" },
       });
 
       return { success: true };

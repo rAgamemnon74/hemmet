@@ -97,6 +97,62 @@ export const memberRouter = router({
       return { ok: true };
     }),
 
+  // Register member exit (voluntary or exclusion)
+  registerExit: protectedProcedure
+    .use(requirePermission("member:edit"))
+    .input(z.object({
+      userId: z.string(),
+      reason: z.enum(["VOLUNTARY", "EXCLUSION", "DEATH"]),
+      exitDate: z.coerce.date().optional(),
+      documentId: z.string().optional(),   // Scannat brev/beslut
+      decisionId: z.string().optional(),   // Styrelsebeslut (vid uteslutning)
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const exitDate = input.exitDate ?? new Date();
+
+      await ctx.db.$transaction(async (tx) => {
+        // Deactivate all ownerships
+        await tx.apartmentOwnership.updateMany({
+          where: { userId: input.userId, active: true },
+          data: { active: false, transferredAt: exitDate },
+        });
+
+        // Deactivate MEMBER role
+        await tx.userRole.updateMany({
+          where: { userId: input.userId, role: "MEMBER", active: true },
+          data: { active: false },
+        });
+
+        // Mark user as exited
+        await tx.user.update({
+          where: { id: input.userId },
+          data: {
+            exitedAt: exitDate,
+            exitReason: input.reason,
+            exitDocumentId: input.documentId,
+            apartmentId: null,
+          },
+        });
+      });
+
+      const reasonLabels: Record<string, string> = {
+        VOLUNTARY: "Frivilligt utträde",
+        EXCLUSION: "Uteslutning (förverkande)",
+        DEATH: "Dödsfall",
+      };
+
+      logActivity({
+        userId: ctx.user.id as string,
+        action: "member.exit",
+        entityType: "User",
+        entityId: input.userId,
+        description: `Medlemsutträde: ${reasonLabels[input.reason]}`,
+        after: { exitReason: input.reason, exitDate: exitDate.toISOString(), decisionId: input.decisionId },
+      });
+
+      return { success: true };
+    }),
+
   addRole: protectedProcedure
     .use(requirePermission("admin:users"))
     .input(addRoleSchema)

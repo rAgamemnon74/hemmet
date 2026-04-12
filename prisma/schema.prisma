@@ -20,6 +20,9 @@ model User {
   phone         String?
   avatarUrl     String?
   emailVerified DateTime?
+  exitedAt      DateTime?       // Utträdesdatum (medlem → ej längre medlem)
+  exitReason    String?         // TRANSFER, EXCLUSION, VOLUNTARY, DEATH
+  exitDocumentId String?        // Länk till scannat brev/beslut
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
