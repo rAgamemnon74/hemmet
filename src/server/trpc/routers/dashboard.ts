@@ -156,6 +156,96 @@ export const dashboardRouter = router({
     return { openReports, criticalReports, recentReports };
   }),
 
+  // Samlad ärendevy — alla ärendetyper i en lista
+  allCases: protectedProcedure.query(async ({ ctx }) => {
+    const userRoles = (ctx.user.roles ?? []) as Role[];
+    const isBoard = userRoles.some((r) => r.startsWith("BOARD_") || r === "ADMIN");
+    if (!isBoard) return [];
+
+    const [expenses, transfers, damageReports, suggestions, motions, sublets, renovations, disturbances] = await Promise.all([
+      ctx.db.expense.findMany({
+        where: { status: { in: ["SUBMITTED"] } },
+        select: { id: true, description: true, amount: true, status: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      ctx.db.transferCase.findMany({
+        where: { status: { notIn: ["COMPLETED", "CANCELLED"] } },
+        select: { id: true, type: true, status: true, createdAt: true, apartment: { select: { number: true, building: { select: { name: true } } } } },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      ctx.db.damageReport.findMany({
+        where: { status: { in: ["SUBMITTED", "ACKNOWLEDGED", "IN_PROGRESS"] } },
+        select: { id: true, title: true, severity: true, status: true, createdAt: true },
+        orderBy: [{ severity: "desc" }, { createdAt: "asc" }],
+        take: 20,
+      }),
+      ctx.db.suggestion.findMany({
+        where: { status: { in: ["SUBMITTED", "ACKNOWLEDGED"] } },
+        select: { id: true, title: true, status: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+      ctx.db.motion.findMany({
+        where: { status: { in: ["SUBMITTED", "RECEIVED"] } },
+        select: { id: true, title: true, status: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+      ctx.db.subletApplication.findMany({
+        where: { status: { in: ["SUBMITTED", "UNDER_REVIEW"] } },
+        select: { id: true, tenantName: true, status: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+      ctx.db.renovationApplication.findMany({
+        where: { status: { in: ["SUBMITTED", "TECHNICAL_REVIEW", "BOARD_REVIEW"] } },
+        select: { id: true, type: true, status: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+      ctx.db.disturbanceCase.findMany({
+        where: { status: { notIn: ["RESOLVED", "CLOSED"] } },
+        select: { id: true, type: true, status: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+    ]);
+
+    type CaseItem = { id: string; caseType: string; title: string; status: string; urgency: number; href: string; createdAt: Date };
+    const cases: CaseItem[] = [];
+
+    for (const e of expenses) {
+      cases.push({ id: e.id, caseType: "Utlägg", title: `${e.description} (${Number(e.amount).toLocaleString("sv-SE")} kr)`, status: e.status, urgency: 2, href: `/styrelse/utlagg/${e.id}`, createdAt: e.createdAt });
+    }
+    for (const t of transfers) {
+      cases.push({ id: t.id, caseType: "Överlåtelse", title: `${t.apartment.building.name} lgh ${t.apartment.number}`, status: t.status, urgency: 2, href: `/styrelse/overlatelser/${t.id}`, createdAt: t.createdAt });
+    }
+    for (const d of damageReports) {
+      const urg = d.severity === "CRITICAL" ? 4 : d.severity === "HIGH" ? 3 : 1;
+      cases.push({ id: d.id, caseType: "Felanmälan", title: d.title, status: d.status, urgency: urg, href: `/boende/skadeanmalan/${d.id}`, createdAt: d.createdAt });
+    }
+    for (const s of suggestions) {
+      cases.push({ id: s.id, caseType: "Förslag", title: s.title, status: s.status, urgency: 0, href: `/boende/forslag/${s.id}`, createdAt: s.createdAt });
+    }
+    for (const m of motions) {
+      cases.push({ id: m.id, caseType: "Motion", title: m.title, status: m.status, urgency: 1, href: `/medlem/motioner/${m.id}`, createdAt: m.createdAt });
+    }
+    for (const s of sublets) {
+      cases.push({ id: s.id, caseType: "Andrahand", title: s.tenantName, status: s.status, urgency: 1, href: `/boende/andrahand`, createdAt: s.createdAt });
+    }
+    for (const r of renovations) {
+      cases.push({ id: r.id, caseType: "Renovering", title: r.type, status: r.status, urgency: 1, href: `/boende/renovering`, createdAt: r.createdAt });
+    }
+    for (const d of disturbances) {
+      const urg = ["FIRST_WARNING", "SECOND_WARNING", "ESCALATED"].includes(d.status) ? 3 : 1;
+      cases.push({ id: d.id, caseType: "Störning", title: d.type, status: d.status, urgency: urg, href: `/boende/storningar`, createdAt: d.createdAt });
+    }
+
+    return cases.sort((a, b) => b.urgency - a.urgency || a.createdAt.getTime() - b.createdAt.getTime());
+  }),
+
   // Årshjulet: process status + personal items per user
   annualTimeline: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.user.id as string;

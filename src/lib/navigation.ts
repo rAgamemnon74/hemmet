@@ -69,6 +69,8 @@ export const navigation: NavSection[] = [
     title: "Medlemmar",
     items: [
       { label: "Motioner", href: "/medlem/motioner", icon: Vote, permission: "motion:submit" },
+      { label: "Renovering", href: "/boende/renovering", icon: Hammer, permission: "motion:submit" },
+      { label: "Andrahand", href: "/boende/andrahand", icon: Key, permission: "motion:submit" },
       { label: "Årsmöte", href: "/medlem/arsmote", icon: Users, permission: "annual:view" },
       { label: "Medlemsregister", href: "/medlem/register", icon: Building2, permission: "member:view_registry" },
       { label: "Lägenheter", href: "/medlem/lagenheter", icon: DoorOpen, permission: "member:view_registry" },
@@ -82,8 +84,6 @@ export const navigation: NavSection[] = [
       { label: "Felanmälan", href: "/boende/skadeanmalan", icon: AlertTriangle, permission: "report:submit" },
       { label: "Förslag", href: "/boende/forslag", icon: Lightbulb, permission: "suggestion:submit" },
       { label: "Störningar", href: "/boende/storningar", icon: ShieldAlert, permission: "report:submit" },
-      { label: "Renovering", href: "/boende/renovering", icon: Hammer, permission: "report:submit" },
-      { label: "Andrahand", href: "/boende/andrahand", icon: Key, permission: "motion:submit" },
       { label: "Boka", href: "/boende/boka", icon: Calendar },
     ],
   },
