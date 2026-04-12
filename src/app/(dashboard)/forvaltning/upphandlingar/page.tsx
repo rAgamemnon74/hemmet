@@ -42,19 +42,26 @@ type MockQuote = {
 };
 
 const statusLabels: Record<string, string> = {
-  DRAFT: "Utkast",
+  NEED: "Behov registrerat",
+  NEED_DEFERRED: "Avvaktar",
+  APPROVED: "Godkänd — ej påbörjad",
+  SPECIFICATION: "Kravspec",
   RFQ_SENT: "Förfrågan skickad",
   COLLECTING_QUOTES: "Inväntar offerter",
   COMPARING: "Jämförelse",
-  DECISION_PENDING: "Inväntar beslut",
+  DECISION_PENDING: "Inväntar leverantörsval",
   ORDERED: "Beställd",
   IN_PROGRESS: "Pågår",
   COMPLETED: "Slutförd",
   CANCELLED: "Avbruten",
+  REJECTED: "Avslagen",
 };
 
 const statusColors: Record<string, string> = {
-  DRAFT: "bg-gray-100 text-gray-600",
+  NEED: "bg-amber-100 text-amber-700",
+  NEED_DEFERRED: "bg-gray-100 text-gray-600",
+  APPROVED: "bg-blue-100 text-blue-700",
+  SPECIFICATION: "bg-blue-100 text-blue-700",
   RFQ_SENT: "bg-blue-100 text-blue-700",
   COLLECTING_QUOTES: "bg-blue-100 text-blue-700",
   COMPARING: "bg-purple-100 text-purple-700",
@@ -63,10 +70,14 @@ const statusColors: Record<string, string> = {
   IN_PROGRESS: "bg-green-100 text-green-700",
   COMPLETED: "bg-gray-100 text-gray-600",
   CANCELLED: "bg-red-100 text-red-600",
+  REJECTED: "bg-red-100 text-red-600",
 };
 
 const statusIcons: Record<string, typeof Clock> = {
-  DRAFT: FileText,
+  NEED: AlertTriangle,
+  NEED_DEFERRED: Clock,
+  APPROVED: CheckCircle,
+  SPECIFICATION: FileText,
   RFQ_SENT: Send,
   COLLECTING_QUOTES: Clock,
   COMPARING: Scale,
@@ -136,13 +147,41 @@ const MOCK_PROCUREMENTS: MockProcurement[] = [
         status: "RECEIVED", warrantyMonths: 36, proposedStart: new Date("2026-06-01"), proposedEnd: new Date("2026-06-10") },
     ],
   },
+  // Behov — registrerade, inväntar styrelsebeslut
   {
-    id: "uph-005", title: "OVK-besiktning 2026", status: "DRAFT",
+    id: "uph-005", title: "OVK-besiktning 2026", status: "NEED",
     estimatedCost: 25000, actualCost: null,
     quotesDeadline: null, createdAt: daysAgo(2), createdBy: "Erik Larsson",
     quotesReceived: 0, quotesSent: 0,
     selectedContractor: null,
-    trigger: { type: "Besiktning", title: "OVK förfaller 2026-09" },
+    trigger: { type: "Besiktning", title: "OVK förfaller 2026-09 (lagkrav)" },
+    quotes: [],
+  },
+  {
+    id: "uph-006", title: "Utvärdera bredbandsavtal", status: "NEED",
+    estimatedCost: 336000, actualCost: null,
+    quotesDeadline: null, createdAt: daysAgo(10), createdBy: "Sara Ek",
+    quotesReceived: 0, quotesSent: 0,
+    selectedContractor: null,
+    trigger: { type: "Avtal", title: "Bredband Telia löper ut 2026-09-30" },
+    quotes: [],
+  },
+  {
+    id: "uph-007", title: "Bokföringssystem — byta från Excel", status: "NEED_DEFERRED",
+    estimatedCost: 12000, actualCost: null,
+    quotesDeadline: null, createdAt: daysAgo(45), createdBy: "Maria Kassör",
+    quotesReceived: 0, quotesSent: 0,
+    selectedContractor: null,
+    trigger: undefined,
+    quotes: [],
+  },
+  {
+    id: "uph-008", title: "Ny trädgårdsentreprenör", status: "REJECTED",
+    estimatedCost: 80000, actualCost: null,
+    quotesDeadline: null, createdAt: daysAgo(60), createdBy: "Erik Larsson",
+    quotesReceived: 0, quotesSent: 0,
+    selectedContractor: null,
+    trigger: undefined,
     quotes: [],
   },
 ];
@@ -159,9 +198,10 @@ export default function ProcurementPage() {
   const filtered = statusFilter ? procurements.filter((p) => p.status === statusFilter) : procurements;
   const selected = selectedId ? procurements.find((p) => p.id === selectedId) : null;
 
-  // Group by phase
-  const active = filtered.filter((p) => !["COMPLETED", "CANCELLED"].includes(p.status));
-  const completed = filtered.filter((p) => ["COMPLETED", "CANCELLED"].includes(p.status));
+  // Group: needs → active → completed/rejected
+  const needs = filtered.filter((p) => ["NEED", "NEED_DEFERRED"].includes(p.status));
+  const active = filtered.filter((p) => !["NEED", "NEED_DEFERRED", "COMPLETED", "CANCELLED", "REJECTED"].includes(p.status));
+  const completed = filtered.filter((p) => ["COMPLETED", "CANCELLED", "REJECTED"].includes(p.status));
 
   const statuses = [...new Set(procurements.map((p) => p.status))];
 
@@ -203,10 +243,25 @@ export default function ProcurementPage() {
       <div className="flex gap-4 min-h-[500px]">
         {/* List */}
         <div className={cn("space-y-2", selected ? "w-2/5 shrink-0" : "w-full")}>
-          {/* Active */}
+          {/* Needs — awaiting board decision */}
+          {needs.length > 0 && (
+            <>
+              <h2 className="text-xs font-semibold text-amber-600 uppercase flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" /> Behov — inväntar styrelsebeslut ({needs.length})
+              </h2>
+              {needs.map((p) => (
+                <ProcurementCard key={p.id} procurement={p}
+                  isSelected={selectedId === p.id}
+                  compact={!!selected}
+                  onClick={() => setSelectedId(selectedId === p.id ? null : p.id)} />
+              ))}
+            </>
+          )}
+
+          {/* Active procurements */}
           {active.length > 0 && (
             <>
-              <h2 className="text-xs font-semibold text-gray-500 uppercase">Pågående ({active.length})</h2>
+              <h2 className="text-xs font-semibold text-gray-500 uppercase mt-4">Pågående upphandlingar ({active.length})</h2>
               {active.map((p) => (
                 <ProcurementCard key={p.id} procurement={p}
                   isSelected={selectedId === p.id}
@@ -395,12 +450,32 @@ export default function ProcurementPage() {
                 </div>
               )}
 
-              {/* Process steps */}
+              {/* Need info (for NEED/NEED_DEFERRED) */}
+              {["NEED", "NEED_DEFERRED"].includes(selected.status) && (
+                <div className="px-5 py-3 border-b border-gray-50">
+                  <div className={cn(
+                    "rounded-md border px-3 py-2",
+                    selected.status === "NEED" ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-gray-200"
+                  )}>
+                    <p className="text-sm text-gray-700">
+                      {selected.status === "NEED"
+                        ? "Behovet är registrerat och väntar på behandling vid nästa styrelsemöte."
+                        : "Styrelsen avvaktade med detta behov. Tas upp igen vid kommande möte."}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Registrerat av {selected.createdBy}, {format(selected.createdAt, "d MMM yyyy", { locale: sv })}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Process steps (only for approved+) */}
+              {!["NEED", "NEED_DEFERRED", "REJECTED"].includes(selected.status) && (
               <div className="px-5 py-3">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase mb-2">Process</h3>
                 <div className="space-y-1">
                   {[
-                    { step: "DRAFT", label: "Skapad" },
+                    { step: "APPROVED", label: "Godkänd av styrelsen" },
                     { step: "RFQ_SENT", label: "Offertförfrågan skickad" },
                     { step: "COLLECTING_QUOTES", label: "Offerter insamlade" },
                     { step: "COMPARING", label: "Jämförelse" },
@@ -409,7 +484,7 @@ export default function ProcurementPage() {
                     { step: "IN_PROGRESS", label: "Utförande" },
                     { step: "COMPLETED", label: "Slutförd" },
                   ].map(({ step, label }) => {
-                    const stepOrder = ["DRAFT", "RFQ_SENT", "COLLECTING_QUOTES", "COMPARING", "DECISION_PENDING", "ORDERED", "IN_PROGRESS", "COMPLETED"];
+                    const stepOrder = ["APPROVED", "RFQ_SENT", "COLLECTING_QUOTES", "COMPARING", "DECISION_PENDING", "ORDERED", "IN_PROGRESS", "COMPLETED"];
                     const currentIdx = stepOrder.indexOf(selected.status);
                     const stepIdx = stepOrder.indexOf(step);
                     const isDone = stepIdx < currentIdx;
@@ -434,11 +509,22 @@ export default function ProcurementPage() {
                   })}
                 </div>
               </div>
+              )}
             </div>
 
             {/* Actions */}
             <div className="border-t border-gray-100 px-5 py-3 flex items-center gap-2">
-              {selected.status === "DRAFT" && (
+              {["NEED", "NEED_DEFERRED"].includes(selected.status) && (
+                <>
+                  <button className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
+                    <CheckCircle className="h-3.5 w-3.5" /> Lägg på dagordning
+                  </button>
+                  <button className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                    Redigera behov
+                  </button>
+                </>
+              )}
+              {selected.status === "APPROVED" && (
                 <button className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
                   <Send className="h-3.5 w-3.5" /> Skicka offertförfrågan
                 </button>

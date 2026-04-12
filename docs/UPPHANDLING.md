@@ -157,24 +157,179 @@ Systemet          ●       —       ●       ●       ●       ●       �
 
 ---
 
-## Livscykel — 10 faser
+## Livscykel — tvåstegsmodell
 
-### Fas 0: Behov identifieras
+### Grundprincip: Behov registreras löpande, beslut fattas i möte
 
-**Triggers:**
-- Besiktning med anmärkning → "vi behöver åtgärda X"
-- Avtal som löper ut → "vi behöver nytt avtal för Y"
-- Felanmälan som kräver entreprenör → "vi behöver VVS-firma"
-- Stämmobeslut → "stämman har beslutat att vi ska Z"
-- Styrelsediskussion → "vi borde utvärdera vårt bredband"
-- Lagkrav → "OVK-besiktning krävs inom 6 mån"
-- Underhållsplan → "fönsterbyte planerat 2027"
+```
+┌──────────────────────────────────────────────────────────┐
+│                                                          │
+│  STEG 1: BEHOVSREGISTRERING (löpande)                    │
+│  ─────────────────────────────────────                    │
+│  Vem som helst i styrelsen registrerar ett behov.        │
+│  Beskriver vad som behövs, varför, ungefärlig kostnad.   │
+│  Behovet ligger i kö till nästa styrelsemöte.            │
+│                                                          │
+│           ↓  hamnar på dagordningen  ↓                   │
+│                                                          │
+│  STEG 2: STYRELSEBESLUT (i möte)                         │
+│  ───────────────────────────────                         │
+│  Under dagordningspunkt "Upphandlingar/åtgärder":        │
+│                                                          │
+│  Styrelsen beslutar per behov:                           │
+│    ● Godkänn → formell upphandling startar               │
+│      - Vem ansvarar? (förvaltare/kassör/ordförande)      │
+│      - Budget? Tidsram? Mandatnivå?                      │
+│      - Antal offerter att begära?                        │
+│    ○ Avvakta → behov kvarstår, tas upp nästa möte        │
+│    ○ Avslå → behovet stängs med motivering               │
+│    ○ Delegation → förvaltare hanterar direkt              │
+│      (inom delegationsgräns, rapporterar i efterhand)     │
+│                                                          │
+│  Undantag: akuta behov hanteras direkt av förvaltare     │
+│  (jourlås, VVS-läcka) — registreras och rapporteras      │
+│  i efterhand på nästa styrelsemöte.                       │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+```
 
-**Systemets roll:** Påminnelser från avtalsbevaking, besiktningsschema, underhållsplan.
+---
 
-### Fas 1: Specificering
+## Fas 0: Behov identifieras och registreras
 
-Vad behöver vi? Kravformulering.
+Behov registreras löpande av styrelsemedlemmar. Systemet genererar också behov automatiskt.
+
+### Triggers
+
+| Källa | Exempel | Vem registrerar | Brådskande? |
+|-------|---------|----------------|-------------|
+| Besiktning | Anmärkning: fasaden flagnar | Förvaltare | Beror på allvarlighet |
+| Avtal löper ut | Städavtal slutar dec 2026 | Systemet (auto) | Beroende på uppsägningstid |
+| Felanmälan | Vattenläcka kräver VVS | Förvaltare | Ofta akut |
+| Underhållsplan | Fönsterbyte planerat 2027 | Systemet (auto) | Nej, planerat |
+| Styrelsediskussion | "Vi borde se över bredbandet" | Vem som helst | Nej |
+| Stämmobeslut | "Installera laddstolpar" | Ordförande | Ja (stämmans uppdrag) |
+| Lagkrav | OVK krävs inom 6 mån | Systemet/förvaltare | Ja (lagkrav) |
+| Kassör upptäcker | "Försäkringspremien ökade 40%" | Kassör | Inför förnyelse |
+
+### Behovsregistrering i systemet
+
+```
+┌─ Registrera behov ─────────────────────────────────────┐
+│                                                         │
+│  Titel: [Nytt städavtal — befintligt löper ut        ]  │
+│                                                         │
+│  Beskrivning:                                           │
+│  [CleanTeams avtal löper ut 2026-12-31. Uppsägning   ]  │
+│  [senast 2026-09-30. Vi bör utvärdera om vi ska      ]  │
+│  [förnya eller byta leverantör.                      ]  │
+│                                                         │
+│  Kategori: [Driftstjänst                           ▼]  │
+│                                                         │
+│  Uppskattad kostnad: [150 000] kr/år                   │
+│  Brådskande: ○ Ja (deadline)  ● Nej (planerat)         │
+│  Kopplat till: Avtal — Städ CleanTeam (t.o.m. 2026-12) │
+│                                                         │
+│  [Spara behov]                                          │
+│  → Hamnar på dagordningen för nästa styrelsemöte        │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Behovslista — vad styrelsen ser inför mötet
+
+```
+📋 Behov att behandla (4 st)
+
+  🔴 Akut: VVS-reparation källare B
+     Registrerad av: Erik (förvaltare), 2026-04-10
+     Kopplad till: Felanmälan #142
+     Uppskattad kostnad: 15 000–20 000 kr
+     → Förvaltare har redan agerat (jour). Rapporteras i efterhand.
+
+  🟡 Nytt städavtal
+     Registrerad av: Erik (förvaltare), 2026-04-05
+     Kopplad till: Avtal CleanTeam (löper ut 2026-12-31)
+     Uppsägningstid: 2026-09-30
+     Uppskattad kostnad: 150 000 kr/år
+     → Behöver beslut senast juni för att hinna upphandla.
+
+  🟡 Larmuppgradering
+     Registrerad av: Erik (förvaltare), 2026-03-20
+     Kopplad till: Avtal Securitas (löper ut 2026-06-30)
+     Uppskattad kostnad: 50 000–70 000 kr
+     → Securitas erbjuder förnyelse, men bör jämföras.
+
+  🔵 Utvärdera bredbandsavtal
+     Registrerad av: Sara (sekreterare), 2026-04-01
+     Nuvarande: Telia, 280 kr/lgh/mån, avtal t.o.m. 2026-09-30
+     → Flera boende har klagat på hastigheten. Bör vi byta?
+```
+
+---
+
+## Fas 1: Styrelsebeslut — upphandling godkänns
+
+Vid styrelsemöte, under dagordningspunkten "Upphandlingar och åtgärder":
+
+### I mötesadministrationen
+
+```
+┌─ Dagordning — Styrelsemöte 2026-04-22 ────────────────┐
+│                                                         │
+│  ...                                                    │
+│  §8. Upphandlingar och åtgärder                        │
+│                                                         │
+│  Behov att behandla (4 st):                            │
+│                                                         │
+│  ☑ VVS-reparation källare B                            │
+│    Status: Redan utförd (akut jour)                     │
+│    Beslut: [Godkänna i efterhand              ▼]       │
+│    Kostnad: 18 750 kr (faktura mottagen)                │
+│    → Noteras som utförd. Expense skapas.                │
+│                                                         │
+│  ☐ Nytt städavtal                                      │
+│    Beslut: [                                  ▼]       │
+│      ● Godkänn upphandling                              │
+│      ○ Avvakta till nästa möte                          │
+│      ○ Förnya befintligt avtal                          │
+│      ○ Avslå                                            │
+│    Ansvarig: [Erik Larsson (förvaltare)       ▼]       │
+│    Budget: [150 000] kr/år                              │
+│    Antal offerter: [3]                                  │
+│    Tidsram: Offerter senast 2026-07-01                  │
+│    Notering: [                                       ]  │
+│                                                         │
+│  ☐ Larmuppgradering                                    │
+│    Beslut: [Godkänn upphandling               ▼]       │
+│    Ansvarig: [Erik Larsson                    ▼]       │
+│    Budget: [70 000] kr                                  │
+│    Antal offerter: [2]                                  │
+│                                                         │
+│  ☐ Utvärdera bredbandsavtal                            │
+│    Beslut: [Avvakta — Sara utreder           ▼]       │
+│    Notering: Sara samlar in boendesnkemål och           │
+│    presenterar underlag till nästa möte.                 │
+│                                                         │
+│  ...                                                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Vad som händer vid beslut
+
+| Beslut | Resultat i systemet |
+|--------|-------------------|
+| **Godkänn** | Procurement skapas med status `APPROVED`, ansvarig tilldelad, kopplat till styrelsebeslut |
+| **Avvakta** | Behov kvarstår, visas på nästa möte med historik: "avvaktades 2026-04-22" |
+| **Förnya befintligt** | Avtal förnyas direkt, ingen upphandling — beslut loggas |
+| **Avslå** | Behov stängs med motivering, loggas i ActivityLog |
+| **Delegation** | Procurement skapas med mandateLevel: DELEGATED, förvaltare hanterar |
+| **Godkänna i efterhand** | Akut åtgärd bekräftas, Expense godkänns |
+
+---
+
+## Fas 2: Specificering
+
+Vad behöver vi? Kravformulering. Startar först **efter** styrelsebeslut (eller delegation).
 
 **Varierar per kategori:**
 
@@ -318,17 +473,20 @@ enum ProcurementCategory {
 }
 
 enum ProcurementStatus {
-  DRAFT                // Under planering
+  NEED                 // Behov registrerat — väntar på styrelsebeslut
+  NEED_DEFERRED        // Avvaktar — styrelsen tog inte beslut, tas upp igen
+  APPROVED             // Styrelsen godkänt upphandling — ansvarig tilldelad
   SPECIFICATION        // Kravspec under utformning
   RFQ_SENT             // Offertförfrågan skickad
   COLLECTING_QUOTES    // Offerter inkommer
   EVALUATION           // Utvärdering / jämförelse
-  DECISION_PENDING     // Inväntar beslut (styrelse/stämma)
-  DECIDED              // Beslut fattat
+  DECISION_PENDING     // Inväntar slutbeslut om leverantör (styrelse/stämma)
+  DECIDED              // Leverantör vald
   CONTRACTING          // Avtal under tecknande
   ONBOARDING           // Leverantör onboardas / arbete påbörjat
   COMPLETED            // Slutförd, avtal tecknat
   CANCELLED            // Avbruten
+  REJECTED             // Behov avslagit av styrelsen
 }
 
 model Procurement {
@@ -336,7 +494,18 @@ model Procurement {
   title             String
   description       String?             @db.Text
   category          ProcurementCategory
-  status            ProcurementStatus   @default(DRAFT)
+  status            ProcurementStatus   @default(NEED)
+
+  // Behov (fas 0 — registreras löpande)
+  urgency           String?             // ACUTE, PLANNED, EXPLORATORY
+  needRegisteredAt  DateTime            @default(now())
+  needRegisteredById String?            // Vem identifierade behovet
+
+  // Styrelsebeslut om upphandling (fas 1)
+  approvalDecisionId String?            // Styrelsebeslut som godkände upphandlingen
+  approvedAt        DateTime?
+  deferredCount     Int     @default(0) // Antal gånger avvaktad
+  rejectionReason   String?             // Om avslaget: motivering
 
   // Budget
   estimatedCost     Float?              // Uppskattad kostnad
