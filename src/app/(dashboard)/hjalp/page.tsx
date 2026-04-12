@@ -267,6 +267,50 @@ En bostadsrättsförening är en gemenskap. Ju fler som engagerar sig, desto bä
 **Tips:** Lär känna dina grannar. Det mesta löser sig enklare mellan människor som känner varandra.`,
   },
   {
+    id: "valberedare",
+    title: "Valberedare — din roll i praktiken",
+    icon: Vote,
+    forRoles: ["NOMINATING_COMMITTEE", "NOMINATING_COMMITTEE_CHAIR"],
+    content: `Som valberedare har du ett av föreningens viktigaste uppdrag: att hitta rätt personer till styrelsen och revisorsposten. Du är vald av stämman och arbetar oberoende av styrelsen.
+
+**Ditt uppdrag:**
+• Hitta och föreslå kandidater till styrelseledamöter, suppleanter och revisorer
+• Kontakta potentiella kandidater och höra om de är intresserade
+• Bedöma vilka kompetenser styrelsen behöver (ekonomi, teknik, juridik, kommunikation)
+• Presentera ert förslag vid stämman med motivering
+
+**Så här arbetar ni:**
+1. **Inventera** — vilka poster är lediga? Vilka sitter kvar? Vilka kompetenser saknas?
+2. **Öppna nomineringsperioden** — medlemmar kan föreslå kandidater via systemet
+3. **Kontakta kandidater** — ring, träffas, ställ frågor. Är de intresserade? Har de tid?
+4. **Sammanställ förslaget** — en kandidat per post med motivering
+5. **Presentera vid stämman** — berätta varför ni föreslår just dessa personer
+
+**Vad du letar efter hos kandidater:**
+• Tid och engagemang — styrelsearbete kräver regelbundna möten och uppgifter däremellan
+• Kompetens som kompletterar — inte bara fler av samma sort
+• Intresse för föreningen — bor de här? Bryr de sig?
+• Samarbetsförmåga — styrelsen är ett lag, inte ensamvargar
+
+**Sammankallande (ordförande i valberedningen):**
+Om du är sammankallande leder du valberedningens arbete:
+• Kalla till valberedningens möten
+• Fördela arbetet (vem kontaktar vem)
+• Slutbehandla och presentera förslaget
+• Svara på frågor vid stämman
+
+**Oberoende:**
+Valberedningen ska arbeta oberoende av styrelsen. Sittande styrelsemedlemmar ska inte styra vilka som nomineras. Om en styrelsemedlem försöker påverka — stå emot.
+
+**Vanliga misstag:**
+• Vänta för länge — börja arbeta direkt efter att ni valts, inte månaden före stämman
+• Bara fråga "vem vill?" — sök aktivt efter kompetens föreningen behöver
+• Glömma motivering — stämman vill veta varför ni föreslår just dessa personer
+• Inte kontakta kandidaten först — presentera aldrig någon som inte sagt ja
+
+**Tips:** Det bästa sättet att hitta kandidater är att prata med grannar. Många vill bidra men tänker inte på det förrän någon frågar.`,
+  },
+  {
     id: "boende",
     title: "Boende — så använder du Hemmet",
     icon: Home,
