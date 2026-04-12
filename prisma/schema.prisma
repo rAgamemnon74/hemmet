@@ -1404,17 +1404,33 @@ model Inspection {
   completedAt     DateTime?
   result          InspectionResult @default(PENDING)
   inspector       String?          // Namn/företag
-  certificateUrl  String?
+  certificateUrl  String?          // Behålls för bakåtkompatibilitet
   nextDueAt       DateTime?        // Nästa besiktningsdatum
   remarks         String?          @db.Text
   createdAt       DateTime         @default(now())
 
   building        Building         @relation(fields: [buildingId], references: [id])
   component       BuildingComponent? @relation(fields: [componentId], references: [id])
+  attachments     InspectionAttachment[]
 
   @@index([buildingId])
   @@index([type])
   @@index([nextDueAt])
+}
+
+model InspectionAttachment {
+  id            String   @id @default(cuid())
+  inspectionId  String
+  type          String   // "file" | "link"
+  name          String   // Visningsnamn: "OVK-protokoll 2026.pdf" eller "Protokoll hos besiktningsfirma"
+  url           String   // Filsökväg (/api/documents/...) eller extern URL
+  mimeType      String?  // "application/pdf" etc. — null för externa länkar
+  uploadedById  String?
+  createdAt     DateTime @default(now())
+
+  inspection    Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@index([inspectionId])
 }
 
 // ============================================================

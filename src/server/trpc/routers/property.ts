@@ -141,6 +141,7 @@ export const propertyRouter = router({
         include: {
           building: { select: { name: true } },
           component: { select: { name: true, category: true } },
+          attachments: { orderBy: { createdAt: "desc" } },
         },
         orderBy: { nextDueAt: "asc" },
       });
@@ -163,6 +164,33 @@ export const propertyRouter = router({
       const result = await ctx.db.inspection.create({ data: input });
       logActivity({ userId: ctx.user.id as string, action: "property.addInspection", entityType: "Inspection", entityId: result.id, description: `Ny besiktning: ${input.type}`, after: { type: input.type, result: input.result } });
       return result;
+    }),
+
+  // Add attachment to inspection
+  addInspectionAttachment: protectedProcedure
+    .use(requirePermission("report:manage"))
+    .input(z.object({
+      inspectionId: z.string(),
+      type: z.enum(["file", "link"]),
+      name: z.string().min(1),
+      url: z.string().min(1),
+      mimeType: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await ctx.db.inspectionAttachment.create({
+        data: { ...input, uploadedById: ctx.user.id as string },
+      });
+      logActivity({ userId: ctx.user.id as string, action: "inspection.addAttachment", entityType: "InspectionAttachment", entityId: result.id, description: `Bilaga: ${input.name} (${input.type})` });
+      return result;
+    }),
+
+  // Remove attachment
+  removeInspectionAttachment: protectedProcedure
+    .use(requirePermission("report:manage"))
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.inspectionAttachment.delete({ where: { id: input.id } });
+      logActivity({ userId: ctx.user.id as string, action: "inspection.removeAttachment", entityType: "InspectionAttachment", entityId: input.id, description: "Tog bort bilaga" });
     }),
 
   // Overdue inspections
