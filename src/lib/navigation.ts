@@ -25,6 +25,7 @@ import {
   DoorOpen,
   UserPlus,
   Landmark,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 import type { Permission } from "./permissions";
@@ -52,6 +53,7 @@ export const navigation: NavSection[] = [
   {
     title: "Styrelse",
     items: [
+      { label: "E-post", href: "/styrelse/epost", icon: Mail, permission: "meeting:view" },
       { label: "Möten", href: "/styrelse/moten", icon: CalendarDays, permission: "meeting:view" },
       { label: "Ärenden", href: "/styrelse/arenden", icon: CheckSquare, permission: "task:view" },
       { label: "Beslut", href: "/styrelse/beslut", icon: BookOpen, permission: "meeting:view" },
