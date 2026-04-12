@@ -23,6 +23,8 @@ type AnnualReport = {
 
 const statusLabels: Record<AnnualReportStatus, string> = {
   DRAFT: "Utkast",
+  FINAL_UPLOADED: "Slutprodukt uppladdad",
+  SIGNED: "Signerad",
   REVIEW: "Hos revisor",
   REVISED: "Granskad",
   APPROVED: "Godkänd",
@@ -31,6 +33,8 @@ const statusLabels: Record<AnnualReportStatus, string> = {
 
 const statusColors: Record<AnnualReportStatus, string> = {
   DRAFT: "bg-gray-100 text-gray-700",
+  FINAL_UPLOADED: "bg-blue-100 text-blue-700",
+  SIGNED: "bg-green-100 text-green-700",
   REVIEW: "bg-amber-100 text-amber-700",
   REVISED: "bg-blue-100 text-blue-700",
   APPROVED: "bg-green-100 text-green-700",

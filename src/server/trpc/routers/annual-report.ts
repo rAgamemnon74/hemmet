@@ -129,6 +129,106 @@ export const annualReportRouter = router({
       }));
     }),
 
+  // Upload final PDF
+  uploadFinalPdf: protectedProcedure
+    .use(requirePermission("annual_report:edit"))
+    .input(z.object({
+      id: z.string(),
+      pdfUrl: z.string(),
+      pdfName: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await ctx.db.annualReport.update({
+        where: { id: input.id },
+        data: {
+          finalPdfUrl: input.pdfUrl,
+          finalPdfName: input.pdfName,
+          finalUploadedAt: new Date(),
+          finalUploadedBy: ctx.user.id as string,
+          status: "FINAL_UPLOADED",
+          signedBy: [],
+          allSigned: false,
+        },
+      });
+      logActivity({ userId: ctx.user.id as string, action: "annualReport.uploadPdf", entityType: "AnnualReport", entityId: input.id, description: `Laddade upp slutprodukt: ${input.pdfName}` });
+      return result;
+    }),
+
+  // Sign the final PDF (board members)
+  sign: protectedProcedure
+    .use(requirePermission("annual_report:edit"))
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.id as string;
+      const report = await ctx.db.annualReport.findUnique({ where: { id: input.id } });
+      if (!report) throw new TRPCError({ code: "NOT_FOUND" });
+
+      if (!report.finalPdfUrl) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Ingen slutprodukt uppladdad att signera." });
+      }
+      if (report.signedBy.includes(userId)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Du har redan signerat." });
+      }
+
+      const newSignedBy = [...report.signedBy, userId];
+
+      // Check if all ordinarie board members have signed
+      const boardMembers = await ctx.db.userRole.findMany({
+        where: {
+          role: { in: ["BOARD_CHAIRPERSON", "BOARD_SECRETARY", "BOARD_TREASURER", "BOARD_PROPERTY_MGR", "BOARD_ENVIRONMENT", "BOARD_EVENTS", "BOARD_MEMBER"] },
+          active: true,
+        },
+        select: { userId: true },
+      });
+      const requiredSigners = [...new Set(boardMembers.map((r) => r.userId))];
+      const allSigned = requiredSigners.every((id) => newSignedBy.includes(id));
+
+      const result = await ctx.db.annualReport.update({
+        where: { id: input.id },
+        data: {
+          signedBy: newSignedBy,
+          signedAt: new Date(),
+          allSigned,
+          ...(allSigned ? { status: "SIGNED" } : {}),
+        },
+      });
+
+      logActivity({ userId, action: "annualReport.sign", entityType: "AnnualReport", entityId: input.id, description: `Signerade årsberättelsen${allSigned ? " (alla har signerat)" : ""}`, before: { signedBy: report.signedBy }, after: { signedBy: newSignedBy } });
+
+      return result;
+    }),
+
+  // Get signers status
+  getSigningStatus: protectedProcedure
+    .use(requirePermission("annual_report:view"))
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const report = await ctx.db.annualReport.findUnique({
+        where: { id: input.id },
+        select: { signedBy: true, allSigned: true },
+      });
+      if (!report) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const boardMembers = await ctx.db.userRole.findMany({
+        where: {
+          role: { in: ["BOARD_CHAIRPERSON", "BOARD_SECRETARY", "BOARD_TREASURER", "BOARD_PROPERTY_MGR", "BOARD_ENVIRONMENT", "BOARD_EVENTS", "BOARD_MEMBER"] },
+          active: true,
+        },
+        select: { userId: true },
+      });
+      const requiredIds = [...new Set(boardMembers.map((r) => r.userId))];
+      const users = await ctx.db.user.findMany({
+        where: { id: { in: requiredIds } },
+        select: { id: true, firstName: true, lastName: true },
+      });
+
+      return users.map((u) => ({
+        id: u.id,
+        name: `${u.firstName} ${u.lastName}`,
+        signed: report.signedBy.includes(u.id),
+      }));
+    }),
+
   sendToAudit: protectedProcedure
     .use(requirePermission("annual_report:edit"))
     .input(z.object({ id: z.string(), auditorId: z.string() }))
@@ -138,6 +238,14 @@ export const annualReportRouter = router({
         include: { audit: true },
       });
       if (!report) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // Kräv att slutprodukten är signerad
+      if (!report.allSigned) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Årsberättelsen måste vara signerad av alla ordinarie styrelsemedlemmar innan den skickas till revision.",
+        });
+      }
 
       // Create audit record if not exists
       if (!report.audit) {

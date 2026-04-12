@@ -1576,12 +1576,25 @@ model AnnualReport {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  // Slutprodukt — layoutad och designad PDF
+  finalPdfUrl     String?            // Uppladdad färdigformaterad årsberättelse
+  finalPdfName    String?            // Originalfilnamn
+  finalUploadedAt DateTime?
+  finalUploadedBy String?
+
+  // Signering — ordinarie styrelsemedlemmar signerar slutprodukten
+  signedBy        String[]           // userId[] som signerat
+  signedAt        DateTime?          // Senaste signering
+  allSigned       Boolean  @default(false) // Alla ordinarie har signerat
+
   audit           Audit?
 }
 
 enum AnnualReportStatus {
-  DRAFT
-  REVIEW          // Skickad till revisor
+  DRAFT           // Underlag skrivs i Hemmet
+  FINAL_UPLOADED  // Layoutad PDF uppladdad — inväntar signering
+  SIGNED          // Ordinarie styrelsemedlemmar har signerat
+  REVIEW          // Skickad till revisor (kräver SIGNED)
   REVISED         // Revisor har granskat
   APPROVED        // Godkänd av styrelsen
   PUBLISHED       // Publicerad till medlemmar

@@ -37,11 +37,13 @@ type ReportData = {
 type Auditor = { id: string; firstName: string; lastName: string; email: string };
 
 const statusLabels: Record<AnnualReportStatus, string> = {
-  DRAFT: "Utkast", REVIEW: "Hos revisor", REVISED: "Granskad", APPROVED: "Godkänd", PUBLISHED: "Publicerad",
+  DRAFT: "Utkast", FINAL_UPLOADED: "Slutprodukt uppladdad", SIGNED: "Signerad",
+  REVIEW: "Hos revisor", REVISED: "Granskad", APPROVED: "Godkänd", PUBLISHED: "Publicerad",
 };
 const statusColors: Record<AnnualReportStatus, string> = {
-  DRAFT: "bg-gray-100 text-gray-700", REVIEW: "bg-amber-100 text-amber-700",
-  REVISED: "bg-blue-100 text-blue-700", APPROVED: "bg-green-100 text-green-700", PUBLISHED: "bg-emerald-100 text-emerald-700",
+  DRAFT: "bg-gray-100 text-gray-700", FINAL_UPLOADED: "bg-blue-100 text-blue-700", SIGNED: "bg-green-100 text-green-700",
+  REVIEW: "bg-amber-100 text-amber-700", REVISED: "bg-blue-100 text-blue-700",
+  APPROVED: "bg-green-100 text-green-700", PUBLISHED: "bg-emerald-100 text-emerald-700",
 };
 const recommendationLabels: Record<AuditRecommendation, string> = {
   APPROVE: "Tillstyrker ansvarsfrihet", APPROVE_WITH_REMARKS: "Tillstyrker med anmärkningar", DENY: "Avstyrker ansvarsfrihet",
