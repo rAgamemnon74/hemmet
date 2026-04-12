@@ -148,4 +148,124 @@ export const dashboardRouter = router({
 
     return { openReports, criticalReports, recentReports };
   }),
+
+  // Årshjulet: process status + personal items per user
+  annualTimeline: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user.id as string;
+    const settings = await ctx.db.brfSettings.findUnique({ where: { id: "default" } });
+    const fyEnd = settings?.fiscalYearEnd ?? 12;
+
+    // Determine current and previous fiscal year
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const fyEndDate = new Date(currentYear, fyEnd - 1 + 1, 0); // Last day of fiscal year end month
+    const isBeforeFyEnd = now <= fyEndDate;
+    const previousFiscalYear = isBeforeFyEnd ? String(currentYear - 1) : String(currentYear);
+    const currentFiscalYear = isBeforeFyEnd ? String(currentYear) : String(currentYear + 1);
+
+    // Previous year processes
+    const [annualReport, annualMeeting] = await Promise.all([
+      ctx.db.annualReport.findUnique({
+        where: { fiscalYear: previousFiscalYear },
+        select: { id: true, status: true, allSigned: true, finalPdfUrl: true },
+      }),
+      ctx.db.meeting.findFirst({
+        where: { type: "ANNUAL", scheduledAt: { gt: fyEndDate } },
+        orderBy: { scheduledAt: "asc" },
+        select: { id: true, status: true, scheduledAt: true, title: true },
+      }),
+    ]);
+
+    const audit = annualReport
+      ? await ctx.db.audit.findFirst({
+          where: { annualReportId: annualReport.id },
+          select: { status: true, recommendation: true },
+        })
+      : null;
+
+    const deadlineStamma = new Date(fyEndDate);
+    deadlineStamma.setMonth(deadlineStamma.getMonth() + 6);
+
+    type ProcessStatus = "DONE" | "ACTIVE" | "UPCOMING" | "WARNING" | "OVERDUE";
+    function calcStatus(done: boolean, active: boolean, deadline?: Date): ProcessStatus {
+      if (done) return "DONE";
+      if (active) return "ACTIVE";
+      if (deadline && now > deadline) return "OVERDUE";
+      if (deadline && now > new Date(deadline.getTime() - 30 * 24 * 60 * 60 * 1000)) return "WARNING";
+      return "UPCOMING";
+    }
+
+    const previousYearProcesses = [
+      { key: "bokslut", label: "Bokslut", status: calcStatus(true, false) as ProcessStatus, detail: `Räkenskapsåret ${previousFiscalYear} avslutat` },
+      { key: "arsberattelse", label: "Årsberättelse", status: calcStatus(annualReport?.status === "PUBLISHED" || annualReport?.status === "APPROVED" || annualReport?.status === "REVISED" || annualReport?.status === "REVIEW" || annualReport?.status === "SIGNED", annualReport?.status === "DRAFT" || annualReport?.status === "FINAL_UPLOADED", undefined) as ProcessStatus, detail: annualReport ? `Status: ${annualReport.status}` : "Ej påbörjad", link: annualReport ? `/styrelse/arsberattelse/${annualReport.id}` : "/styrelse/arsberattelse/ny" },
+      { key: "revision", label: "Revision", status: calcStatus(audit?.status === "COMPLETED", audit?.status === "IN_PROGRESS", undefined) as ProcessStatus, detail: audit?.recommendation ?? "Inväntar", link: annualReport ? `/revision/${annualReport.id}` : undefined },
+      { key: "stamma", label: "Stämma", status: calcStatus(annualMeeting?.status === "COMPLETED", annualMeeting?.status === "IN_PROGRESS" || annualMeeting?.status === "SCHEDULED", deadlineStamma) as ProcessStatus, detail: annualMeeting ? annualMeeting.title : "Ej planerad", link: annualMeeting ? `/medlem/arsmote/${annualMeeting.id}` : undefined, date: annualMeeting?.scheduledAt },
+      { key: "bolagsverket", label: "Bolagsverket", status: calcStatus(false, false, new Date(deadlineStamma.getTime() + 30 * 24 * 60 * 60 * 1000)) as ProcessStatus, detail: "Digital inlämning" },
+    ];
+
+    // Current year: ongoing processes
+    const [openTasks, openDamageReports, nextBoardMeeting] = await Promise.all([
+      ctx.db.task.count({ where: { assigneeId: userId, status: { not: "DONE" } } }),
+      ctx.db.damageReport.count({ where: { status: { in: ["SUBMITTED", "ACKNOWLEDGED", "IN_PROGRESS"] } } }),
+      ctx.db.meeting.findFirst({
+        where: { type: "BOARD", status: { in: ["DRAFT", "SCHEDULED"] } },
+        orderBy: { scheduledAt: "asc" },
+        select: { id: true, title: true, scheduledAt: true },
+      }),
+    ]);
+
+    // Personal items ("Mitt just nu")
+    const [myDamageReports, mySublets, myRenovations, protocolsToSign, myTasks] = await Promise.all([
+      ctx.db.damageReport.findMany({
+        where: { reporterId: userId, status: { in: ["SUBMITTED", "ACKNOWLEDGED", "IN_PROGRESS"] } },
+        select: { id: true, title: true, status: true },
+        take: 5,
+      }),
+      ctx.db.subletApplication.findMany({
+        where: { applicantId: userId, status: { in: ["SUBMITTED", "UNDER_REVIEW", "ACTIVE"] } },
+        select: { id: true, status: true, tenantName: true },
+        take: 3,
+      }),
+      ctx.db.renovationApplication.findMany({
+        where: { applicantId: userId, status: { in: ["SUBMITTED", "TECHNICAL_REVIEW", "BOARD_REVIEW", "IN_PROGRESS"] } },
+        select: { id: true, status: true, type: true },
+        take: 3,
+      }),
+      ctx.db.protocol.findMany({
+        where: { status: "FINALIZED", NOT: { signedBy: { has: userId } } },
+        select: { id: true, meetingId: true, meeting: { select: { title: true } } },
+        take: 5,
+      }),
+      ctx.db.task.findMany({
+        where: { assigneeId: userId, status: { not: "DONE" } },
+        select: { id: true, title: true, priority: true, dueDate: true },
+        orderBy: [{ priority: "desc" }, { dueDate: "asc" }],
+        take: 5,
+      }),
+    ]);
+
+    // Check if user needs to sign annual report
+    const annualReportToSign = annualReport?.status === "FINAL_UPLOADED" && !annualReport.allSigned
+      ? { id: annualReport.id, alreadySigned: false } // simplified — would need to check signedBy
+      : null;
+
+    return {
+      previousFiscalYear,
+      currentFiscalYear,
+      previousYearProcesses,
+      currentYear: {
+        openTasks,
+        openDamageReports,
+        nextBoardMeeting,
+      },
+      personal: {
+        damageReports: myDamageReports,
+        sublets: mySublets,
+        renovations: myRenovations,
+        protocolsToSign,
+        tasks: myTasks,
+        annualReportToSign,
+      },
+    };
+  }),
 });
