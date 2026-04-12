@@ -34,7 +34,6 @@ type ApartmentData = {
     id: string;
     name: string;
     address: string;
-    propertyDesignation: string | null;
   };
   residents: Array<{
     id: string;
@@ -103,9 +102,6 @@ export function ApartmentDetail({ apartment: apt }: { apartment: ApartmentData }
               <InfoItem label="Yta" value={apt.area ? `${apt.area} kvm` : undefined} />
               <InfoItem label="Rum" value={apt.rooms?.toString()} />
               <InfoItem label="Objektnummer" value={apt.objectNumber} />
-              {apt.building.propertyDesignation && (
-                <InfoItem label="Fastighet" value={apt.building.propertyDesignation} />
-              )}
             </div>
           </div>
 
@@ -242,9 +238,6 @@ export function ApartmentDetail({ apartment: apt }: { apartment: ApartmentData }
             </h3>
             <p className="text-sm text-gray-900 font-medium">{apt.building.name}</p>
             <p className="text-sm text-gray-600">{apt.building.address}</p>
-            {apt.building.propertyDesignation && (
-              <p className="text-xs text-gray-500">{apt.building.propertyDesignation}</p>
-            )}
           </div>
         </div>
       </div>

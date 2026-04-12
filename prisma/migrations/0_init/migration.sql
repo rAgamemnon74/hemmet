@@ -1,5 +1,11 @@
+warn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).
+For more information, see: https://pris.ly/prisma-config
+
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateEnum
-CREATE TYPE "Role" AS ENUM ('ADMIN', 'BOARD_CHAIRPERSON', 'BOARD_SECRETARY', 'BOARD_TREASURER', 'BOARD_PROPERTY_MGR', 'BOARD_ENVIRONMENT', 'BOARD_EVENTS', 'BOARD_SUBSTITUTE', 'BOARD_MEMBER', 'AUDITOR', 'MEMBER', 'RESIDENT');
+CREATE TYPE "Role" AS ENUM ('ADMIN', 'BOARD_CHAIRPERSON', 'BOARD_SECRETARY', 'BOARD_TREASURER', 'BOARD_PROPERTY_MGR', 'BOARD_ENVIRONMENT', 'BOARD_EVENTS', 'BOARD_SUBSTITUTE', 'BOARD_MEMBER', 'AUDITOR', 'AUDITOR_SUBSTITUTE', 'NOMINATING_COMMITTEE', 'NOMINATING_COMMITTEE_CHAIR', 'MEMBER', 'RESIDENT');
 
 -- CreateEnum
 CREATE TYPE "OwnerType" AS ENUM ('PERSON', 'ORGANIZATION');
@@ -14,10 +20,19 @@ CREATE TYPE "ApplicantType" AS ENUM ('PERSON', 'ORGANIZATION');
 CREATE TYPE "ApartmentType" AS ENUM ('APARTMENT', 'COMMERCIAL', 'GARAGE', 'STORAGE', 'OTHER');
 
 -- CreateEnum
+CREATE TYPE "TransferType" AS ENUM ('SALE', 'PRIVATE_SALE', 'INHERITANCE', 'DIVORCE_SETTLEMENT', 'GIFT', 'FORCED_SALE', 'SHARE_CHANGE');
+
+-- CreateEnum
+CREATE TYPE "TransferStatus" AS ENUM ('INITIATED', 'MEMBERSHIP_REVIEW', 'APPROVED', 'REJECTED', 'APPEALED', 'FINANCIAL_SETTLEMENT', 'COMPLETED', 'CANCELLED');
+
+-- CreateEnum
 CREATE TYPE "MeetingType" AS ENUM ('BOARD', 'ANNUAL', 'EXTRAORDINARY');
 
 -- CreateEnum
-CREATE TYPE "MeetingStatus" AS ENUM ('DRAFT', 'SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
+CREATE TYPE "MeetingStatus" AS ENUM ('DRAFT', 'SCHEDULED', 'IN_PROGRESS', 'FINALIZING', 'COMPLETED', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "AgendaItemType" AS ENUM ('OPENING', 'ATTENDANCE', 'QUORUM_CHECK', 'ELECT_CHAIR', 'ELECT_SECRETARY', 'ELECT_ADJUSTERS', 'AUDIT_REPORT', 'DISCHARGE_VOTE', 'BOARD_ELECTION', 'SUBSTITUTE_ELECTION', 'AUDITOR_ELECTION', 'ELECT_NOMINATING_COMMITTEE', 'MEMBERSHIP_REVIEW', 'MOTIONS', 'BOARD_MATTERS');
 
 -- CreateEnum
 CREATE TYPE "VoteType" AS ENUM ('SIMPLE_MAJORITY', 'QUALIFIED_MAJORITY', 'UNANIMOUS', 'SHOW_OF_HANDS', 'BALLOT');
@@ -32,6 +47,9 @@ CREATE TYPE "VoterRegistryMethod" AS ENUM ('DIGITAL', 'DOCUMENT');
 CREATE TYPE "ProxyType" AS ENUM ('MEMBER', 'EXTERNAL');
 
 -- CreateEnum
+CREATE TYPE "ProtocolStatus" AS ENUM ('DRAFT', 'FINALIZED', 'SIGNED', 'ARCHIVED');
+
+-- CreateEnum
 CREATE TYPE "DecisionMethod" AS ENUM ('ACCLAMATION', 'ROLL_CALL', 'COUNTED');
 
 -- CreateEnum
@@ -44,7 +62,13 @@ CREATE TYPE "TaskPriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'URGENT');
 CREATE TYPE "ExpenseStatus" AS ENUM ('DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'PAID');
 
 -- CreateEnum
-CREATE TYPE "MotionStatus" AS ENUM ('DRAFT', 'SUBMITTED', 'RECEIVED', 'BOARD_RESPONSE', 'DECIDED', 'WITHDRAWN');
+CREATE TYPE "MotionStatus" AS ENUM ('DRAFT', 'SUBMITTED', 'RECEIVED', 'BOARD_RESPONSE', 'DECIDED', 'WITHDRAWN', 'STRUCK', 'NOT_TREATED');
+
+-- CreateEnum
+CREATE TYPE "MotionRecommendation" AS ENUM ('APPROVE', 'REJECT', 'AMEND', 'NEUTRAL');
+
+-- CreateEnum
+CREATE TYPE "MotionProposalSource" AS ENUM ('MOTIONER', 'BOARD', 'AMENDMENT');
 
 -- CreateEnum
 CREATE TYPE "ReportStatus" AS ENUM ('SUBMITTED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED');
@@ -53,19 +77,67 @@ CREATE TYPE "ReportStatus" AS ENUM ('SUBMITTED', 'ACKNOWLEDGED', 'IN_PROGRESS', 
 CREATE TYPE "Severity" AS ENUM ('LOW', 'NORMAL', 'HIGH', 'CRITICAL');
 
 -- CreateEnum
+CREATE TYPE "SubletStatus" AS ENUM ('SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'ACTIVE', 'EXPIRED', 'TERMINATED');
+
+-- CreateEnum
+CREATE TYPE "RenovationStatus" AS ENUM ('SUBMITTED', 'TECHNICAL_REVIEW', 'BOARD_REVIEW', 'APPROVED', 'REJECTED', 'IN_PROGRESS', 'INSPECTION', 'COMPLETED');
+
+-- CreateEnum
+CREATE TYPE "RenovationType" AS ENUM ('KITCHEN', 'BATHROOM', 'FLOORING', 'WALLS', 'ELECTRICAL', 'PLUMBING', 'VENTILATION', 'BALCONY', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "DisturbanceStatus" AS ENUM ('REPORTED', 'ACKNOWLEDGED', 'FIRST_WARNING', 'SECOND_WARNING', 'BOARD_REVIEW', 'RESOLVED', 'ESCALATED', 'CLOSED');
+
+-- CreateEnum
+CREATE TYPE "DisturbanceType" AS ENUM ('NOISE', 'SMOKE', 'THREATS', 'PROPERTY_DAMAGE', 'COMMON_AREA_MISUSE', 'PETS', 'WASTE', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "ResourceType" AS ENUM ('LAUNDRY', 'SAUNA', 'GUEST_APARTMENT', 'PARTY_ROOM', 'GYM', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "NominationPeriodStatus" AS ENUM ('PLANNING', 'OPEN', 'CLOSED', 'PRESENTED');
+
+-- CreateEnum
+CREATE TYPE "NominationPosition" AS ENUM ('CHAIRPERSON', 'BOARD_MEMBER', 'BOARD_SUBSTITUTE', 'AUDITOR', 'AUDITOR_SUBSTITUTE');
+
+-- CreateEnum
+CREATE TYPE "NominationStatus" AS ENUM ('PROPOSED', 'CONTACTED', 'ACCEPTED', 'DECLINED', 'WITHDRAWN', 'ELECTED', 'NOT_ELECTED');
+
+-- CreateEnum
+CREATE TYPE "ComponentCondition" AS ENUM ('GOOD', 'FAIR', 'POOR', 'CRITICAL');
+
+-- CreateEnum
+CREATE TYPE "ComponentCategory" AS ENUM ('ROOF', 'FACADE', 'WINDOWS', 'PLUMBING', 'ELECTRICAL', 'VENTILATION', 'ELEVATOR', 'BALCONY', 'FOUNDATION', 'DRAINAGE', 'HEATING', 'COMMON_AREAS', 'PARKING', 'OUTDOOR', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "InspectionType" AS ENUM ('OVK', 'ELEVATOR', 'FIRE_SAFETY', 'ENERGY', 'RADON', 'PLAYGROUND', 'CISTERN', 'COMPONENT', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "InspectionResult" AS ENUM ('APPROVED', 'APPROVED_WITH_REMARKS', 'FAILED', 'PENDING');
+
+-- CreateEnum
 CREATE TYPE "AudienceScope" AS ENUM ('ALL', 'MEMBERS_ONLY', 'BOARD_ONLY');
 
 -- CreateEnum
 CREATE TYPE "DocumentCategory" AS ENUM ('MEETING_PROTOCOL', 'MEETING_ATTACHMENT', 'EXPENSE_RECEIPT', 'MOTION_ATTACHMENT', 'DAMAGE_REPORT_PHOTO', 'ANNUAL_REPORT', 'FINANCIAL_STATEMENT', 'AUDIT_REPORT', 'ORGANIZATION_MANDATE', 'RULES', 'OTHER');
 
 -- CreateEnum
-CREATE TYPE "AnnualReportStatus" AS ENUM ('DRAFT', 'REVIEW', 'REVISED', 'APPROVED', 'PUBLISHED');
+CREATE TYPE "AnnualReportStatus" AS ENUM ('DRAFT', 'FINAL_UPLOADED', 'SIGNED', 'REVIEW', 'REVISED', 'APPROVED', 'PUBLISHED');
 
 -- CreateEnum
 CREATE TYPE "AuditStatus" AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED');
 
 -- CreateEnum
 CREATE TYPE "AuditRecommendation" AS ENUM ('APPROVE', 'APPROVE_WITH_REMARKS', 'DENY');
+
+-- CreateEnum
+CREATE TYPE "OrganizationAffiliation" AS ENUM ('NONE', 'HSB', 'RIKSBYGGEN', 'SBC', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "ConsentType" AS ENUM ('CONTACT_SHARING', 'DIGITAL_COMMUNICATION', 'PHOTO_PUBLICATION');
+
+-- CreateEnum
+CREATE TYPE "PersonalDataAction" AS ENUM ('VIEW_REGISTRY', 'VIEW_MEMBER_DETAIL', 'VIEW_APPLICATION', 'VIEW_SSN', 'EXPORT_CSV', 'VIEW_PROXY_DETAILS', 'VIEW_ORGANIZATION_REPS');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -77,6 +149,14 @@ CREATE TABLE "User" (
     "phone" TEXT,
     "avatarUrl" TEXT,
     "emailVerified" TIMESTAMP(3),
+    "exitedAt" TIMESTAMP(3),
+    "exitReason" TEXT,
+    "exitDocumentId" TEXT,
+    "estateContactName" TEXT,
+    "estateContactPersonalId" TEXT,
+    "estateContactPhone" TEXT,
+    "estateContactEmail" TEXT,
+    "estateContactRelation" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "apartmentId" TEXT,
@@ -115,21 +195,34 @@ CREATE TABLE "UserRole" (
 );
 
 -- CreateTable
-CREATE TABLE "Building" (
+CREATE TABLE "Property" (
     "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
+    "propertyDesignation" TEXT,
     "address" TEXT NOT NULL,
     "city" TEXT,
     "postalCode" TEXT,
-    "propertyDesignation" TEXT,
+    "plotArea" DOUBLE PRECISION,
+    "taxationValue" DOUBLE PRECISION,
+    "commercialUnits" INTEGER,
+    "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Property_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Building" (
+    "id" TEXT NOT NULL,
+    "propertyId" TEXT,
+    "name" TEXT NOT NULL,
+    "address" TEXT NOT NULL,
     "constructionYear" INTEGER,
     "totalArea" DOUBLE PRECISION,
-    "plotArea" DOUBLE PRECISION,
-    "commercialUnits" INTEGER,
     "heatingType" TEXT,
-    "taxationValue" DOUBLE PRECISION,
     "energyRating" TEXT,
     "energyDeclarationExpiry" TIMESTAMP(3),
+    "excludedComponentCategories" TEXT[],
 
     CONSTRAINT "Building_pkey" PRIMARY KEY ("id")
 );
@@ -257,6 +350,59 @@ CREATE TABLE "MembershipApplication" (
 );
 
 -- CreateTable
+CREATE TABLE "TransferCase" (
+    "id" TEXT NOT NULL,
+    "apartmentId" TEXT NOT NULL,
+    "type" "TransferType" NOT NULL,
+    "status" "TransferStatus" NOT NULL DEFAULT 'INITIATED',
+    "sellerId" TEXT,
+    "buyerApplicationId" TEXT,
+    "externalContactName" TEXT,
+    "externalContactEmail" TEXT,
+    "externalContactPhone" TEXT,
+    "transferPrice" DOUBLE PRECISION,
+    "transferFeeAmount" DOUBLE PRECISION,
+    "transferFeePaidBy" TEXT,
+    "transferFeePaidAt" TIMESTAMP(3),
+    "pledgeFeeAmount" DOUBLE PRECISION,
+    "outstandingDebt" DOUBLE PRECISION,
+    "contractDate" TIMESTAMP(3),
+    "accessDate" TIMESTAMP(3),
+    "decisionDate" TIMESTAMP(3),
+    "completedAt" TIMESTAMP(3),
+    "creditCheckDone" BOOLEAN NOT NULL DEFAULT false,
+    "creditCheckDate" TIMESTAMP(3),
+    "financingVerified" BOOLEAN NOT NULL DEFAULT false,
+    "financingVerifiedDate" TIMESTAMP(3),
+    "statuteCheckDone" BOOLEAN NOT NULL DEFAULT false,
+    "rejectionReason" TEXT,
+    "decisionId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "createdById" TEXT NOT NULL,
+
+    CONSTRAINT "TransferCase_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "MortgageNotation" (
+    "id" TEXT NOT NULL,
+    "apartmentId" TEXT NOT NULL,
+    "transferCaseId" TEXT,
+    "bankName" TEXT NOT NULL,
+    "amount" DOUBLE PRECISION,
+    "notationDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "denotationDate" TIMESTAMP(3),
+    "fee" DOUBLE PRECISION,
+    "feePaidAt" TIMESTAMP(3),
+    "requestedById" TEXT NOT NULL,
+    "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "MortgageNotation_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Meeting" (
     "id" TEXT NOT NULL,
     "type" "MeetingType" NOT NULL,
@@ -271,6 +417,9 @@ CREATE TABLE "Meeting" (
     "meetingChairpersonId" TEXT,
     "meetingSecretaryId" TEXT,
     "adjusters" TEXT[],
+    "activeAgendaItemId" TEXT,
+    "activeSubItemType" TEXT,
+    "activeSubItemId" TEXT,
 
     CONSTRAINT "Meeting_pkey" PRIMARY KEY ("id")
 );
@@ -285,6 +434,8 @@ CREATE TABLE "AgendaItem" (
     "duration" INTEGER,
     "presenter" TEXT,
     "voteType" "VoteType",
+    "specialType" "AgendaItemType",
+    "notes" TEXT,
 
     CONSTRAINT "AgendaItem_pkey" PRIMARY KEY ("id")
 );
@@ -358,8 +509,12 @@ CREATE TABLE "Protocol" (
     "id" TEXT NOT NULL,
     "meetingId" TEXT NOT NULL,
     "content" TEXT NOT NULL,
+    "status" "ProtocolStatus" NOT NULL DEFAULT 'DRAFT',
     "signedAt" TIMESTAMP(3),
     "signedBy" TEXT[],
+    "finalizedAt" TIMESTAMP(3),
+    "finalizedBy" TEXT,
+    "archivedAt" TIMESTAMP(3),
     "pdfUrl" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -395,8 +550,22 @@ CREATE TABLE "Decision" (
     "votesFor" INTEGER,
     "votesAgainst" INTEGER,
     "votesAbstained" INTEGER,
+    "tiebrokenByChairperson" BOOLEAN NOT NULL DEFAULT false,
+    "participantIds" TEXT[],
 
     CONSTRAINT "Decision_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "DecisionRecusal" (
+    "id" TEXT NOT NULL,
+    "decisionId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "userName" TEXT NOT NULL,
+    "reason" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "DecisionRecusal_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -470,6 +639,7 @@ CREATE TABLE "Motion" (
     "description" TEXT NOT NULL,
     "proposal" TEXT NOT NULL,
     "boardResponse" TEXT,
+    "boardRecommendation" "MotionRecommendation",
     "status" "MotionStatus" NOT NULL DEFAULT 'DRAFT',
     "meetingId" TEXT,
     "resolution" TEXT,
@@ -478,6 +648,24 @@ CREATE TABLE "Motion" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Motion_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "MotionVoteProposal" (
+    "id" TEXT NOT NULL,
+    "motionId" TEXT NOT NULL,
+    "sortOrder" INTEGER NOT NULL,
+    "label" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "isDefault" BOOLEAN NOT NULL DEFAULT false,
+    "source" "MotionProposalSource" NOT NULL DEFAULT 'MOTIONER',
+    "votesFor" INTEGER,
+    "votesAgainst" INTEGER,
+    "votesAbstained" INTEGER,
+    "adopted" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "MotionVoteProposal_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -492,6 +680,9 @@ CREATE TABLE "DamageReport" (
     "status" "ReportStatus" NOT NULL DEFAULT 'SUBMITTED',
     "resolvedAt" TIMESTAMP(3),
     "resolution" TEXT,
+    "estimatedCost" DOUBLE PRECISION,
+    "actualCost" DOUBLE PRECISION,
+    "assignedTo" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -525,6 +716,250 @@ CREATE TABLE "Suggestion" (
 );
 
 -- CreateTable
+CREATE TABLE "SubletApplication" (
+    "id" TEXT NOT NULL,
+    "apartmentId" TEXT NOT NULL,
+    "applicantId" TEXT NOT NULL,
+    "status" "SubletStatus" NOT NULL DEFAULT 'SUBMITTED',
+    "reason" TEXT NOT NULL,
+    "startDate" TIMESTAMP(3) NOT NULL,
+    "endDate" TIMESTAMP(3) NOT NULL,
+    "tenantName" TEXT NOT NULL,
+    "tenantEmail" TEXT,
+    "tenantPhone" TEXT,
+    "subletFeeAmount" DOUBLE PRECISION,
+    "reviewedAt" TIMESTAMP(3),
+    "reviewedBy" TEXT,
+    "rejectionReason" TEXT,
+    "boardNotes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "SubletApplication_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RenovationApplication" (
+    "id" TEXT NOT NULL,
+    "apartmentId" TEXT NOT NULL,
+    "applicantId" TEXT NOT NULL,
+    "status" "RenovationStatus" NOT NULL DEFAULT 'SUBMITTED',
+    "type" "RenovationType" NOT NULL,
+    "description" TEXT NOT NULL,
+    "affectsStructure" BOOLEAN NOT NULL DEFAULT false,
+    "affectsPlumbing" BOOLEAN NOT NULL DEFAULT false,
+    "affectsElectrical" BOOLEAN NOT NULL DEFAULT false,
+    "affectsVentilation" BOOLEAN NOT NULL DEFAULT false,
+    "plannedStartDate" TIMESTAMP(3),
+    "plannedEndDate" TIMESTAMP(3),
+    "estimatedCost" DOUBLE PRECISION,
+    "technicalAssessment" TEXT,
+    "technicalAssessedBy" TEXT,
+    "technicalAssessedAt" TIMESTAMP(3),
+    "conditions" TEXT,
+    "reviewedAt" TIMESTAMP(3),
+    "reviewedBy" TEXT,
+    "rejectionReason" TEXT,
+    "inspectionDate" TIMESTAMP(3),
+    "inspectionResult" TEXT,
+    "inspectedBy" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "RenovationApplication_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "DisturbanceCase" (
+    "id" TEXT NOT NULL,
+    "reportedById" TEXT NOT NULL,
+    "status" "DisturbanceStatus" NOT NULL DEFAULT 'REPORTED',
+    "type" "DisturbanceType" NOT NULL,
+    "description" TEXT NOT NULL,
+    "location" TEXT,
+    "targetApartmentId" TEXT,
+    "acknowledgedAt" TIMESTAMP(3),
+    "acknowledgedBy" TEXT,
+    "firstWarningAt" TIMESTAMP(3),
+    "firstWarningBy" TEXT,
+    "secondWarningAt" TIMESTAMP(3),
+    "secondWarningBy" TEXT,
+    "resolvedAt" TIMESTAMP(3),
+    "resolvedBy" TEXT,
+    "resolution" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DisturbanceCase_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "BookableResource" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "type" "ResourceType" NOT NULL,
+    "description" TEXT,
+    "location" TEXT,
+    "maxDurationHours" INTEGER NOT NULL DEFAULT 3,
+    "advanceBookingDays" INTEGER NOT NULL DEFAULT 14,
+    "rulesText" TEXT,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "BookableResource_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Booking" (
+    "id" TEXT NOT NULL,
+    "resourceId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "startTime" TIMESTAMP(3) NOT NULL,
+    "endTime" TIMESTAMP(3) NOT NULL,
+    "notes" TEXT,
+    "cancelledAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Booking_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "NominationPeriod" (
+    "id" TEXT NOT NULL,
+    "meetingId" TEXT NOT NULL,
+    "status" "NominationPeriodStatus" NOT NULL DEFAULT 'PLANNING',
+    "chairpersonId" TEXT,
+    "opensAt" TIMESTAMP(3),
+    "closesAt" TIMESTAMP(3),
+    "presentedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "NominationPeriod_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Nomination" (
+    "id" TEXT NOT NULL,
+    "nominationPeriodId" TEXT NOT NULL,
+    "position" "NominationPosition" NOT NULL,
+    "candidateId" TEXT,
+    "candidateName" TEXT NOT NULL,
+    "status" "NominationStatus" NOT NULL DEFAULT 'PROPOSED',
+    "source" TEXT NOT NULL DEFAULT 'COMMITTEE',
+    "motivation" TEXT,
+    "competenceAreas" TEXT,
+    "acceptedAt" TIMESTAMP(3),
+    "declinedReason" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Nomination_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "MemberNomination" (
+    "id" TEXT NOT NULL,
+    "nominationPeriodId" TEXT NOT NULL,
+    "submittedById" TEXT NOT NULL,
+    "candidateId" TEXT,
+    "candidateName" TEXT,
+    "position" "NominationPosition" NOT NULL,
+    "motivation" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "MemberNomination_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ConflictOfInterest" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "relatedEntity" TEXT,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "registeredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deactivatedAt" TIMESTAMP(3),
+
+    CONSTRAINT "ConflictOfInterest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AuditQuestion" (
+    "id" TEXT NOT NULL,
+    "auditorId" TEXT NOT NULL,
+    "targetUserId" TEXT,
+    "subject" TEXT NOT NULL,
+    "question" TEXT NOT NULL,
+    "answer" TEXT,
+    "answeredById" TEXT,
+    "answeredAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AuditQuestion_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "BuildingComponent" (
+    "id" TEXT NOT NULL,
+    "buildingId" TEXT NOT NULL,
+    "category" "ComponentCategory" NOT NULL,
+    "name" TEXT NOT NULL,
+    "installYear" INTEGER,
+    "expectedLifespan" INTEGER,
+    "condition" "ComponentCondition" NOT NULL DEFAULT 'GOOD',
+    "lastInspectedAt" TIMESTAMP(3),
+    "nextActionYear" INTEGER,
+    "estimatedCost" DOUBLE PRECISION,
+    "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "BuildingComponent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Inspection" (
+    "id" TEXT NOT NULL,
+    "buildingId" TEXT NOT NULL,
+    "componentId" TEXT,
+    "type" "InspectionType" NOT NULL,
+    "scheduledAt" TIMESTAMP(3),
+    "completedAt" TIMESTAMP(3),
+    "result" "InspectionResult" NOT NULL DEFAULT 'PENDING',
+    "inspector" TEXT,
+    "certificateUrl" TEXT,
+    "nextDueAt" TIMESTAMP(3),
+    "remarks" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Inspection_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Contractor" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "orgNumber" TEXT,
+    "contactPerson" TEXT,
+    "phone" TEXT,
+    "email" TEXT,
+    "category" TEXT NOT NULL,
+    "contractStartDate" TIMESTAMP(3),
+    "contractEndDate" TIMESTAMP(3),
+    "contractUrl" TEXT,
+    "pubAgreement" BOOLEAN NOT NULL DEFAULT false,
+    "pubAgreementDate" TIMESTAMP(3),
+    "notes" TEXT,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Contractor_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Announcement" (
     "id" TEXT NOT NULL,
     "authorId" TEXT NOT NULL,
@@ -544,14 +979,36 @@ CREATE TABLE "Announcement" (
 CREATE TABLE "Document" (
     "id" TEXT NOT NULL,
     "fileName" TEXT NOT NULL,
+    "storedName" TEXT NOT NULL DEFAULT '',
     "fileUrl" TEXT NOT NULL,
     "fileSize" INTEGER NOT NULL,
     "mimeType" TEXT NOT NULL,
     "category" "DocumentCategory" NOT NULL,
+    "description" TEXT,
     "uploadedById" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "locked" BOOLEAN NOT NULL DEFAULT false,
+    "lockedAt" TIMESTAMP(3),
+    "lockedBy" TEXT,
+    "visibleToMembers" BOOLEAN NOT NULL DEFAULT false,
+    "visibleToAll" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "Document_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "DocumentVersion" (
+    "id" TEXT NOT NULL,
+    "documentId" TEXT NOT NULL,
+    "fileName" TEXT NOT NULL,
+    "storedName" TEXT NOT NULL,
+    "fileSize" INTEGER NOT NULL,
+    "uploadedById" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "comment" TEXT,
+
+    CONSTRAINT "DocumentVersion_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -612,6 +1069,13 @@ CREATE TABLE "AnnualReport" (
     "publishedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "finalPdfUrl" TEXT,
+    "finalPdfName" TEXT,
+    "finalUploadedAt" TIMESTAMP(3),
+    "finalUploadedBy" TEXT,
+    "signedBy" TEXT[],
+    "signedAt" TIMESTAMP(3),
+    "allSigned" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "AnnualReport_pkey" PRIMARY KEY ("id")
 );
@@ -670,6 +1134,104 @@ CREATE TABLE "BrfSettings" (
 );
 
 -- CreateTable
+CREATE TABLE "BrfRules" (
+    "id" TEXT NOT NULL DEFAULT 'default',
+    "affiliation" "OrganizationAffiliation" NOT NULL DEFAULT 'NONE',
+    "reservedBoardSeats" INTEGER NOT NULL DEFAULT 0,
+    "reservedBoardSubstitutes" INTEGER NOT NULL DEFAULT 0,
+    "reservedAuditorSeats" INTEGER NOT NULL DEFAULT 0,
+    "requireOrgApprovalForStatuteChange" BOOLEAN NOT NULL DEFAULT false,
+    "minBoardMembers" INTEGER NOT NULL DEFAULT 3,
+    "maxBoardMembers" INTEGER NOT NULL DEFAULT 7,
+    "maxBoardSubstitutes" INTEGER NOT NULL DEFAULT 3,
+    "allowExternalBoardMembers" INTEGER NOT NULL DEFAULT 0,
+    "noticePeriodMinWeeks" INTEGER NOT NULL DEFAULT 2,
+    "noticePeriodMaxWeeks" INTEGER NOT NULL DEFAULT 6,
+    "noticeMethodDigital" BOOLEAN NOT NULL DEFAULT false,
+    "allowDigitalMeeting" BOOLEAN NOT NULL DEFAULT false,
+    "maxProxiesPerPerson" INTEGER NOT NULL DEFAULT 1,
+    "proxyCircleRestriction" BOOLEAN NOT NULL DEFAULT false,
+    "proxyMaxValidityMonths" INTEGER NOT NULL DEFAULT 12,
+    "blankVoteExcluded" BOOLEAN NOT NULL DEFAULT true,
+    "secretBallotOnDemand" BOOLEAN NOT NULL DEFAULT true,
+    "tieBreakerChairperson" BOOLEAN NOT NULL DEFAULT true,
+    "tieBreakerLotteryForElection" BOOLEAN NOT NULL DEFAULT true,
+    "adjustersCount" INTEGER NOT NULL DEFAULT 2,
+    "separateVoteCounters" BOOLEAN NOT NULL DEFAULT false,
+    "agendaTemplateId" TEXT,
+    "motionDeadlineMonth" INTEGER NOT NULL DEFAULT 2,
+    "motionDeadlineDay" INTEGER NOT NULL DEFAULT 1,
+    "expenseApprovalMaxAmount" DOUBLE PRECISION,
+    "expenseSelfApprovalBlocked" BOOLEAN NOT NULL DEFAULT true,
+    "transferFeeMaxPercent" DOUBLE PRECISION NOT NULL DEFAULT 2.5,
+    "pledgeFeeMaxPercent" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+    "subletFeeMaxPercent" DOUBLE PRECISION NOT NULL DEFAULT 10.0,
+    "transferFeePaidBySeller" BOOLEAN NOT NULL DEFAULT false,
+    "minAuditors" INTEGER NOT NULL DEFAULT 1,
+    "maxAuditors" INTEGER NOT NULL DEFAULT 2,
+    "maxAuditorSubstitutes" INTEGER NOT NULL DEFAULT 2,
+    "requireAuthorizedAuditor" BOOLEAN NOT NULL DEFAULT false,
+    "maintenancePlanRequired" BOOLEAN NOT NULL DEFAULT true,
+    "maintenancePlanYears" INTEGER NOT NULL DEFAULT 30,
+    "maintenanceFundPercent" DOUBLE PRECISION,
+    "protocolDeadlineWeeks" INTEGER NOT NULL DEFAULT 3,
+    "maxOwnershipPercent" DOUBLE PRECISION NOT NULL DEFAULT 100.0,
+    "prisbasbelopp" INTEGER NOT NULL DEFAULT 57300,
+    "transferDecisionDeadlineWeeks" INTEGER NOT NULL DEFAULT 4,
+    "subletRequiresApproval" BOOLEAN NOT NULL DEFAULT true,
+    "nominatingCommitteeSize" INTEGER NOT NULL DEFAULT 3,
+    "nominationPeriodWeeks" INTEGER NOT NULL DEFAULT 8,
+    "nominationDeadlineBeforeMeeting" INTEGER NOT NULL DEFAULT 4,
+    "allowSelfNomination" BOOLEAN NOT NULL DEFAULT true,
+    "allowMemberNomination" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "BrfRules_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "UserConsent" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "type" "ConsentType" NOT NULL,
+    "granted" BOOLEAN NOT NULL DEFAULT false,
+    "grantedAt" TIMESTAMP(3),
+    "revokedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "UserConsent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PersonalDataAccessLog" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "action" "PersonalDataAction" NOT NULL,
+    "targetUserId" TEXT,
+    "metadata" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PersonalDataAccessLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ActivityLog" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "action" TEXT NOT NULL,
+    "entityType" TEXT NOT NULL,
+    "entityId" TEXT NOT NULL,
+    "description" TEXT,
+    "before" TEXT,
+    "after" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ActivityLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "_DamageReportPhotos" (
     "A" TEXT NOT NULL,
     "B" TEXT NOT NULL,
@@ -720,6 +1282,9 @@ CREATE INDEX "UserRole_userId_idx" ON "UserRole"("userId");
 CREATE UNIQUE INDEX "UserRole_userId_role_key" ON "UserRole"("userId", "role");
 
 -- CreateIndex
+CREATE INDEX "Building_propertyId_idx" ON "Building"("propertyId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Apartment_buildingId_number_key" ON "Apartment"("buildingId", "number");
 
 -- CreateIndex
@@ -739,6 +1304,24 @@ CREATE INDEX "ApartmentOwnership_userId_idx" ON "ApartmentOwnership"("userId");
 
 -- CreateIndex
 CREATE INDEX "ApartmentOwnership_organizationId_idx" ON "ApartmentOwnership"("organizationId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TransferCase_buyerApplicationId_key" ON "TransferCase"("buyerApplicationId");
+
+-- CreateIndex
+CREATE INDEX "TransferCase_apartmentId_idx" ON "TransferCase"("apartmentId");
+
+-- CreateIndex
+CREATE INDEX "TransferCase_status_idx" ON "TransferCase"("status");
+
+-- CreateIndex
+CREATE INDEX "TransferCase_sellerId_idx" ON "TransferCase"("sellerId");
+
+-- CreateIndex
+CREATE INDEX "MortgageNotation_apartmentId_idx" ON "MortgageNotation"("apartmentId");
+
+-- CreateIndex
+CREATE INDEX "MortgageNotation_transferCaseId_idx" ON "MortgageNotation"("transferCaseId");
 
 -- CreateIndex
 CREATE INDEX "AgendaItem_meetingId_idx" ON "AgendaItem"("meetingId");
@@ -771,10 +1354,97 @@ CREATE UNIQUE INDEX "Vote_agendaItemId_userId_key" ON "Vote"("agendaItemId", "us
 CREATE INDEX "Decision_reference_idx" ON "Decision"("reference");
 
 -- CreateIndex
+CREATE INDEX "DecisionRecusal_decisionId_idx" ON "DecisionRecusal"("decisionId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "DecisionRecusal_decisionId_userId_key" ON "DecisionRecusal"("decisionId", "userId");
+
+-- CreateIndex
 CREATE INDEX "DecisionVote_decisionId_idx" ON "DecisionVote"("decisionId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "DecisionVote_decisionId_voterId_key" ON "DecisionVote"("decisionId", "voterId");
+
+-- CreateIndex
+CREATE INDEX "MotionVoteProposal_motionId_idx" ON "MotionVoteProposal"("motionId");
+
+-- CreateIndex
+CREATE INDEX "SubletApplication_apartmentId_idx" ON "SubletApplication"("apartmentId");
+
+-- CreateIndex
+CREATE INDEX "SubletApplication_applicantId_idx" ON "SubletApplication"("applicantId");
+
+-- CreateIndex
+CREATE INDEX "SubletApplication_status_idx" ON "SubletApplication"("status");
+
+-- CreateIndex
+CREATE INDEX "RenovationApplication_apartmentId_idx" ON "RenovationApplication"("apartmentId");
+
+-- CreateIndex
+CREATE INDEX "RenovationApplication_applicantId_idx" ON "RenovationApplication"("applicantId");
+
+-- CreateIndex
+CREATE INDEX "RenovationApplication_status_idx" ON "RenovationApplication"("status");
+
+-- CreateIndex
+CREATE INDEX "DisturbanceCase_reportedById_idx" ON "DisturbanceCase"("reportedById");
+
+-- CreateIndex
+CREATE INDEX "DisturbanceCase_status_idx" ON "DisturbanceCase"("status");
+
+-- CreateIndex
+CREATE INDEX "DisturbanceCase_targetApartmentId_idx" ON "DisturbanceCase"("targetApartmentId");
+
+-- CreateIndex
+CREATE INDEX "Booking_resourceId_startTime_idx" ON "Booking"("resourceId", "startTime");
+
+-- CreateIndex
+CREATE INDEX "Booking_userId_idx" ON "Booking"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "NominationPeriod_meetingId_key" ON "NominationPeriod"("meetingId");
+
+-- CreateIndex
+CREATE INDEX "Nomination_nominationPeriodId_idx" ON "Nomination"("nominationPeriodId");
+
+-- CreateIndex
+CREATE INDEX "Nomination_position_idx" ON "Nomination"("position");
+
+-- CreateIndex
+CREATE INDEX "MemberNomination_nominationPeriodId_idx" ON "MemberNomination"("nominationPeriodId");
+
+-- CreateIndex
+CREATE INDEX "ConflictOfInterest_userId_idx" ON "ConflictOfInterest"("userId");
+
+-- CreateIndex
+CREATE INDEX "AuditQuestion_auditorId_idx" ON "AuditQuestion"("auditorId");
+
+-- CreateIndex
+CREATE INDEX "BuildingComponent_buildingId_idx" ON "BuildingComponent"("buildingId");
+
+-- CreateIndex
+CREATE INDEX "BuildingComponent_category_idx" ON "BuildingComponent"("category");
+
+-- CreateIndex
+CREATE INDEX "Inspection_buildingId_idx" ON "Inspection"("buildingId");
+
+-- CreateIndex
+CREATE INDEX "Inspection_type_idx" ON "Inspection"("type");
+
+-- CreateIndex
+CREATE INDEX "Inspection_nextDueAt_idx" ON "Inspection"("nextDueAt");
+
+-- CreateIndex
+CREATE INDEX "Contractor_category_idx" ON "Contractor"("category");
+
+-- CreateIndex
+CREATE INDEX "Contractor_active_idx" ON "Contractor"("active");
+
+-- CreateIndex
+CREATE INDEX "Document_category_idx" ON "Document"("category");
+
+-- CreateIndex
+CREATE INDEX "DocumentVersion_documentId_idx" ON "DocumentVersion"("documentId");
 
 -- CreateIndex
 CREATE INDEX "Notification_userId_read_idx" ON "Notification"("userId", "read");
@@ -793,6 +1463,30 @@ CREATE UNIQUE INDEX "Audit_annualReportId_key" ON "Audit"("annualReportId");
 
 -- CreateIndex
 CREATE INDEX "Audit_auditorId_idx" ON "Audit"("auditorId");
+
+-- CreateIndex
+CREATE INDEX "UserConsent_userId_idx" ON "UserConsent"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "UserConsent_userId_type_key" ON "UserConsent"("userId", "type");
+
+-- CreateIndex
+CREATE INDEX "PersonalDataAccessLog_userId_idx" ON "PersonalDataAccessLog"("userId");
+
+-- CreateIndex
+CREATE INDEX "PersonalDataAccessLog_targetUserId_idx" ON "PersonalDataAccessLog"("targetUserId");
+
+-- CreateIndex
+CREATE INDEX "PersonalDataAccessLog_createdAt_idx" ON "PersonalDataAccessLog"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "ActivityLog_userId_idx" ON "ActivityLog"("userId");
+
+-- CreateIndex
+CREATE INDEX "ActivityLog_entityType_entityId_idx" ON "ActivityLog"("entityType", "entityId");
+
+-- CreateIndex
+CREATE INDEX "ActivityLog_createdAt_idx" ON "ActivityLog"("createdAt");
 
 -- CreateIndex
 CREATE INDEX "_DamageReportPhotos_B_index" ON "_DamageReportPhotos"("B");
@@ -814,6 +1508,9 @@ ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId"
 
 -- AddForeignKey
 ALTER TABLE "UserRole" ADD CONSTRAINT "UserRole_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Building" ADD CONSTRAINT "Building_propertyId_fkey" FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Apartment" ADD CONSTRAINT "Apartment_buildingId_fkey" FOREIGN KEY ("buildingId") REFERENCES "Building"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -838,6 +1535,30 @@ ALTER TABLE "MembershipApplication" ADD CONSTRAINT "MembershipApplication_apartm
 
 -- AddForeignKey
 ALTER TABLE "MembershipApplication" ADD CONSTRAINT "MembershipApplication_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TransferCase" ADD CONSTRAINT "TransferCase_apartmentId_fkey" FOREIGN KEY ("apartmentId") REFERENCES "Apartment"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TransferCase" ADD CONSTRAINT "TransferCase_sellerId_fkey" FOREIGN KEY ("sellerId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TransferCase" ADD CONSTRAINT "TransferCase_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TransferCase" ADD CONSTRAINT "TransferCase_buyerApplicationId_fkey" FOREIGN KEY ("buyerApplicationId") REFERENCES "MembershipApplication"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TransferCase" ADD CONSTRAINT "TransferCase_decisionId_fkey" FOREIGN KEY ("decisionId") REFERENCES "Decision"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "MortgageNotation" ADD CONSTRAINT "MortgageNotation_apartmentId_fkey" FOREIGN KEY ("apartmentId") REFERENCES "Apartment"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "MortgageNotation" ADD CONSTRAINT "MortgageNotation_transferCaseId_fkey" FOREIGN KEY ("transferCaseId") REFERENCES "TransferCase"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "MortgageNotation" ADD CONSTRAINT "MortgageNotation_requestedById_fkey" FOREIGN KEY ("requestedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AgendaItem" ADD CONSTRAINT "AgendaItem_meetingId_fkey" FOREIGN KEY ("meetingId") REFERENCES "Meeting"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -873,6 +1594,9 @@ ALTER TABLE "Decision" ADD CONSTRAINT "Decision_meetingId_fkey" FOREIGN KEY ("me
 ALTER TABLE "Decision" ADD CONSTRAINT "Decision_agendaItemId_fkey" FOREIGN KEY ("agendaItemId") REFERENCES "AgendaItem"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "DecisionRecusal" ADD CONSTRAINT "DecisionRecusal_decisionId_fkey" FOREIGN KEY ("decisionId") REFERENCES "Decision"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "DecisionVote" ADD CONSTRAINT "DecisionVote_decisionId_fkey" FOREIGN KEY ("decisionId") REFERENCES "Decision"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -903,6 +1627,9 @@ ALTER TABLE "Motion" ADD CONSTRAINT "Motion_authorId_fkey" FOREIGN KEY ("authorI
 ALTER TABLE "Motion" ADD CONSTRAINT "Motion_meetingId_fkey" FOREIGN KEY ("meetingId") REFERENCES "Meeting"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "MotionVoteProposal" ADD CONSTRAINT "MotionVoteProposal_motionId_fkey" FOREIGN KEY ("motionId") REFERENCES "Motion"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "DamageReport" ADD CONSTRAINT "DamageReport_reporterId_fkey" FOREIGN KEY ("reporterId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -918,16 +1645,70 @@ ALTER TABLE "ReportComment" ADD CONSTRAINT "ReportComment_authorId_fkey" FOREIGN
 ALTER TABLE "Suggestion" ADD CONSTRAINT "Suggestion_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "SubletApplication" ADD CONSTRAINT "SubletApplication_apartmentId_fkey" FOREIGN KEY ("apartmentId") REFERENCES "Apartment"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SubletApplication" ADD CONSTRAINT "SubletApplication_applicantId_fkey" FOREIGN KEY ("applicantId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RenovationApplication" ADD CONSTRAINT "RenovationApplication_apartmentId_fkey" FOREIGN KEY ("apartmentId") REFERENCES "Apartment"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RenovationApplication" ADD CONSTRAINT "RenovationApplication_applicantId_fkey" FOREIGN KEY ("applicantId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DisturbanceCase" ADD CONSTRAINT "DisturbanceCase_reportedById_fkey" FOREIGN KEY ("reportedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DisturbanceCase" ADD CONSTRAINT "DisturbanceCase_targetApartmentId_fkey" FOREIGN KEY ("targetApartmentId") REFERENCES "Apartment"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Booking" ADD CONSTRAINT "Booking_resourceId_fkey" FOREIGN KEY ("resourceId") REFERENCES "BookableResource"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Booking" ADD CONSTRAINT "Booking_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "NominationPeriod" ADD CONSTRAINT "NominationPeriod_meetingId_fkey" FOREIGN KEY ("meetingId") REFERENCES "Meeting"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Nomination" ADD CONSTRAINT "Nomination_nominationPeriodId_fkey" FOREIGN KEY ("nominationPeriodId") REFERENCES "NominationPeriod"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "MemberNomination" ADD CONSTRAINT "MemberNomination_nominationPeriodId_fkey" FOREIGN KEY ("nominationPeriodId") REFERENCES "NominationPeriod"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ConflictOfInterest" ADD CONSTRAINT "ConflictOfInterest_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AuditQuestion" ADD CONSTRAINT "AuditQuestion_auditorId_fkey" FOREIGN KEY ("auditorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "BuildingComponent" ADD CONSTRAINT "BuildingComponent_buildingId_fkey" FOREIGN KEY ("buildingId") REFERENCES "Building"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Inspection" ADD CONSTRAINT "Inspection_buildingId_fkey" FOREIGN KEY ("buildingId") REFERENCES "Building"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Inspection" ADD CONSTRAINT "Inspection_componentId_fkey" FOREIGN KEY ("componentId") REFERENCES "BuildingComponent"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Announcement" ADD CONSTRAINT "Announcement_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Document" ADD CONSTRAINT "Document_uploadedById_fkey" FOREIGN KEY ("uploadedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "DocumentVersion" ADD CONSTRAINT "DocumentVersion_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "Document"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Audit" ADD CONSTRAINT "Audit_annualReportId_fkey" FOREIGN KEY ("annualReportId") REFERENCES "AnnualReport"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserConsent" ADD CONSTRAINT "UserConsent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_DamageReportPhotos" ADD CONSTRAINT "_DamageReportPhotos_A_fkey" FOREIGN KEY ("A") REFERENCES "DamageReport"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -952,3 +1733,4 @@ ALTER TABLE "_MotionDocuments" ADD CONSTRAINT "_MotionDocuments_A_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "_MotionDocuments" ADD CONSTRAINT "_MotionDocuments_B_fkey" FOREIGN KEY ("B") REFERENCES "Motion"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+

@@ -15,13 +15,14 @@ const currentYear = new Date().getFullYear();
 export default function ComponentRegistryPage() {
   const [view, setView] = useState<"register" | "timeline">("register");
 
-  const buildingsQuery = trpc.property.listBuildingsWithComponents.useQuery();
+  const propertiesQuery = trpc.property.listPropertiesWithBuildings.useQuery();
   const componentsQuery = trpc.property.listComponents.useQuery();
-  const addComponent = trpc.property.addComponent.useMutation({ onSuccess: () => buildingsQuery.refetch() });
-  const updateComponent = trpc.property.updateComponent.useMutation({ onSuccess: () => buildingsQuery.refetch() });
-  const toggleCategory = trpc.property.toggleCategoryExclusion.useMutation({ onSuccess: () => buildingsQuery.refetch() });
+  const addComponent = trpc.property.addComponent.useMutation({ onSuccess: () => { propertiesQuery.refetch(); componentsQuery.refetch(); } });
+  const updateComponent = trpc.property.updateComponent.useMutation({ onSuccess: () => { propertiesQuery.refetch(); componentsQuery.refetch(); } });
+  const toggleCategory = trpc.property.toggleCategoryExclusion.useMutation({ onSuccess: () => propertiesQuery.refetch() });
 
-  const buildings = buildingsQuery.data ?? [];
+  const properties = propertiesQuery.data ?? [];
+  const buildings = properties.flatMap((p) => p.buildings);
   const allComponents = componentsQuery.data ?? [];
 
   // Timeline data
@@ -32,7 +33,7 @@ export default function ComponentRegistryPage() {
     totalCost: allComponents.filter((c) => c.nextActionYear === year).reduce((s, c) => s + (c.estimatedCost ?? 0), 0),
   })).filter((y) => y.components.length > 0);
 
-  if (buildingsQuery.isLoading) {
+  if (propertiesQuery.isLoading) {
     return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div>;
   }
 
@@ -61,21 +62,40 @@ export default function ComponentRegistryPage() {
         </div>
       </div>
 
-      {/* Register view — building as root */}
+      {/* Register view — property → building → components */}
       {view === "register" && (
-        <div className="space-y-6">
-          {buildings.map((building) => (
-            <BuildingSection key={building.id} building={building}
-              onAddComponent={(data) => addComponent.mutate(data as never)}
-              onUpdateComponent={(data) => updateComponent.mutate(data as never)}
-              onToggleCategory={(category, excluded) => toggleCategory.mutate({ buildingId: building.id, category, excluded })}
-              saving={addComponent.isPending || updateComponent.isPending} />
+        <div className="space-y-8">
+          {properties.map((prop) => (
+            <div key={prop.id}>
+              {/* Property header */}
+              <div className="mb-3 flex items-baseline gap-3">
+                <h2 className="text-lg font-bold text-gray-900">
+                  {prop.propertyDesignation ?? prop.address}
+                </h2>
+                <span className="text-sm text-gray-500">{prop.address}{prop.city ? `, ${prop.city}` : ""}</span>
+                {prop.plotArea && <span className="text-xs text-gray-400">{prop.plotArea.toLocaleString("sv-SE")} kvm tomt</span>}
+              </div>
+
+              {/* Buildings under this property */}
+              <div className="space-y-4">
+                {prop.buildings.map((building) => (
+                  <BuildingSection key={building.id} building={building}
+                    onAddComponent={(data) => addComponent.mutate(data as never)}
+                    onUpdateComponent={(data) => updateComponent.mutate(data as never)}
+                    onToggleCategory={(category, excluded) => toggleCategory.mutate({ buildingId: building.id, category, excluded })}
+                    saving={addComponent.isPending || updateComponent.isPending} />
+                ))}
+                {prop.buildings.length === 0 && (
+                  <p className="text-sm text-gray-400 pl-2">Inga hus registrerade på denna fastighet.</p>
+                )}
+              </div>
+            </div>
           ))}
-          {buildings.length === 0 && (
+          {properties.length === 0 && (
             <div className="rounded-lg border border-gray-200 bg-white p-12 text-center">
               <Building2 className="mx-auto h-12 w-12 text-gray-300" />
-              <h3 className="mt-4 text-lg font-medium text-gray-900">Inga byggnader registrerade</h3>
-              <p className="mt-1 text-sm text-gray-500">Lägg till byggnader under Inställningar.</p>
+              <h3 className="mt-4 text-lg font-medium text-gray-900">Inga fastigheter registrerade</h3>
+              <p className="mt-1 text-sm text-gray-500">Lägg till fastigheter under Inställningar.</p>
             </div>
           )}
         </div>

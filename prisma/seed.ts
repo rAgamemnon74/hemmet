@@ -66,20 +66,32 @@ async function main() {
     },
   });
 
-  // Building
+  // Property (Fastighet)
+  const property = await db.property.upsert({
+    where: { id: "property-1" },
+    update: {},
+    create: {
+      id: "property-1",
+      propertyDesignation: "Exempelstad Kvarteret 1:5",
+      address: "Exempelvägen 1-5",
+      city: "Exempelstad",
+      postalCode: "100 00",
+      plotArea: 3200,
+      taxationValue: 45000000,
+    },
+  });
+
+  // Building (Hus)
   const building = await db.building.upsert({
     where: { id: "building-1" },
     update: {},
     create: {
       id: "building-1",
+      propertyId: property.id,
       name: "Hus A",
       address: "Exempelvägen 1",
-      city: "Exempelstad",
-      postalCode: "100 00",
-      propertyDesignation: "Exempelstad Kvarteret 1:5",
       constructionYear: 1972,
       totalArea: 2450,
-      plotArea: 3200,
       heatingType: "Fjärrvärme",
       energyRating: "C",
     },

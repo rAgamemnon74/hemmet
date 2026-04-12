@@ -117,31 +117,45 @@ model UserRole {
 }
 
 // ============================================================
-// PROPERTY
+// PROPERTY (Fastighet → Byggnad → Komponent)
 // ============================================================
+
+model Property {
+  id                  String   @id @default(cuid())
+  propertyDesignation String?  // Fastighetsbeteckning, t.ex. "Exempelstad Kvarteret 1:5"
+  address             String   // Huvudadress
+  city                String?
+  postalCode          String?
+  plotArea            Float?   // Tomtareal (kvm)
+  taxationValue       Float?   // Taxeringsvärde (kr)
+  commercialUnits     Int?     // Antal kommersiella enheter
+  notes               String?  @db.Text
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  buildings Building[]
+}
 
 model Building {
   id         String      @id @default(cuid())
-  name       String      // t.ex. "Hus A" eller "Solvägen 1"
-  address    String
-  city       String?
-  postalCode String?
+  propertyId String?     // Koppling till fastighet
+  name       String      // "Hus A", "Garaget", "Cykelförrådet"
+  address    String      // Byggnadens adress (kan skilja från fastighetens)
 
-  // Fastighetsdata
-  propertyDesignation String?  // Fastighetsbeteckning, t.ex. "Stockholm Solbacken 1:5"
+  // Byggnadsdata
   constructionYear    Int?     // Byggnadsår
-  totalArea           Float?   // Total bostadsyta (kvm)
-  plotArea             Float?  // Tomtareal (kvm)
-  commercialUnits     Int?     // Antal lokaler
+  totalArea           Float?   // Total yta (kvm)
   heatingType         String?  // Uppvärmningsform
-  taxationValue       Float?   // Taxeringsvärde (kr)
   energyRating        String?  // Energiklass (A-G)
   energyDeclarationExpiry DateTime? // Energideklaration giltig t.o.m.
-  excludedComponentCategories String[] // K3-kategorier som ej är aktuella (t.ex. ELEVATOR om ingen hiss)
+  excludedComponentCategories String[] // K3-kategorier som ej är aktuella
 
+  property    Property?   @relation(fields: [propertyId], references: [id])
   apartments  Apartment[]
   components  BuildingComponent[]
   inspections Inspection[]
+
+  @@index([propertyId])
 }
 
 model Apartment {

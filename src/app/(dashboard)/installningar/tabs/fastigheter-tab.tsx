@@ -14,7 +14,7 @@ export function FastigheterTab() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     name: "", address: "", city: "", postalCode: "",
-    propertyDesignation: "", constructionYear: "", totalArea: "", heatingType: "", energyRating: "",
+    constructionYear: "", totalArea: "", heatingType: "", energyRating: "",
   });
 
   function handleCreate(e: React.FormEvent) {
@@ -22,13 +22,12 @@ export function FastigheterTab() {
     createBuilding.mutate({
       name: form.name, address: form.address,
       city: form.city || undefined, postalCode: form.postalCode || undefined,
-      propertyDesignation: form.propertyDesignation || undefined,
       constructionYear: form.constructionYear ? parseInt(form.constructionYear) : undefined,
       totalArea: form.totalArea ? parseFloat(form.totalArea) : undefined,
       heatingType: form.heatingType || undefined, energyRating: form.energyRating || undefined,
     });
     setShowForm(false);
-    setForm({ name: "", address: "", city: "", postalCode: "", propertyDesignation: "", constructionYear: "", totalArea: "", heatingType: "", energyRating: "" });
+    setForm({ name: "", address: "", city: "", postalCode: "", constructionYear: "", totalArea: "", heatingType: "", energyRating: "" });
   }
 
   if (buildingsQuery.isLoading) return <p className="text-sm text-gray-500">Laddar...</p>;
@@ -56,7 +55,6 @@ export function FastigheterTab() {
               </div>
               <p className="mt-1 text-sm text-gray-600">{b.address}</p>
               <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-500">
-                {b.propertyDesignation && <span>Fastighet: {b.propertyDesignation}</span>}
                 {b.constructionYear && <span>Byggt: {b.constructionYear}</span>}
                 {b.totalArea && <span>{b.totalArea} kvm</span>}
                 {b.heatingType && <span>{b.heatingType}</span>}
@@ -82,9 +80,6 @@ export function FastigheterTab() {
             <div><label className="mb-1 block text-xs font-medium text-gray-600">Adress *</label>
               <input required value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
                 className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" /></div>
-            <div><label className="mb-1 block text-xs font-medium text-gray-600">Fastighetsbeteckning</label>
-              <input value={form.propertyDesignation} onChange={(e) => setForm((f) => ({ ...f, propertyDesignation: e.target.value }))}
-                className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="Stockholm Solbacken 1:5" /></div>
             <div><label className="mb-1 block text-xs font-medium text-gray-600">Byggnadsår</label>
               <input type="number" value={form.constructionYear} onChange={(e) => setForm((f) => ({ ...f, constructionYear: e.target.value }))}
                 className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" /></div>

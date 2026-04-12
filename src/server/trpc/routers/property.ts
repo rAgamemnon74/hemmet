@@ -3,7 +3,42 @@ import { router, protectedProcedure, requirePermission } from "../trpc";
 import { logActivity } from "@/lib/audit";
 
 export const propertyRouter = router({
-  // Buildings with components grouped — for registry view
+  // Properties with buildings and components — full hierarchy
+  listPropertiesWithBuildings: protectedProcedure
+    .use(requirePermission("meeting:view"))
+    .query(async ({ ctx }) => {
+      return ctx.db.property.findMany({
+        select: {
+          id: true,
+          propertyDesignation: true,
+          address: true,
+          city: true,
+          plotArea: true,
+          taxationValue: true,
+          buildings: {
+            orderBy: { name: "asc" },
+            select: {
+              id: true,
+              name: true,
+              address: true,
+              constructionYear: true,
+              excludedComponentCategories: true,
+              components: {
+                orderBy: [{ category: "asc" }, { name: "asc" }],
+                select: {
+                  id: true, category: true, name: true, installYear: true,
+                  expectedLifespan: true, condition: true, lastInspectedAt: true,
+                  nextActionYear: true, estimatedCost: true, notes: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { address: "asc" },
+      });
+    }),
+
+  // Backward compatible — buildings flat list
   listBuildingsWithComponents: protectedProcedure
     .use(requirePermission("meeting:view"))
     .query(async ({ ctx }) => {
