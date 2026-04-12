@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Paperclip, Plus, X, Link2, File, Upload, Loader2 } from "lucide-react";
+import { Paperclip, Plus, X, Link2, File, Upload, Loader2, Camera, Image } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type PendingAttachment = {
@@ -33,6 +33,7 @@ export function AttachmentInput({
   const [linkUrl, setLinkUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
@@ -90,10 +91,16 @@ export function AttachmentInput({
           <Paperclip className="h-3 w-3" /> {label} {attachments.length > 0 && `(${attachments.length})`}
         </label>
         {!adding && (
-          <button type="button" onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800">
-            <Plus className="h-3 w-3" /> Lägg till
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => cameraInputRef.current?.click()}
+              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800">
+              <Camera className="h-3 w-3" /> Foto
+            </button>
+            <button type="button" onClick={() => setAdding(true)}
+              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700">
+              <Plus className="h-3 w-3" /> Mer
+            </button>
+          </div>
         )}
       </div>
 
@@ -115,10 +122,59 @@ export function AttachmentInput({
         </div>
       )}
 
-      {/* Add form */}
+      {/* Hidden camera input — triggers native camera on mobile */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleFileUpload}
+      />
+
+      {/* Quick photo button — always visible, one tap to camera */}
+      {!adding && attachments.length === 0 && (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => cameraInputRef.current?.click()}
+            className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 active:bg-blue-200"
+          >
+            <Camera className="h-4 w-4" /> Ta foto
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+          >
+            <Plus className="h-3.5 w-3.5" /> Fil eller länk
+          </button>
+        </div>
+      )}
+
+      {/* Add form — expanded view */}
       {adding && (
         <div className="rounded border border-blue-200 bg-blue-50/30 p-2 space-y-2">
-          <div className="flex gap-1.5">
+          {/* Quick action row — camera + gallery */}
+          <div className="flex gap-2">
+            <button type="button" onClick={() => cameraInputRef.current?.click()}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-blue-200 bg-white px-3 py-2.5 text-xs font-medium text-blue-700 hover:bg-blue-50 active:bg-blue-100">
+              <Camera className="h-4 w-4" /> Ta foto
+            </button>
+            <button type="button" onClick={() => fileInputRef.current?.click()}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100">
+              <Image className="h-4 w-4" /> Välj bild
+            </button>
+          </div>
+
+          {uploading && (
+            <div className="flex items-center gap-1 text-xs text-blue-600">
+              <Loader2 className="h-3 w-3 animate-spin" /> Laddar upp...
+            </div>
+          )}
+
+          {/* Mode tabs for file/link */}
+          <div className="flex gap-1.5 border-t border-blue-100 pt-2">
             <button type="button" onClick={() => setMode("upload")}
               className={cn("rounded px-2 py-0.5 text-xs", mode === "upload" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600")}>
               <Upload className="inline h-3 w-3 mr-0.5" /> Ladda upp fil
@@ -131,13 +187,9 @@ export function AttachmentInput({
 
           {mode === "upload" && (
             <div>
-              <input ref={fileInputRef} type="file" multiple onChange={handleFileUpload}
+              <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                onChange={handleFileUpload}
                 className="w-full text-xs text-gray-600 file:mr-2 file:rounded file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-xs file:font-medium file:text-blue-700 hover:file:bg-blue-100" />
-              {uploading && (
-                <div className="flex items-center gap-1 mt-1 text-xs text-blue-600">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Laddar upp...
-                </div>
-              )}
             </div>
           )}
 
