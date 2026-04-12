@@ -126,14 +126,15 @@ Vid lägenhetsförsäljning beräknar systemet automatiskt överlåtelseavgiften
     title: "Fastighetsansvarig — din roll i praktiken",
     icon: Wrench,
     forRoles: ["BOARD_PROPERTY_MGR"],
-    content: `Som fastighetsansvarig har du koll på husets fysiska skick. Du behöver inte kunna fixa allt själv — men du behöver veta vad som behöver fixas.
+    content: `Som fastighetsansvarig har du koll på husets fysiska skick. Du behöver inte kunna fixa allt själv — men du behöver veta vad som behöver fixas och vad lagen kräver.
 
 **Dina viktigaste uppgifter:**
 • Hantera felanmälningar (under Boende → Felanmälan — ändra status, kommentera)
-• Bevaka besiktningar (OVK, hiss, brandskydd, energideklaration)
+• Bevaka lagstadgade besiktningar (se nedan)
 • Kontakta leverantörer och hantverkare
 • Rapportera till styrelsen vid möten (dagordningspunkten "Fastighetsförvaltning")
 • Bedöma renoveringsansökningar (teknisk bedömning)
+• Underhållsplanering — håll koll på komponenternas skick
 
 **Felanmälningar:**
 Boende rapporterar fel. Du bekräftar, prioriterar och ser till att de åtgärdas. Använd interna kommentarer (synliga bara för styrelsen) för anteckningar.
@@ -144,10 +145,67 @@ Boende rapporterar fel. Du bekräftar, prioriterar och ser till att de åtgärda
 • NORMAL — kan planeras in (sliten trappbelysning)
 • LÅG — kan vänta (kosmetiskt)
 
-**Besiktningar:**
-Vissa besiktningar är lagkrav (OVK, hiss). Systemet varnar när de förfaller. Se till att de bokas i tid.
+**Lagstadgade besiktningar — ditt ansvar att bevaka:**
 
-**Tips:** Gå igenom felanmälningslistan varje vecka. Sortera efter allvarlighet — de kritiska först.`,
+OVK — Obligatorisk ventilationskontroll:
+• Lagkrav: Plan- och bygglagen + BFS 2011:16 (OVK)
+• Intervall: var 3 år (FTX/FT-system) eller var 6 år (S-system/bostäder)
+• Utförs av: certifierad kontrollant
+• Vid underkänt: åtgärda inom angiven tid, annars kan kommunen förelägga
+• Mer info: boverket.se/ovk
+
+Hissbesiktning:
+• Lagkrav: Arbetsmiljöverkets föreskrifter AFS 2003:6 + AFS 2024:1
+• Intervall: årlig revisionsbesiktning + fördjupad besiktning var 6:e år
+• Utförs av: ackrediterat besiktningsföretag (KONE, Schindler, Otis, Cibes m.fl.)
+• Driftstopp vid underkänt tills åtgärdat
+• Mer info: av.se (Arbetsmiljöverket)
+
+Brandskydd — Systematiskt brandskyddsarbete (SBA):
+• Lagkrav: Lagen om skydd mot olyckor (2003:778)
+• Krav: dokumenterad brandskyddsorganisation, utrymningsplan, regelbundna kontroller
+• Utförs av: styrelsen/fastighetsansvarig + brandskyddskonsult
+• Inkluderar: brandvarnare, brandsläckare, utrymningsskyltar, rökluckor, brandcellsgränser
+• Mer info: msb.se (Myndigheten för samhällsskydd och beredskap)
+
+Energideklaration:
+• Lagkrav: Lag (2006:985) om energideklaration för byggnader
+• Intervall: var 10:e år
+• Utförs av: certifierad energiexpert
+• Ska finnas anslaget synligt i byggnaden
+• Ny EPBD-lagstiftning (EU) skärper kraven 2026
+• Mer info: boverket.se/energideklaration
+
+Radonmätning:
+• Lagkrav: Miljöbalken (egenkontroll) + Strålsäkerhetsmyndighetens riktvärden
+• Riktvärde: max 200 Bq/m³ i bostäder
+• Intervall: mät vid misstanke eller om tidigare mätning saknas, samt efter ombyggnation
+• Utförs av: radonmätningsföretag (mätdosor under eldningssäsong, minst 2 mån)
+• Mer info: stralsakerhetsmyndigheten.se
+
+Lekplatsbesiktning:
+• Krav: SS-EN 1176/1177 (produktsäkerhet) + PBL (underhållsansvar)
+• Intervall: årlig säkerhetsbesiktning + regelbunden tillsyn
+• Utförs av: certifierad lekplatsbesiktare
+• Ansvar: föreningen ansvarar för olyckor orsakade av bristande underhåll
+• Mer info: konsumentverket.se
+
+Cisternkontroll (om föreningen har oljetank eller liknande):
+• Lagkrav: NFS 2021:10 (Naturvårdsverkets föreskrifter)
+• Intervall: var 6:e år (inomhus) eller var 12:e år (utomhus med korrosionsskydd)
+• Utförs av: ackrediterat företag
+• Mer info: naturvardsverket.se
+
+Asbest (vid renovering av äldre fastigheter):
+• Lagkrav: AFS 2006:1 (Arbetsmiljöverket)
+• Krav: inventering före rivning/renovering i byggnader före 1979
+• Utförs av: certifierat laboratorium (provtagning) + sanering av specialistföretag
+• Mer info: av.se/asbest
+
+**Underhållsplan:**
+Föreningen ska ha en underhållsplan (K3-krav från 2026). Den listar alla byggnadskomponenter med skick, livslängd och planerat åtgärdsår. Du ansvarar för att hålla den uppdaterad.
+
+**Tips:** Gå igenom felanmälningslistan varje vecka. Håll en kalender för besiktningar — de glöms lätt bort och kan leda till förelägganden. Boka besiktningar i god tid — populära kontrollanter har lång väntetid.`,
   },
   {
     id: "ledamot",
