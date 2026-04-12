@@ -8,6 +8,7 @@ import {
   ShieldAlert,
   Hammer,
   Key,
+  HelpCircle,
   FileText,
   Receipt,
   CheckSquare,
@@ -97,6 +98,12 @@ export const navigation: NavSection[] = [
     title: "Administration",
     items: [
       { label: "Inställningar", href: "/installningar", icon: Settings, permission: "admin:integrations" },
+    ],
+  },
+  {
+    title: "",
+    items: [
+      { label: "Hjälp", href: "/hjalp", icon: HelpCircle },
     ],
   },
 ];
