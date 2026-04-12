@@ -5,39 +5,10 @@ import { format, differenceInDays } from "date-fns";
 import { sv } from "date-fns/locale";
 import {
   FileText, AlertTriangle, CheckCircle, Clock, Plus, X,
-  Building2, Shield, ExternalLink, ChevronDown, ChevronRight,
-  Bell, Calendar, ArrowRight,
+  Shield, ChevronDown, ChevronRight, Bell, ArrowRight, Loader2, Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// ============================================================
-// Mock data — ersätts med tRPC i fas 1
-// ============================================================
-
-type MockContract = {
-  id: string;
-  title: string;
-  category: string;
-  status: string;
-  counterpartyName: string;
-  counterpartyOrg?: string;
-  annualCost: number | null;
-  startDate: Date;
-  endDate: Date | null;
-  autoRenewal: boolean;
-  renewalPeriodMonths?: number;
-  noticePeriodMonths?: number;
-  noticeDeadline: Date | null;
-  mandateLevel: string;
-  decisionRef?: string;
-  pubAgreement: boolean;
-  documentUrl?: string;
-  isFrameworkAgreement: boolean;
-  annualCeiling?: number;
-  calledOffAmount?: number;
-  callOffCount?: number;
-  paymentMethod?: string;
-};
+import { trpc } from "@/lib/trpc";
 
 const categoryLabels: Record<string, string> = {
   SERVICE: "Driftsavtal", INSURANCE: "Försäkring", FINANCIAL: "Finansiellt",
@@ -56,191 +27,94 @@ const mandateLabels: Record<string, string> = {
   DELEGATED: "Delegation", BOARD: "Styrelsebeslut", ANNUAL_MEETING: "Stämmobeslut",
 };
 
+const CATEGORIES = ["SERVICE", "INSURANCE", "FINANCIAL", "MANAGEMENT", "UTILITY", "PROJECT", "CONSULTING", "OTHER"] as const;
 const now = new Date();
 
-const MOCK_CONTRACTS: MockContract[] = [
-  {
-    id: "c1", title: "Hisservice", category: "SERVICE", status: "RENEWAL_PENDING",
-    counterpartyName: "KONE AB", counterpartyOrg: "556XXX-0001",
-    annualCost: 84000, startDate: new Date("2024-01-01"), endDate: new Date("2026-12-31"),
-    autoRenewal: true, renewalPeriodMonths: 24, noticePeriodMonths: 9,
-    noticeDeadline: new Date("2026-03-31"),
-    mandateLevel: "BOARD", decisionRef: "Styrelsemöte 2023-11-20, §12",
-    pubAgreement: false, isFrameworkAgreement: false,
-  },
-  {
-    id: "c2", title: "Städning trapphus", category: "SERVICE", status: "ACTIVE",
-    counterpartyName: "CleanTeam AB", counterpartyOrg: "556XXX-0002",
-    annualCost: 148000, startDate: new Date("2025-01-01"), endDate: new Date("2026-12-31"),
-    autoRenewal: false, noticePeriodMonths: 3,
-    noticeDeadline: new Date("2026-09-30"),
-    mandateLevel: "BOARD", decisionRef: "Styrelsemöte 2024-10-15, §8",
-    pubAgreement: true, isFrameworkAgreement: false,
-  },
-  {
-    id: "c3", title: "Trädgårdsskötsel", category: "SERVICE", status: "ACTIVE",
-    counterpartyName: "Grönyta AB",
-    annualCost: 72000, startDate: new Date("2025-04-01"), endDate: new Date("2027-10-31"),
-    autoRenewal: true, renewalPeriodMonths: 12, noticePeriodMonths: 3,
-    noticeDeadline: new Date("2027-07-31"),
-    mandateLevel: "BOARD",
-    pubAgreement: false, isFrameworkAgreement: false,
-  },
-  {
-    id: "c4", title: "Snöröjning", category: "SERVICE", status: "ACTIVE",
-    counterpartyName: "NordSnö AB",
-    annualCost: 45000, startDate: new Date("2025-11-01"), endDate: new Date("2027-04-30"),
-    autoRenewal: true, renewalPeriodMonths: 12, noticePeriodMonths: 3,
-    noticeDeadline: new Date("2027-01-31"),
-    mandateLevel: "BOARD",
-    pubAgreement: false, isFrameworkAgreement: false,
-  },
-  {
-    id: "c5", title: "Bredband", category: "UTILITY", status: "ACTIVE",
-    counterpartyName: "Telia AB", counterpartyOrg: "556XXX-0005",
-    annualCost: 336000, startDate: new Date("2023-10-01"), endDate: new Date("2026-09-30"),
-    autoRenewal: true, renewalPeriodMonths: 12, noticePeriodMonths: 6,
-    noticeDeadline: new Date("2026-03-31"),
-    mandateLevel: "BOARD", decisionRef: "Styrelsemöte 2023-08-20, §5",
-    pubAgreement: false, isFrameworkAgreement: false,
-  },
-  {
-    id: "c6", title: "Larm och bevakning", category: "SERVICE", status: "EXPIRING",
-    counterpartyName: "Securitas AB", counterpartyOrg: "556XXX-0006",
-    annualCost: 42000, startDate: new Date("2024-07-01"), endDate: new Date("2026-06-30"),
-    autoRenewal: false,
-    noticeDeadline: null,
-    mandateLevel: "BOARD",
-    pubAgreement: true, isFrameworkAgreement: false,
-  },
-  {
-    id: "c7", title: "Fastighetsförsäkring", category: "INSURANCE", status: "ACTIVE",
-    counterpartyName: "Länsförsäkringar",
-    annualCost: 185000, startDate: new Date("2026-01-01"), endDate: new Date("2026-12-31"),
-    autoRenewal: true, renewalPeriodMonths: 12, noticePeriodMonths: 1,
-    noticeDeadline: new Date("2026-11-30"),
-    mandateLevel: "BOARD",
-    pubAgreement: false, isFrameworkAgreement: false,
-  },
-  {
-    id: "c8", title: "Styrelseförsäkring", category: "INSURANCE", status: "ACTIVE",
-    counterpartyName: "Länsförsäkringar",
-    annualCost: 12000, startDate: new Date("2026-01-01"), endDate: new Date("2026-12-31"),
-    autoRenewal: true, renewalPeriodMonths: 12, noticePeriodMonths: 1,
-    noticeDeadline: new Date("2026-11-30"),
-    mandateLevel: "BOARD",
-    pubAgreement: false, isFrameworkAgreement: false,
-  },
-  {
-    id: "c9", title: "Fastighetslån (räntebindning)", category: "FINANCIAL", status: "ACTIVE",
-    counterpartyName: "Handelsbanken",
-    annualCost: null, startDate: new Date("2024-06-01"), endDate: new Date("2027-05-31"),
-    autoRenewal: false, noticePeriodMonths: 3,
-    noticeDeadline: new Date("2027-02-28"),
-    mandateLevel: "ANNUAL_MEETING", decisionRef: "Stämma 2024-05-22",
-    pubAgreement: false, isFrameworkAgreement: false,
-  },
-  {
-    id: "c10", title: "Ekonomisk förvaltning", category: "MANAGEMENT", status: "ACTIVE",
-    counterpartyName: "Nabo AB", counterpartyOrg: "556XXX-0010",
-    annualCost: 96000, startDate: new Date("2024-01-01"), endDate: new Date("2026-12-31"),
-    autoRenewal: true, renewalPeriodMonths: 12, noticePeriodMonths: 6,
-    noticeDeadline: new Date("2026-06-30"),
-    mandateLevel: "BOARD",
-    pubAgreement: true, isFrameworkAgreement: false,
-  },
-  {
-    id: "c11", title: "Fasadmålning Byggnad A", category: "PROJECT", status: "ACTIVE",
-    counterpartyName: "Fasadspecialisten AB",
-    annualCost: null, startDate: new Date("2026-08-01"), endDate: new Date("2026-10-31"),
-    autoRenewal: false,
-    noticeDeadline: null,
-    mandateLevel: "ANNUAL_MEETING", decisionRef: "Stämma 2025-05-20",
-    pubAgreement: false, isFrameworkAgreement: false,
-  },
-  // Ramavtal
-  {
-    id: "c12", title: "Ramavtal VVS", category: "SERVICE", status: "ACTIVE",
-    counterpartyName: "Andersson VVS AB", counterpartyOrg: "556789-0123",
-    annualCost: null, startDate: new Date("2025-01-01"), endDate: new Date("2026-12-31"),
-    autoRenewal: true, renewalPeriodMonths: 12, noticePeriodMonths: 3,
-    noticeDeadline: new Date("2026-09-30"),
-    mandateLevel: "BOARD", decisionRef: "Styrelsemöte 2024-11-18, §9",
-    pubAgreement: false, isFrameworkAgreement: true,
-    annualCeiling: 100000, calledOffAmount: 42300, callOffCount: 4,
-    paymentMethod: "INVOICE",
-  },
-  {
-    id: "c13", title: "Ramavtal el", category: "SERVICE", status: "ACTIVE",
-    counterpartyName: "El-Johansson AB", counterpartyOrg: "556111-2222",
-    annualCost: null, startDate: new Date("2025-01-01"), endDate: new Date("2026-12-31"),
-    autoRenewal: true, renewalPeriodMonths: 12, noticePeriodMonths: 3,
-    noticeDeadline: new Date("2026-09-30"),
-    mandateLevel: "BOARD", decisionRef: "Styrelsemöte 2024-11-18, §9",
-    pubAgreement: false, isFrameworkAgreement: true,
-    annualCeiling: 60000, calledOffAmount: 12400, callOffCount: 2,
-    paymentMethod: "INVOICE",
-  },
-  {
-    id: "c14", title: "Ramavtal lås och säkerhet", category: "SERVICE", status: "ACTIVE",
-    counterpartyName: "SafeLock AB",
-    annualCost: null, startDate: new Date("2025-06-01"), endDate: new Date("2027-05-31"),
-    autoRenewal: false, noticePeriodMonths: 3,
-    noticeDeadline: new Date("2027-02-28"),
-    mandateLevel: "BOARD",
-    pubAgreement: false, isFrameworkAgreement: true,
-    annualCeiling: 25000, calledOffAmount: 4800, callOffCount: 3,
-    paymentMethod: "INVOICE",
-  },
-];
+// Prisma Decimal → number
+function dec(v: unknown): number | null {
+  if (v == null) return null;
+  return Number(v);
+}
 
-// ============================================================
-// Helpers
-// ============================================================
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ContractRow = any;
 
-function getUrgency(contract: MockContract): { level: "critical" | "warning" | "info" | "ok"; label: string } {
-  if (contract.status === "EXPIRING") {
-    const days = contract.endDate ? differenceInDays(contract.endDate, now) : 0;
+function getUrgency(c: ContractRow): { level: "critical" | "warning" | "info" | "ok"; label: string } {
+  if (c.status === "EXPIRING") {
+    const days = c.endDate ? differenceInDays(new Date(c.endDate), now) : 0;
     if (days < 0) return { level: "critical", label: "Utgått" };
     if (days < 30) return { level: "critical", label: `Löper ut om ${days} dagar` };
-    return { level: "warning", label: `Löper ut ${format(contract.endDate!, "d MMM", { locale: sv })}` };
+    return { level: "warning", label: `Löper ut ${format(new Date(c.endDate!), "d MMM", { locale: sv })}` };
   }
-  if (contract.noticeDeadline) {
-    const days = differenceInDays(contract.noticeDeadline, now);
-    if (days < 0) return { level: "info", label: "Uppsägningstid passerad — avtal förnyat" };
+  if (c.noticeDeadline) {
+    const days = differenceInDays(new Date(c.noticeDeadline), now);
+    if (days < 0) return { level: "info", label: "Uppsägningstid passerad" };
     if (days < 30) return { level: "critical", label: `Uppsägning senast om ${days} dagar` };
-    if (days < 90) return { level: "warning", label: `Uppsägning senast ${format(contract.noticeDeadline, "d MMM", { locale: sv })}` };
-    if (days < 180) return { level: "info", label: `Uppsägning ${format(contract.noticeDeadline, "d MMM yyyy", { locale: sv })}` };
+    if (days < 90) return { level: "warning", label: `Uppsägning senast ${format(new Date(c.noticeDeadline), "d MMM", { locale: sv })}` };
+    if (days < 180) return { level: "info", label: `Uppsägning ${format(new Date(c.noticeDeadline), "d MMM yyyy", { locale: sv })}` };
   }
   return { level: "ok", label: "" };
 }
 
-function formatCost(cost: number | null): string {
-  if (cost === null) return "—";
-  return `${cost.toLocaleString("sv-SE")} kr/år`;
-}
-
-// ============================================================
-// Components
-// ============================================================
-
 export default function ContractsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({
+    title: "", category: "SERVICE" as string, counterpartyName: "", counterpartyOrg: "",
+    annualCost: "", startDate: "", endDate: "", autoRenewal: false,
+    renewalPeriodMonths: "", noticePeriodMonths: "", mandateLevel: "BOARD" as string,
+    decisionRef: "", isFrameworkAgreement: false, annualCeiling: "", notes: "",
+  });
 
-  const contracts = MOCK_CONTRACTS;
+  const contractsQuery = trpc.contract.list.useQuery();
+  const contractorsQuery = trpc.contractor.list.useQuery();
+  const createMutation = trpc.contract.create.useMutation({
+    onSuccess: () => { setShowForm(false); contractsQuery.refetch(); },
+  });
+
+  if (contractsQuery.isLoading) {
+    return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div>;
+  }
+
+  const contracts = contractsQuery.data ?? [];
+  const contractors = contractorsQuery.data ?? [];
   const filtered = categoryFilter ? contracts.filter((c) => c.category === categoryFilter) : contracts;
 
-  // Group: needs action, active, other
   const needsAction = filtered.filter((c) => {
     const u = getUrgency(c);
     return u.level === "critical" || u.level === "warning" || c.status === "EXPIRING" || c.status === "RENEWAL_PENDING";
   });
-  const active = filtered.filter((c) => !needsAction.includes(c) && ["ACTIVE", "RENEWED"].includes(c.status));
+  const active = filtered.filter((c) => !needsAction.includes(c) && ["ACTIVE"].includes(c.status));
   const other = filtered.filter((c) => !needsAction.includes(c) && !active.includes(c));
 
   const categories = [...new Set(contracts.map((c) => c.category))];
-  const totalAnnualCost = contracts.reduce((sum, c) => sum + (c.annualCost ?? 0), 0);
+  const totalAnnualCost = contracts.reduce((sum, c) => sum + (dec(c.annualCost) ?? 0), 0);
+
+  // Call-off totals per contract
+  function getCallOffTotal(c: ContractRow): number {
+    return (c.callOffs ?? []).reduce((sum: number, co: { actualCost: unknown; estimatedCost: unknown }) => sum + (dec(co.actualCost) ?? dec(co.estimatedCost) ?? 0), 0);
+  }
+
+  function handleCreate() {
+    createMutation.mutate({
+      title: form.title,
+      category: form.category as never,
+      counterpartyName: form.counterpartyName,
+      counterpartyOrg: form.counterpartyOrg || undefined,
+      annualCost: form.annualCost ? parseFloat(form.annualCost) : undefined,
+      startDate: new Date(form.startDate),
+      endDate: form.endDate ? new Date(form.endDate) : undefined,
+      autoRenewal: form.autoRenewal,
+      renewalPeriodMonths: form.renewalPeriodMonths ? parseInt(form.renewalPeriodMonths) : undefined,
+      noticePeriodMonths: form.noticePeriodMonths ? parseInt(form.noticePeriodMonths) : undefined,
+      mandateLevel: form.mandateLevel as never,
+      decisionRef: form.decisionRef || undefined,
+      isFrameworkAgreement: form.isFrameworkAgreement,
+      annualCeiling: form.annualCeiling ? parseFloat(form.annualCeiling) : undefined,
+      notes: form.notes || undefined,
+    });
+  }
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -250,32 +124,141 @@ export default function ContractsPage() {
             <FileText className="h-6 w-6 text-blue-600" /> Avtal
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            {contracts.length} avtal · Total årskostnad: {totalAnnualCost.toLocaleString("sv-SE")} kr
+            {contracts.length} avtal{totalAnnualCost > 0 && ` · Total årskostnad: ${totalAnnualCost.toLocaleString("sv-SE")} kr`}
           </p>
         </div>
-        <button className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700">
-          <Plus className="h-4 w-4" /> Nytt avtal
-        </button>
+        {!showForm && (
+          <button onClick={() => setShowForm(true)}
+            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700">
+            <Plus className="h-4 w-4" /> Nytt avtal
+          </button>
+        )}
       </div>
 
-      {/* Category filter */}
-      <div className="mb-4 flex flex-wrap gap-2">
-        <button onClick={() => setCategoryFilter(null)}
-          className={cn("rounded-full px-3 py-1 text-xs font-medium transition-colors",
-            !categoryFilter ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}>
-          Alla ({contracts.length})
-        </button>
-        {categories.map((cat) => {
-          const count = contracts.filter((c) => c.category === cat).length;
-          return (
-            <button key={cat} onClick={() => setCategoryFilter(categoryFilter === cat ? null : cat)}
-              className={cn("rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                categoryFilter === cat ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}>
-              {categoryLabels[cat] ?? cat} ({count})
+      {/* Create form */}
+      {showForm && (
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50/30 p-5 space-y-3">
+          <h2 className="text-sm font-semibold text-gray-900">Nytt avtal</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-500">Titel *</label>
+              <input type="text" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                placeholder="t.ex. Hisserviceavtal" className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500">Kategori *</label>
+              <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm">
+                {CATEGORIES.map((cat) => <option key={cat} value={cat}>{categoryLabels[cat]}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500">Motpart *</label>
+              {contractors.length > 0 ? (
+                <select value={form.counterpartyName} onChange={(e) => {
+                  const c = contractors.find((ct) => ct.name === e.target.value);
+                  setForm((f) => ({ ...f, counterpartyName: e.target.value, counterpartyOrg: c?.orgNumber ?? "" }));
+                }} className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm">
+                  <option value="">Välj eller skriv...</option>
+                  {contractors.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+              ) : (
+                <input type="text" value={form.counterpartyName} onChange={(e) => setForm((f) => ({ ...f, counterpartyName: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm" />
+              )}
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500">Årskostnad (kr)</label>
+              <input type="number" value={form.annualCost} onChange={(e) => setForm((f) => ({ ...f, annualCost: e.target.value }))}
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500">Startdatum *</label>
+              <input type="date" value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500">Slutdatum</label>
+              <input type="date" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500">Uppsägningstid (mån)</label>
+              <input type="number" value={form.noticePeriodMonths} onChange={(e) => setForm((f) => ({ ...f, noticePeriodMonths: e.target.value }))}
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500">Beslutsnivå</label>
+              <select value={form.mandateLevel} onChange={(e) => setForm((f) => ({ ...f, mandateLevel: e.target.value }))}
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm">
+                <option value="DELEGATED">Delegation</option>
+                <option value="BOARD">Styrelsebeslut</option>
+                <option value="ANNUAL_MEETING">Stämmobeslut</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" checked={form.autoRenewal} onChange={(e) => setForm((f) => ({ ...f, autoRenewal: e.target.checked }))}
+                className="rounded border-gray-300 text-blue-600" /> Auto-förlängning
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" checked={form.isFrameworkAgreement} onChange={(e) => setForm((f) => ({ ...f, isFrameworkAgreement: e.target.checked }))}
+                className="rounded border-gray-300 text-blue-600" /> Ramavtal
+            </label>
+          </div>
+          {form.isFrameworkAgreement && (
+            <div className="w-1/2">
+              <label className="text-xs font-medium text-gray-500">Årstak (kr)</label>
+              <input type="number" value={form.annualCeiling} onChange={(e) => setForm((f) => ({ ...f, annualCeiling: e.target.value }))}
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm" />
+            </div>
+          )}
+          <div>
+            <label className="text-xs font-medium text-gray-500">Beslut / referens</label>
+            <input type="text" value={form.decisionRef} onChange={(e) => setForm((f) => ({ ...f, decisionRef: e.target.value }))}
+              placeholder="t.ex. Styrelsemöte 2024-11-18, §9" className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm" />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleCreate} disabled={createMutation.isPending || !form.title || !form.counterpartyName || !form.startDate}
+              className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+              {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Spara
             </button>
-          );
-        })}
-      </div>
+            <button onClick={() => setShowForm(false)}
+              className="rounded-md border border-gray-300 px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">Avbryt</button>
+          </div>
+          {createMutation.error && <p className="text-sm text-red-600">{createMutation.error.message}</p>}
+        </div>
+      )}
+
+      {/* Category filter */}
+      {contracts.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          <button onClick={() => setCategoryFilter(null)}
+            className={cn("rounded-full px-3 py-1 text-xs font-medium transition-colors",
+              !categoryFilter ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}>
+            Alla ({contracts.length})
+          </button>
+          {categories.map((cat) => {
+            const count = contracts.filter((c) => c.category === cat).length;
+            return (
+              <button key={cat} onClick={() => setCategoryFilter(categoryFilter === cat ? null : cat)}
+                className={cn("rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                  categoryFilter === cat ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}>
+                {categoryLabels[cat] ?? cat} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {contracts.length === 0 && !showForm && (
+        <div className="rounded-lg border border-gray-200 bg-white p-12 text-center">
+          <FileText className="mx-auto h-12 w-12 text-gray-300" />
+          <h3 className="mt-4 text-lg font-medium text-gray-900">Inga avtal registrerade</h3>
+          <p className="mt-1 text-sm text-gray-500">Registrera föreningens avtal för att bevaka uppsägningstider.</p>
+        </div>
+      )}
 
       {/* Needs action */}
       {needsAction.length > 0 && (
@@ -286,34 +269,33 @@ export default function ContractsPage() {
           <div className="space-y-2">
             {needsAction.map((c) => (
               <ContractCard key={c.id} contract={c} expanded={expandedId === c.id}
+                callOffTotal={getCallOffTotal(c)}
                 onToggle={() => setExpandedId(expandedId === c.id ? null : c.id)} />
             ))}
           </div>
         </div>
       )}
 
-      {/* Active */}
       {active.length > 0 && (
         <div className="mb-4">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase mb-2">
-            Aktiva avtal ({active.length})
-          </h2>
+          <h2 className="text-xs font-semibold text-gray-500 uppercase mb-2">Aktiva avtal ({active.length})</h2>
           <div className="space-y-2">
             {active.map((c) => (
               <ContractCard key={c.id} contract={c} expanded={expandedId === c.id}
+                callOffTotal={getCallOffTotal(c)}
                 onToggle={() => setExpandedId(expandedId === c.id ? null : c.id)} />
             ))}
           </div>
         </div>
       )}
 
-      {/* Other */}
       {other.length > 0 && (
         <div>
           <h2 className="text-xs font-semibold text-gray-500 uppercase mb-2">Övriga ({other.length})</h2>
           <div className="space-y-2">
             {other.map((c) => (
               <ContractCard key={c.id} contract={c} expanded={expandedId === c.id}
+                callOffTotal={getCallOffTotal(c)}
                 onToggle={() => setExpandedId(expandedId === c.id ? null : c.id)} />
             ))}
           </div>
@@ -323,16 +305,17 @@ export default function ContractsPage() {
   );
 }
 
-function ContractCard({ contract: c, expanded, onToggle }: {
-  contract: MockContract; expanded: boolean; onToggle: () => void;
+function ContractCard({ contract: c, expanded, callOffTotal, onToggle }: {
+  contract: ContractRow; expanded: boolean; callOffTotal: number; onToggle: () => void;
 }) {
   const urgency = getUrgency(c);
+  const annualCost = dec(c.annualCost);
+  const ceiling = dec(c.annualCeiling);
 
   return (
     <div className={cn(
       "rounded-lg border bg-white overflow-hidden transition-colors",
-      urgency.level === "critical" ? "border-red-200" :
-      urgency.level === "warning" ? "border-amber-200" : "border-gray-200"
+      urgency.level === "critical" ? "border-red-200" : urgency.level === "warning" ? "border-amber-200" : "border-gray-200"
     )}>
       <button onClick={onToggle} className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors">
         <div className="flex items-center justify-between">
@@ -341,13 +324,11 @@ function ContractCard({ contract: c, expanded, onToggle }: {
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-medium text-gray-900">{c.title}</span>
-                <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", categoryColors[c.category])}>
-                  {categoryLabels[c.category]}
+                <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", categoryColors[c.category] ?? categoryColors.OTHER)}>
+                  {categoryLabels[c.category] ?? c.category}
                 </span>
                 {c.isFrameworkAgreement && (
-                  <span className="rounded-full bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-xs font-medium text-blue-600">
-                    Ramavtal
-                  </span>
+                  <span className="rounded-full bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-xs font-medium text-blue-600">Ramavtal</span>
                 )}
                 {c.pubAgreement && (
                   <span className="rounded-full bg-green-50 px-1.5 py-0.5 text-xs text-green-600 flex items-center gap-0.5">
@@ -357,22 +338,23 @@ function ContractCard({ contract: c, expanded, onToggle }: {
               </div>
               <p className="text-xs text-gray-500 mt-0.5">
                 {c.counterpartyName}
-                {c.annualCost !== null && <span className="ml-2 text-gray-400">{formatCost(c.annualCost)}</span>}
-                {c.isFrameworkAgreement && c.annualCeiling && (
-                  <span className="ml-2 text-gray-400">Årstak: {c.annualCeiling.toLocaleString("sv-SE")} kr</span>
+                {c.contractor && <span className="text-gray-400"> ({c.contractor.category})</span>}
+                {annualCost !== null && <span className="ml-2 text-gray-400">{annualCost.toLocaleString("sv-SE")} kr/år</span>}
+                {c.isFrameworkAgreement && ceiling && (
+                  <span className="ml-2 text-gray-400">Årstak: {ceiling.toLocaleString("sv-SE")} kr</span>
                 )}
               </p>
-              {c.isFrameworkAgreement && c.annualCeiling && c.calledOffAmount !== undefined && (
+              {c.isFrameworkAgreement && ceiling && ceiling > 0 && (
                 <div className="mt-1.5 flex items-center gap-2">
                   <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
                     <div
-                      className={cn("h-full rounded-full", (c.calledOffAmount / c.annualCeiling) > 0.8 ? "bg-amber-500" : "bg-blue-500")}
-                      style={{ width: `${Math.min(100, (c.calledOffAmount / c.annualCeiling) * 100)}%` }}
+                      className={cn("h-full rounded-full", (callOffTotal / ceiling) > 0.8 ? "bg-amber-500" : "bg-blue-500")}
+                      style={{ width: `${Math.min(100, (callOffTotal / ceiling) * 100)}%` }}
                     />
                   </div>
                   <span className="text-xs text-gray-400 shrink-0">
-                    {c.calledOffAmount.toLocaleString("sv-SE")} / {c.annualCeiling.toLocaleString("sv-SE")} kr
-                    ({Math.round((c.calledOffAmount / c.annualCeiling) * 100)}%)
+                    {callOffTotal.toLocaleString("sv-SE")} / {ceiling.toLocaleString("sv-SE")} kr
+                    ({Math.round((callOffTotal / ceiling) * 100)}%)
                   </span>
                 </div>
               )}
@@ -382,8 +364,7 @@ function ContractCard({ contract: c, expanded, onToggle }: {
           <div className="flex items-center gap-3 shrink-0">
             {urgency.level !== "ok" && (
               <span className={cn("flex items-center gap-1 text-xs font-medium",
-                urgency.level === "critical" ? "text-red-600" :
-                urgency.level === "warning" ? "text-amber-600" : "text-gray-500"
+                urgency.level === "critical" ? "text-red-600" : urgency.level === "warning" ? "text-amber-600" : "text-gray-500"
               )}>
                 {urgency.level === "critical" && <AlertTriangle className="h-3.5 w-3.5" />}
                 {urgency.level === "warning" && <Clock className="h-3.5 w-3.5" />}
@@ -391,29 +372,26 @@ function ContractCard({ contract: c, expanded, onToggle }: {
               </span>
             )}
             {c.endDate && urgency.level === "ok" && (
-              <span className="text-xs text-gray-400">
-                t.o.m. {format(c.endDate, "yyyy-MM-dd")}
-              </span>
+              <span className="text-xs text-gray-400">t.o.m. {format(new Date(c.endDate), "yyyy-MM-dd")}</span>
             )}
           </div>
         </div>
       </button>
 
-      {/* Expanded detail */}
       {expanded && (
         <div className="border-t border-gray-100 px-4 py-3 space-y-3">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-xs font-medium text-gray-500">Period</p>
               <p className="text-gray-900">
-                {format(c.startDate, "yyyy-MM-dd")} — {c.endDate ? format(c.endDate, "yyyy-MM-dd") : "Tillsvidare"}
+                {format(new Date(c.startDate), "yyyy-MM-dd")} — {c.endDate ? format(new Date(c.endDate), "yyyy-MM-dd") : "Tillsvidare"}
               </p>
             </div>
             <div>
               <p className="text-xs font-medium text-gray-500">Årskostnad</p>
-              <p className="text-gray-900">{c.annualCost !== null ? `${c.annualCost.toLocaleString("sv-SE")} kr` : "—"}</p>
+              <p className="text-gray-900">{annualCost !== null ? `${annualCost.toLocaleString("sv-SE")} kr` : "—"}</p>
             </div>
-            {c.autoRenewal && (
+            {c.autoRenewal && c.renewalPeriodMonths && (
               <div>
                 <p className="text-xs font-medium text-gray-500">Auto-förlängning</p>
                 <p className="text-gray-900">{c.renewalPeriodMonths} månader</p>
@@ -426,7 +404,7 @@ function ContractCard({ contract: c, expanded, onToggle }: {
                   {c.noticePeriodMonths} månader
                   {c.noticeDeadline && (
                     <span className={cn("ml-1", urgency.level === "critical" ? "text-red-600 font-medium" : "text-gray-500")}>
-                      (senast {format(c.noticeDeadline, "d MMM yyyy", { locale: sv })})
+                      (senast {format(new Date(c.noticeDeadline), "d MMM yyyy", { locale: sv })})
                     </span>
                   )}
                 </p>
@@ -442,42 +420,39 @@ function ContractCard({ contract: c, expanded, onToggle }: {
                 <p className="text-blue-600 text-sm">{c.decisionRef}</p>
               </div>
             )}
-            {c.counterpartyOrg && (
-              <div>
-                <p className="text-xs font-medium text-gray-500">Org.nr</p>
-                <p className="text-gray-900">{c.counterpartyOrg}</p>
-              </div>
-            )}
           </div>
 
-          {/* Framework agreement details */}
-          {c.isFrameworkAgreement && c.annualCeiling && (
+          {c.isFrameworkAgreement && ceiling && ceiling > 0 && (
             <div>
               <h4 className="text-xs font-semibold text-gray-500 uppercase mb-1.5">Ramavtal — avrop</h4>
               <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm text-blue-700">Årstak: {c.annualCeiling.toLocaleString("sv-SE")} kr</span>
+                  <span className="text-sm text-blue-700">Årstak: {ceiling.toLocaleString("sv-SE")} kr</span>
                   <span className="text-sm font-medium text-blue-700">
-                    {c.calledOffAmount?.toLocaleString("sv-SE") ?? 0} kr avropat ({c.callOffCount ?? 0} avrop)
+                    {callOffTotal.toLocaleString("sv-SE")} kr avropat ({c._count.callOffs} avrop)
                   </span>
                 </div>
                 <div className="h-2 rounded-full bg-blue-100 overflow-hidden">
                   <div
-                    className={cn("h-full rounded-full",
-                      (c.calledOffAmount ?? 0) / c.annualCeiling > 0.8 ? "bg-amber-500" : "bg-blue-500"
-                    )}
-                    style={{ width: `${Math.min(100, ((c.calledOffAmount ?? 0) / c.annualCeiling) * 100)}%` }}
+                    className={cn("h-full rounded-full", (callOffTotal / ceiling) > 0.8 ? "bg-amber-500" : "bg-blue-500")}
+                    style={{ width: `${Math.min(100, (callOffTotal / ceiling) * 100)}%` }}
                   />
                 </div>
                 <p className="mt-1.5 text-xs text-blue-600">
-                  Kvar: {(c.annualCeiling - (c.calledOffAmount ?? 0)).toLocaleString("sv-SE")} kr
-                  ({Math.round(((c.annualCeiling - (c.calledOffAmount ?? 0)) / c.annualCeiling) * 100)}% av tak)
+                  Kvar: {(ceiling - callOffTotal).toLocaleString("sv-SE")} kr
+                  ({Math.round(((ceiling - callOffTotal) / ceiling) * 100)}% av tak)
                 </p>
               </div>
             </div>
           )}
 
-          {/* Actions */}
+          {c.notes && (
+            <div>
+              <p className="text-xs font-medium text-gray-500">Notering</p>
+              <p className="text-sm text-gray-600 italic">{c.notes}</p>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 pt-2 border-t border-gray-50">
             {c.isFrameworkAgreement && c.status === "ACTIVE" && (
               <button className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700">
@@ -494,14 +469,8 @@ function ContractCard({ contract: c, expanded, onToggle }: {
                     <CheckCircle className="h-3 w-3" /> Förnya
                   </button>
                 )}
-                <button className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
-                  Säg upp
-                </button>
               </>
             )}
-            <button className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
-              Redigera
-            </button>
           </div>
         </div>
       )}
