@@ -8,7 +8,7 @@ import {
   AlertTriangle, Shield, Link2, ChevronRight, X, Plus,
   Building2, Wrench, Receipt, ArrowRightLeft, FileText,
   User, Clock, Tag, CornerUpLeft, MoreHorizontal,
-  PenSquare, Edit3, Trash2,
+  PenSquare, Edit3, Trash2, FolderArchive, Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
@@ -53,6 +53,8 @@ type MockMessage = {
   };
   /** Källa som skapade utkastet — visas som kontext */
   draftSource?: string;
+  /** Verksamhetsår — sätts automatiskt, används vid årsavslut */
+  fiscalYear: string;
 };
 
 type MockFlag = {
@@ -87,6 +89,7 @@ const MOCK_MESSAGES: MockMessage[] = [
     ],
     flags: [],
     senderMatch: { type: "external", name: "Anna Bergman", role: "Mäklare — Mäklarfirman AB" },
+    fiscalYear: "2026",
   },
   {
     id: "m2", mailboxSlug: "styrelsen", direction: "inbound",
@@ -101,6 +104,7 @@ const MOCK_MESSAGES: MockMessage[] = [
       { level: "warning", message: "E-postadressen finns inte i medlemsregistret. Möjlig match: Maria Svensson, lgh 1008." },
     ],
     senderMatch: { type: "fuzzy", name: "Maria Svensson", apartment: "lgh 1008" },
+    fiscalYear: "2026",
   },
   {
     id: "m3", mailboxSlug: "styrelsen", direction: "inbound",
@@ -115,6 +119,7 @@ const MOCK_MESSAGES: MockMessage[] = [
       { level: "info", message: "Möjligt dödsfallsärende. Karl Pettersson, lgh 3001, medlem sedan 2005." },
     ],
     senderMatch: { type: "unknown", name: "Anna Pettersson" },
+    fiscalYear: "2026",
   },
   {
     id: "m4", mailboxSlug: "styrelsen", direction: "outbound",
@@ -127,6 +132,7 @@ const MOCK_MESSAGES: MockMessage[] = [
     entityType: "Task", entityId: "task-001", entityTitle: "Dödsfall Karl Pettersson — lgh 3001",
     attachments: [],
     flags: [],
+    fiscalYear: "2026",
   },
 
   // Förvaltning
@@ -144,6 +150,7 @@ const MOCK_MESSAGES: MockMessage[] = [
       { level: "info", message: "2 tidigare fuktärenden i källargång B (senaste 12 mån)." },
     ],
     senderMatch: { type: "fuzzy", name: "Erik Lindqvist", apartment: "lgh 2003" },
+    fiscalYear: "2026",
   },
 
   // Ekonomi
@@ -158,6 +165,7 @@ const MOCK_MESSAGES: MockMessage[] = [
     attachments: [{ name: "faktura_2026_0142.pdf", size: 89000 }],
     flags: [],
     senderMatch: { type: "exact", name: "Andersson VVS AB", role: "Leverantör — VVS" },
+    fiscalYear: "2026",
   },
   {
     id: "m7", mailboxSlug: "ekonomi", direction: "inbound",
@@ -174,6 +182,7 @@ const MOCK_MESSAGES: MockMessage[] = [
       { level: "warning", message: "Mönster matchar katalogfaktura/bedrägeririsk." },
     ],
     senderMatch: { type: "unknown" },
+    fiscalYear: "2026",
   },
 
   // Flaggade — passerade e-postleverantörens spamfilter men
@@ -197,6 +206,7 @@ const MOCK_MESSAGES: MockMessage[] = [
       { level: "info", message: "E-postleverantörens spamfilter släppte igenom detta — mailet har giltig SPF/DKIM." },
     ],
     senderMatch: { type: "unknown" },
+    fiscalYear: "2026",
   },
   {
     id: "m12", mailboxSlug: "styrelsen", direction: "inbound",
@@ -212,6 +222,7 @@ const MOCK_MESSAGES: MockMessage[] = [
       { level: "warning", message: "Tidspress-taktik: erbjudande som \"löper ut\" för att skynda på beslut." },
     ],
     senderMatch: { type: "unknown" },
+    fiscalYear: "2026",
   },
   {
     id: "m13", mailboxSlug: "ekonomi", direction: "inbound",
@@ -227,6 +238,7 @@ const MOCK_MESSAGES: MockMessage[] = [
       { level: "warning", message: "Högt belopp (44 700 kr) + hot om förlorat godkännande — klassisk BRF-bluff." },
     ],
     senderMatch: { type: "unknown" },
+    fiscalYear: "2026",
   },
   {
     id: "m14", mailboxSlug: "forvaltning", direction: "inbound",
@@ -242,6 +254,7 @@ const MOCK_MESSAGES: MockMessage[] = [
       { level: "info", message: "Kontrollera giltighetsdatum via Boverkets register, inte via oombedda mail." },
     ],
     senderMatch: { type: "unknown" },
+    fiscalYear: "2026",
   },
   {
     id: "m15", mailboxSlug: "styrelsen", direction: "inbound",
@@ -257,6 +270,7 @@ const MOCK_MESSAGES: MockMessage[] = [
       { level: "info", message: "GDPR-stöd finns inbyggt i Hemmet (åtkomstloggning, samtycke, gallring). Extern konsult sällan nödvändig." },
     ],
     senderMatch: { type: "unknown" },
+    fiscalYear: "2026",
   },
 
   // Utkast — skapade från andra funktioner i systemet
@@ -272,6 +286,7 @@ const MOCK_MESSAGES: MockMessage[] = [
     attachments: [],
     flags: [],
     draftSource: "Överlåtelser → ÖVL-2026-007",
+    fiscalYear: "2026",
   },
   {
     id: "m9", mailboxSlug: "ekonomi", direction: "outbound",
@@ -285,6 +300,7 @@ const MOCK_MESSAGES: MockMessage[] = [
     attachments: [],
     flags: [],
     draftSource: "Pantsättning → PANT-2026-015",
+    fiscalYear: "2026",
   },
   {
     id: "m10", mailboxSlug: "forvaltning", direction: "outbound",
@@ -298,7 +314,72 @@ const MOCK_MESSAGES: MockMessage[] = [
     attachments: [],
     flags: [],
     draftSource: "Felanmälan → #142",
+    fiscalYear: "2026",
   },
+  // Arkiv — föregående verksamhetsår (2025)
+  // Dessa meddelanden arkiverades automatiskt vid årsavslut.
+  {
+    id: "a1", mailboxSlug: "styrelsen", direction: "inbound",
+    fromAddress: "maria.ek@maklarhuset.se", fromName: "Maria Ek",
+    toAddresses: "styrelsen@brfexempel.se",
+    subject: "Överlåtelse — lgh 2014, köpare Svensson-Ek",
+    bodyPreview: "Bifogar underlag för överlåtelse...",
+    bodyText: "Hej,\n\nBifogar underlag för överlåtelse av lgh 2014.\nKöpare: Per och Maria Svensson-Ek.\nTillträde: 2025-09-01.\n\nMed vänlig hälsning,\nMaria Ek, Mäklarhuset",
+    status: "ARCHIVED", receivedAt: new Date("2025-08-15"), threadId: "a-t1",
+    entityType: "TransferCase", entityId: "ovl-2025-003", entityTitle: "Överlåtelse lgh 2014 (2025)",
+    attachments: [{ name: "overlatelseavtal_lgh2014.pdf", size: 220000 }],
+    flags: [],
+    senderMatch: { type: "external", name: "Maria Ek", role: "Mäklare — Mäklarhuset" },
+    fiscalYear: "2025",
+  },
+  {
+    id: "a2", mailboxSlug: "ekonomi", direction: "inbound",
+    fromAddress: "karin.lindberg@revisionsfirman.se", fromName: "Karin Lindberg",
+    toAddresses: "ekonomi@brfexempel.se",
+    subject: "Revisionsberättelse BRF Exempelgården 2024",
+    bodyPreview: "Bifogar revisionsberättelse för räkenskapsåret 2024...",
+    bodyText: "Hej,\n\nBifogar revisionsberättelse för räkenskapsåret 2024.\nJag tillstyrker att stämman fastställer balansräkningen.\n\nMed vänlig hälsning,\nKarin Lindberg, Auktoriserad revisor",
+    status: "ARCHIVED", receivedAt: new Date("2025-04-10"), threadId: "a-t2",
+    entityType: "AnnualReport", entityId: "ar-2024", entityTitle: "Årsredovisning 2024",
+    attachments: [{ name: "revisionsberattelse_2024.pdf", size: 340000 }],
+    flags: [],
+    senderMatch: { type: "external", name: "Karin Lindberg", role: "Revisor — Revisionsfirman AB" },
+    fiscalYear: "2025",
+  },
+  {
+    id: "a3", mailboxSlug: "forvaltning", direction: "outbound",
+    fromAddress: "forvaltning@brfexempel.se", fromName: "Förvaltning, BRF Exempelgården",
+    toAddresses: "info@kone.se",
+    subject: "Förnyelse hissavtal 2025–2027",
+    bodyPreview: "Vi önskar förnya serviceavtalet för våra tre hissar...",
+    bodyText: "Hej,\n\nVi önskar förnya serviceavtalet för våra tre hissar.\nNuvarande avtal löper ut 2025-12-31.\n\nVänligen skicka offert för nytt tvåårigt avtal.\n\nMed vänliga hälsningar,\nFörvaltning, BRF Exempelgården",
+    status: "ARCHIVED", receivedAt: new Date("2025-10-20"), threadId: "a-t3",
+    attachments: [],
+    flags: [],
+    senderMatch: { type: "exact", name: "KONE AB", role: "Leverantör — Hiss" },
+    fiscalYear: "2025",
+  },
+  {
+    id: "a4", mailboxSlug: "styrelsen", direction: "inbound",
+    fromAddress: "lars.berg@gmail.com", fromName: "Lars Berg",
+    toAddresses: "styrelsen@brfexempel.se",
+    subject: "Motion — cykelrum i källaren",
+    bodyPreview: "Jag yrkar att föreningen inreder ett cykelrum...",
+    bodyText: "Hej styrelsen,\n\nJag yrkar att föreningen inreder ett cykelrum i källare A.\nDet finns idag ingen ordentlig plats att förvara cyklar.\n\nMvh Lars Berg, lgh 1004",
+    status: "ARCHIVED", receivedAt: new Date("2025-02-20"), threadId: "a-t4",
+    entityType: "Motion", entityId: "mot-2025-002", entityTitle: "Motion: Cykelrum i källaren (bifall 2025)",
+    attachments: [],
+    flags: [],
+    senderMatch: { type: "exact", name: "Lars Berg", apartment: "lgh 1004" },
+    fiscalYear: "2025",
+  },
+];
+
+// Verksamhetsår — hämtas i verkligheten från BrfRules.fiscalYearStart/End
+const FISCAL_YEARS = [
+  { year: "2026", label: "2026 (innevarande)", current: true, messageCount: 15 },
+  { year: "2025", label: "2025", current: false, messageCount: 47 },
+  { year: "2024", label: "2024", current: false, messageCount: 62 },
 ];
 
 // ============================================================
@@ -355,10 +436,13 @@ export default function EmailPage() {
   const userRoles = (session?.user?.roles ?? []) as Role[];
 
   const [activeMailbox, setActiveMailbox] = useState("styrelsen");
+  const [activeFiscalYear, setActiveFiscalYear] = useState("2026");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showCreateCase, setShowCreateCase] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
   const [showDrafts, setShowDrafts] = useState(false);
+  const isCurrentYear = activeFiscalYear === "2026";
+  const isArchiveView = !isCurrentYear;
 
   if (!isBoardMember(userRoles)) {
     return (
@@ -371,10 +455,11 @@ export default function EmailPage() {
   }
 
   const [showFlagged, setShowFlagged] = useState(false);
-  const mailboxDrafts = MOCK_MESSAGES.filter((m) => m.mailboxSlug === activeMailbox && m.status === "DRAFT");
-  const mailboxFlagged = MOCK_MESSAGES.filter((m) => m.mailboxSlug === activeMailbox && m.status === "FLAGGED");
-  const mailboxInbox = MOCK_MESSAGES.filter((m) => m.mailboxSlug === activeMailbox && m.status !== "DRAFT" && m.status !== "FLAGGED");
-  const mailboxMessages = showFlagged ? mailboxFlagged : showDrafts ? mailboxDrafts : mailboxInbox;
+  const yearMessages = MOCK_MESSAGES.filter((m) => m.mailboxSlug === activeMailbox && m.fiscalYear === activeFiscalYear);
+  const mailboxDrafts = yearMessages.filter((m) => m.status === "DRAFT");
+  const mailboxFlagged = yearMessages.filter((m) => m.status === "FLAGGED");
+  const mailboxInbox = yearMessages.filter((m) => m.status !== "DRAFT" && m.status !== "FLAGGED");
+  const mailboxMessages = isArchiveView ? mailboxInbox : showFlagged ? mailboxFlagged : showDrafts ? mailboxDrafts : mailboxInbox;
   const selected = selectedId ? MOCK_MESSAGES.find((m) => m.id === selectedId) : null;
 
   return (
@@ -387,12 +472,14 @@ export default function EmailPage() {
           </h1>
           <p className="mt-1 text-sm text-gray-500">Föreningens rollbaserade e-postinkorgar</p>
         </div>
-        <button
-          onClick={() => { setShowCompose(true); setSelectedId(null); }}
-          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
-        >
-          <PenSquare className="h-4 w-4" /> Skriv nytt
-        </button>
+        {isCurrentYear && (
+          <button
+            onClick={() => { setShowCompose(true); setSelectedId(null); }}
+            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+          >
+            <PenSquare className="h-4 w-4" /> Skriv nytt
+          </button>
+        )}
       </div>
 
       {/* Mailbox tabs */}
@@ -421,8 +508,47 @@ export default function EmailPage() {
         ))}
       </div>
 
-      {/* Inbox / Drafts / Flagged toggle */}
-      <div className="mb-4 flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
+      {/* Fiscal year selector */}
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          <Calendar className="h-3.5 w-3.5" />
+          <span className="font-medium">Verksamhetsår:</span>
+        </div>
+        <div className="flex gap-1">
+          {FISCAL_YEARS.map((fy) => (
+            <button
+              key={fy.year}
+              onClick={() => {
+                setActiveFiscalYear(fy.year);
+                setSelectedId(null);
+                if (!fy.current) { setShowDrafts(false); setShowFlagged(false); }
+              }}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                activeFiscalYear === fy.year
+                  ? fy.current
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-700 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              )}
+            >
+              {fy.current ? fy.year : (
+                <span className="flex items-center gap-1">
+                  <FolderArchive className="h-3 w-3" /> {fy.year}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        {isArchiveView && (
+          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-500">
+            {mailboxInbox.length} meddelanden i arkiv
+          </span>
+        )}
+      </div>
+
+      {/* Inbox / Drafts / Flagged toggle — only for current year */}
+      {isCurrentYear && <div className="mb-4 flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
         <button
           onClick={() => { setShowDrafts(false); setShowFlagged(false); setSelectedId(null); }}
           className={cn(
@@ -463,7 +589,18 @@ export default function EmailPage() {
             </span>
           )}
         </button>
-      </div>
+      </div>}
+
+      {/* Archive banner */}
+      {isArchiveView && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5">
+          <FolderArchive className="h-4 w-4 text-gray-500" />
+          <span className="text-sm text-gray-700">
+            Arkiv — verksamhetsår <span className="font-semibold">{activeFiscalYear}</span>
+          </span>
+          <span className="text-xs text-gray-400">Meddelanden arkiverades vid årsavslut.</span>
+        </div>
+      )}
 
       {/* Two-column layout */}
       <div className="flex gap-4 min-h-[600px]">
