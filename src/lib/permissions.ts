@@ -56,6 +56,13 @@ export type Permission =
   | "transfer:review"
   | "transfer:manage_financial"
   | "transfer:view"
+  // Contracts & Procurement
+  | "contract:view"
+  | "contract:manage"
+  | "procurement:view"
+  | "procurement:manage"
+  | "contractor:view"
+  | "contractor:manage"
   // Admin
   | "admin:users"
   | "admin:integrations"
@@ -75,6 +82,7 @@ const BOARD_COMMON: Permission[] = [
   "document:upload", "document:view_board",
   "annual_report:edit", "annual_report:view",
   "audit:view",
+  "contract:view", "procurement:view", "contractor:view",
 ];
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
@@ -88,6 +96,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "audit:perform",
     "application:review",
     "transfer:create", "transfer:review", "transfer:manage_financial", "transfer:view",
+    "contract:manage", "procurement:manage", "contractor:manage",
     "admin:users", "admin:integrations", "admin:settings",
   ],
   BOARD_CHAIRPERSON: [
@@ -99,6 +108,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "member:edit",
     "application:review",
     "transfer:create", "transfer:review", "transfer:view",
+    "contract:manage", "procurement:manage", "contractor:manage",
     "admin:users", "admin:integrations",
   ],
   BOARD_SECRETARY: [
@@ -112,10 +122,12 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "expense:approve",
     "application:review",
     "transfer:create", "transfer:manage_financial", "transfer:view",
+    "contract:manage", "procurement:manage", "contractor:manage",
   ],
   BOARD_PROPERTY_MGR: [
     ...BOARD_COMMON,
     "report:manage",
+    "contract:manage", "procurement:manage", "contractor:manage",
   ],
   BOARD_ENVIRONMENT: [...BOARD_COMMON],
   BOARD_EVENTS: [...BOARD_COMMON],
@@ -137,11 +149,12 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "annual:view",
     "annual_report:view",
     "audit:perform", "audit:view",
-    "meeting:view", "meeting:protocol",   // Förvaltningsrevision kräver protokollgranskning
-    "expense:view_all",                    // Kan inte revidera utan att se ekonomin
+    "meeting:view", "meeting:protocol",
+    "expense:view_all",
     "document:view_board",
     "announcement:view",
     "member:view_registry",
+    "contract:view", "procurement:view", "contractor:view",
   ],
   AUDITOR_SUBSTITUTE: [
     "annual:view",

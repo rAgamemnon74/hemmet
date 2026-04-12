@@ -34,6 +34,9 @@ import { bookingRouter } from "./routers/booking";
 import { nominationRouter } from "./routers/nomination";
 import { propertyRouter } from "./routers/property";
 import { attachmentRouter } from "./routers/attachment";
+import { contractorRouter } from "./routers/contractor";
+import { contractRouter } from "./routers/contract";
+import { procurementRouter } from "./routers/procurement";
 
 export const appRouter = router({
   meeting: meetingRouter,
@@ -71,6 +74,9 @@ export const appRouter = router({
   nomination: nominationRouter,
   property: propertyRouter,
   attachment: attachmentRouter,
+  contractor: contractorRouter,
+  contract: contractRouter,
+  procurement: procurementRouter,
 });
 
 export type AppRouter = typeof appRouter;

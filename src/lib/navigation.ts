@@ -87,9 +87,9 @@ export const navigation: NavSection[] = [
     title: "Ekonomi",
     items: [
       { label: "Utlägg", href: "/ekonomi/utlagg", icon: Receipt, permission: "expense:submit" },
-      { label: "Upphandlingar", href: "/ekonomi/upphandlingar", icon: ShoppingCart, permission: "meeting:view" },
-      { label: "Avtal", href: "/ekonomi/avtal", icon: FileText, permission: "meeting:view" },
-      { label: "Leverantörer", href: "/ekonomi/leverantorer", icon: Users, permission: "meeting:view" },
+      { label: "Upphandlingar", href: "/ekonomi/upphandlingar", icon: ShoppingCart, permission: "procurement:view" },
+      { label: "Avtal", href: "/ekonomi/avtal", icon: FileText, permission: "contract:view" },
+      { label: "Leverantörer", href: "/ekonomi/leverantorer", icon: Users, permission: "contractor:view" },
     ],
   },
   {

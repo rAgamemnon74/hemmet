@@ -61,6 +61,12 @@ model User {
   bookings            Booking[]
   conflictsOfInterest ConflictOfInterest[]
   auditQuestions      AuditQuestion[]    @relation("AuditQuestioner")
+  contractsCreated    Contract[]         @relation("ContractCreator")
+  contractsSigned     Contract[]         @relation("ContractSigner")
+  contractCallOffs    ContractCallOff[]
+  procurementsCreated Procurement[]      @relation("ProcurementCreator")
+  procurementsOwned   Procurement[]      @relation("ProcurementOwner")
+  procurementNotes    ProcurementNote[]
 }
 
 model Session {
@@ -1512,6 +1518,8 @@ model Contractor {
   updatedAt         DateTime  @updatedAt
 
   contacts          ContractorContact[]
+  contracts         Contract[]
+  procurementQuotes ProcurementQuote[]
 
   @@index([category])
   @@index([active])
@@ -1531,6 +1539,283 @@ model ContractorContact {
   contractor Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
 
   @@index([contractorId])
+}
+
+// ============================================================
+// CONTRACTS (avtalsregister)
+// ============================================================
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  RENEWAL_PENDING
+  EXPIRING
+  EXPIRED
+  TERMINATED
+}
+
+enum ContractCategory {
+  SERVICE       // Driftsavtal (hiss, städ, trädgård)
+  INSURANCE     // Försäkringar
+  FINANCIAL     // Lån, bank
+  MANAGEMENT    // Ekonomisk/teknisk förvaltning
+  UTILITY       // El, vatten, fjärrvärme, bredband
+  PROJECT       // Tillfälliga projektavtal
+  CONSULTING    // Konsulttjänster
+  OTHER
+}
+
+enum MandateLevel {
+  DELEGATED         // Förvaltare inom delegation
+  BOARD             // Styrelsebeslut
+  ANNUAL_MEETING    // Stämmobeslut
+}
+
+model Contract {
+  id                  String           @id @default(cuid())
+  title               String
+  description         String?          @db.Text
+  status              ContractStatus   @default(DRAFT)
+  category            ContractCategory
+
+  // Motpart
+  contractorId        String?
+  counterpartyName    String           // Fritext om ej i Contractor
+  counterpartyOrg     String?
+  counterpartyEmail   String?
+  counterpartyPhone   String?
+
+  // Dokument
+  documentUrl         String?
+
+  // Avtalstyp
+  isFrameworkAgreement Boolean         @default(false)
+  annualCeiling       Decimal?         @db.Decimal(12, 2)
+
+  // Ekonomi
+  annualCost          Decimal?         @db.Decimal(12, 2)
+  totalValue          Decimal?         @db.Decimal(12, 2)
+  paymentTerms        String?
+  paymentMethod       String?          // INVOICE, CARD, AUTOGIRO
+
+  // Tidsperiod
+  startDate           DateTime
+  endDate             DateTime?
+
+  // Förlängning
+  autoRenewal         Boolean          @default(false)
+  renewalPeriodMonths Int?
+  noticePeriodMonths  Int?
+  noticeDeadline      DateTime?
+
+  // Beslut
+  mandateLevel        MandateLevel     @default(BOARD)
+  decisionId          String?
+  decisionRef         String?          // Fritext: "Styrelsemöte 2024-11-18, §9"
+
+  // Kopplingar
+  procurementId       String?
+
+  // Garanti
+  warrantyMonths      Int?
+  warrantyExpiry      DateTime?
+
+  // PUB-avtal
+  pubAgreement        Boolean          @default(false)
+
+  // Meta
+  signedById          String?
+  signedAt            DateTime?
+  createdById         String
+  notes               String?          @db.Text
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  contractor          Contractor?      @relation(fields: [contractorId], references: [id])
+  createdBy           User             @relation("ContractCreator", fields: [createdById], references: [id])
+  signedBy            User?            @relation("ContractSigner", fields: [signedById], references: [id])
+  callOffs            ContractCallOff[]
+
+  @@index([status])
+  @@index([contractorId])
+  @@index([category])
+  @@index([noticeDeadline])
+}
+
+model ContractCallOff {
+  id              String    @id @default(cuid())
+  contractId      String
+  description     String
+  estimatedCost   Decimal?  @db.Decimal(12, 2)
+  actualCost      Decimal?  @db.Decimal(12, 2)
+
+  // Kopplingar
+  damageReportId  String?
+  inspectionId    String?
+  expenseId       String?
+
+  calledOffById   String
+  calledOffAt     DateTime  @default(now())
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+
+  contract        Contract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  calledOffBy     User      @relation(fields: [calledOffById], references: [id])
+
+  @@index([contractId])
+  @@index([calledOffAt])
+}
+
+// ============================================================
+// PROCUREMENT (upphandlingar)
+// ============================================================
+
+enum ProcurementStatus {
+  NEED                 // Behov registrerat — väntar på styrelsebeslut
+  NEED_DEFERRED        // Avvaktar — styrelsen tog inte beslut
+  APPROVED             // Styrelsen godkänt — ansvarig tilldelad
+  SPECIFICATION        // Kravspec under utformning
+  RFQ_SENT             // Offertförfrågan skickad
+  COLLECTING_QUOTES    // Offerter inkommer
+  EVALUATION           // Utvärdering / jämförelse
+  DECISION_PENDING     // Inväntar beslut om leverantör
+  ORDERED              // Beställd
+  IN_PROGRESS          // Arbete pågår
+  COMPLETED            // Slutförd
+  CANCELLED            // Avbruten
+  REJECTED             // Behov avslaget
+}
+
+enum ProcurementCategory {
+  PHYSICAL        // Fysisk förvaltning (VVS, el, målare, tak)
+  SERVICE         // Professionella tjänster (förvaltning, revision)
+  IT_DIGITAL      // IT och digital infrastruktur
+  FINANCIAL       // Finansiella tjänster (bank, lån)
+  INSURANCE       // Försäkringar
+  UTILITY         // Kommunal infrastruktur (el, värme, sopor)
+}
+
+enum QuoteStatus {
+  PENDING
+  RECEIVED
+  SELECTED
+  REJECTED
+  WITHDRAWN
+}
+
+model Procurement {
+  id                  String              @id @default(cuid())
+  title               String
+  description         String?             @db.Text
+  category            ProcurementCategory @default(PHYSICAL)
+  status              ProcurementStatus   @default(NEED)
+
+  // Behov
+  urgency             String?             // ACUTE, PLANNED, EXPLORATORY
+
+  // Budget
+  estimatedCost       Decimal?            @db.Decimal(12, 2)
+  actualCost          Decimal?            @db.Decimal(12, 2)
+  isRecurringCost     Boolean             @default(false)
+  annualEstimate      Decimal?            @db.Decimal(12, 2)
+
+  // Tidplan
+  rfqSentAt           DateTime?
+  quotesDeadline      DateTime?
+  plannedStart        DateTime?
+  plannedEnd          DateTime?
+
+  // Beslut om upphandling (fas 1)
+  mandateLevel        MandateLevel?
+  approvalDecisionId  String?             // Styrelsebeslut som godkände upphandlingen
+  approvedAt          DateTime?
+  deferredCount       Int                 @default(0)
+  rejectionReason     String?
+
+  // Beslut om leverantör (fas 6)
+  decisionId          String?
+  decisionNote        String?             @db.Text
+
+  // Resultat
+  selectedQuoteId     String?
+  contractId          String?             // Avtal som skapades
+
+  // Garanti
+  warrantyMonths      Int?
+  warrantyExpiry      DateTime?
+
+  // Trigger
+  triggerType          String?            // "Inspection", "DamageReport", "Contract", "Decision"
+  triggerId            String?
+  triggerTitle          String?
+
+  // Process
+  ownerId              String?            // Vem driver upphandlingen
+  createdById          String
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  createdBy            User               @relation("ProcurementCreator", fields: [createdById], references: [id])
+  owner                User?              @relation("ProcurementOwner", fields: [ownerId], references: [id])
+  quotes               ProcurementQuote[]
+  notes                ProcurementNote[]
+
+  @@index([status])
+  @@index([category])
+  @@index([ownerId])
+}
+
+model ProcurementQuote {
+  id              String      @id @default(cuid())
+  procurementId   String
+  contractorId    String?
+
+  // Leverantörsinfo
+  companyName     String
+  orgNumber       String?
+  contactPerson   String?
+  contactEmail    String?
+  contactPhone    String?
+
+  // Offert
+  amount          Decimal?    @db.Decimal(12, 2)
+  amountExVat     Decimal?    @db.Decimal(12, 2)
+  annualCost      Decimal?    @db.Decimal(12, 2)
+  validUntil      DateTime?
+
+  // Villkor
+  proposedStart   DateTime?
+  proposedEnd     DateTime?
+  contractLength  Int?
+  noticePeriod    Int?
+  warrantyMonths  Int?
+  paymentTerms    String?
+  paymentMethod   String?     // INVOICE, CARD, AUTOGIRO
+  conditions      String?     @db.Text
+
+  // Status
+  status          QuoteStatus @default(PENDING)
+  receivedAt      DateTime?
+
+  createdAt       DateTime    @default(now())
+
+  procurement     Procurement @relation(fields: [procurementId], references: [id], onDelete: Cascade)
+  contractor      Contractor? @relation(fields: [contractorId], references: [id])
+
+  @@index([procurementId])
+}
+
+model ProcurementNote {
+  id              String   @id @default(cuid())
+  procurementId   String
+  authorId        String
+  content         String   @db.Text
+  createdAt       DateTime @default(now())
+
+  procurement     Procurement @relation(fields: [procurementId], references: [id], onDelete: Cascade)
+  author          User        @relation(fields: [authorId], references: [id])
+
+  @@index([procurementId])
 }
 
 // ============================================================
