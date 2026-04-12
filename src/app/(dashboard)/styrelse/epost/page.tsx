@@ -37,7 +37,7 @@ type MockMessage = {
   subject: string;
   bodyPreview: string;
   bodyText: string;
-  status: "UNREAD" | "READ" | "LINKED" | "ARCHIVED" | "DRAFT";
+  status: "UNREAD" | "READ" | "LINKED" | "ARCHIVED" | "DRAFT" | "SPAM";
   receivedAt: Date;
   threadId: string;
   entityType?: string;
@@ -176,6 +176,86 @@ const MOCK_MESSAGES: MockMessage[] = [
     senderMatch: { type: "unknown" },
   },
 
+  // Spam/skräppost — automatiskt flaggade
+  {
+    id: "m11", mailboxSlug: "styrelsen", direction: "inbound",
+    fromAddress: "info@foreningsregistret-sverige.se", fromName: "Föreningsregistret Sverige",
+    toAddresses: "styrelsen@brfexempel.se",
+    subject: "Förnyelse av registrering — BRF Exempelgården",
+    bodyPreview: "Er registrering löper ut. Förnya idag för att behålla er synlighet...",
+    bodyText: "BRF Exempelgården\nOrg.nr: 769000-XXXX\n\nEr registrering i Föreningsregistret Sverige löper ut 2026-05-01.\n\nFörnya er registrering idag för att säkerställa att er förening\nfortsatt syns i vårt register.\n\nÅrsavgift: 2 990 kr\nBankgiro: 456-7890\nOCR: 7690001234\n\nVid utebliven betalning avregistreras er förening.\n\nMed vänlig hälsning,\nFöreningsregistret Sverige AB\nBox 12345, 111 11 Stockholm",
+    status: "SPAM", receivedAt: daysAgo(2), threadId: "t11",
+    attachments: [],
+    flags: [
+      { level: "critical", message: "Känt bedrägeri — \"Föreningsregistret\" är inte en myndighet. Bolagsverket sköter föreningsregister." },
+      { level: "warning", message: "Mönster: katalogbluff — falsk registreringsavgift med hot om avregistrering." },
+    ],
+    senderMatch: { type: "unknown" },
+  },
+  {
+    id: "m12", mailboxSlug: "styrelsen", direction: "inbound",
+    fromAddress: "noreply@digitala-arsredovisningen.se", fromName: "Digitala Årsredovisningen",
+    toAddresses: "styrelsen@brfexempel.se",
+    subject: "Obligatorisk digital inlämning årsredovisning 2025",
+    bodyPreview: "Från och med 2025 ska alla bostadsrättsföreningar lämna in digitalt...",
+    bodyText: "Till styrelsen för BRF Exempelgården,\n\nFrån och med 2025 ska alla bostadsrättsföreningar lämna in\nårsredovisningen digitalt. Vi erbjuder en komplett lösning.\n\nAnmäl er idag — ordinarie pris 4 900 kr.\nErbjudande t.o.m. 2026-04-30: 2 900 kr\n\nKlicka här för att komma igång: [länk]\n\nDigitala Årsredovisningen AB",
+    status: "SPAM", receivedAt: daysAgo(4), threadId: "t12",
+    attachments: [],
+    flags: [
+      { level: "critical", message: "Vilseledande — det finns inget krav på just denna tjänst. Årsredovisning lämnas till Bolagsverket." },
+      { level: "warning", message: "Tidspress-taktik: erbjudande som \"löper ut\" för att skynda på beslut." },
+    ],
+    senderMatch: { type: "unknown" },
+  },
+  {
+    id: "m13", mailboxSlug: "ekonomi", direction: "inbound",
+    fromAddress: "avtal@hissservice-sverige.se", fromName: "Hissservice Sverige",
+    toAddresses: "ekonomi@brfexempel.se",
+    subject: "Förfallet serviceavtal — hissanläggning BRF Exempelgården",
+    bodyPreview: "Ert serviceavtal för hissanläggningen har löpt ut. Förnya omgående...",
+    bodyText: "BRF Exempelgården\n\nVi noterar att ert serviceavtal för hissanläggningen har löpt ut.\nEnligt Boverkets föreskrifter krävs regelbunden service.\n\nFörnya ert avtal idag:\nÅrsavgift: 14 900 kr/hiss\nAntal hissar: 3 st\nTotalt: 44 700 kr\n\nBankgiro: 234-5678\n\nVid utebliven service riskerar föreningen att förlora\nbesiktningsgodkännande.\n\nHissservice Sverige AB",
+    status: "SPAM", receivedAt: daysAgo(3), threadId: "t13",
+    attachments: [{ name: "serviceavtal_2026.pdf", size: 156000 }],
+    flags: [
+      { level: "critical", message: "Okänd leverantör — er hisservice sköts av KONE AB (registrerad leverantör)." },
+      { level: "warning", message: "Högt belopp (44 700 kr) + hot om förlorat godkännande = klassisk skrämseltaktik." },
+      { level: "warning", message: "Mönster: falskt serviceavtal — utger sig för att ha befintlig relation." },
+    ],
+    senderMatch: { type: "unknown" },
+  },
+  {
+    id: "m14", mailboxSlug: "forvaltning", direction: "inbound",
+    fromAddress: "kontakt@energideklaration-nu.se", fromName: "Energideklaration Nu",
+    toAddresses: "forvaltning@brfexempel.se",
+    subject: "Er energideklaration löper ut — boka besiktning idag",
+    bodyPreview: "Enligt lag ska alla flerbostadshus ha en giltig energideklaration...",
+    bodyText: "Hej,\n\nEnligt lag (2006:985) ska alla flerbostadshus ha en giltig\nenergi­deklaration. Vår kontroll visar att BRF Exempelgårdens\ndeklaration snart löper ut.\n\nBoka en ny energideklaration idag:\nPris: 8 900 kr (ordinarie 12 500 kr)\nErbjudandet gäller t.o.m. fredag.\n\nRing 08-XXX XXX eller svara på detta mail.\n\nEnergi­deklaration Nu AB",
+    status: "SPAM", receivedAt: daysAgo(5), threadId: "t14",
+    attachments: [],
+    flags: [
+      { level: "warning", message: "Oombedd offert — inte nödvändigtvis bedrägeri men ingen beställning gjord." },
+      { level: "warning", message: "Tidspress-taktik: \"erbjudandet gäller t.o.m. fredag\"." },
+      { level: "info", message: "Energideklaration är lagkrav — men kontrollera giltighetsdatum via Boverket, inte via oombedda mail." },
+    ],
+    senderMatch: { type: "unknown" },
+  },
+  {
+    id: "m15", mailboxSlug: "styrelsen", direction: "inbound",
+    fromAddress: "gdpr-tjanst@dataskyddsgruppen.se", fromName: "Dataskyddsgruppen",
+    toAddresses: "styrelsen@brfexempel.se",
+    subject: "GDPR-granskning — skyldigheter för BRF Exempelgården",
+    bodyPreview: "Som personuppgiftsansvarig har er förening skyldigheter enligt GDPR...",
+    bodyText: "Till styrelsen,\n\nSom personuppgiftsansvarig har BRF Exempelgården skyldigheter\nenligt dataskyddsförordningen (GDPR). Brott mot GDPR kan\nmedföra sanktionsavgifter upp till 20 miljoner euro.\n\nVi erbjuder en komplett GDPR-genomgång:\n- Registerförteckning\n- Personuppgiftsbiträdesavtal\n- Informationstexter\n- Rutiner för dataintrång\n\nPris: 9 900 kr (engångsavgift)\n\nBoka idag — svara på detta mail.\n\nDataskyddsgruppen AB",
+    status: "SPAM", receivedAt: daysAgo(6), threadId: "t15",
+    attachments: [],
+    flags: [
+      { level: "warning", message: "Oombedd offert — GDPR-krav är verkliga men detta är marknadsföring, inte ett myndighetskrav." },
+      { level: "warning", message: "Skrämseltaktik: hänvisar till miljonböter för att skapa rädsla." },
+      { level: "info", message: "GDPR-stöd finns inbyggt i Hemmet. Extern konsult sällan nödvändig för en BRF." },
+    ],
+    senderMatch: { type: "unknown" },
+  },
+
   // Utkast — skapade från andra funktioner i systemet
   {
     id: "m8", mailboxSlug: "styrelsen", direction: "outbound",
@@ -287,9 +367,11 @@ export default function EmailPage() {
     );
   }
 
+  const [showSpam, setShowSpam] = useState(false);
   const mailboxDrafts = MOCK_MESSAGES.filter((m) => m.mailboxSlug === activeMailbox && m.status === "DRAFT");
-  const mailboxInbox = MOCK_MESSAGES.filter((m) => m.mailboxSlug === activeMailbox && m.status !== "DRAFT");
-  const mailboxMessages = showDrafts ? mailboxDrafts : mailboxInbox;
+  const mailboxSpam = MOCK_MESSAGES.filter((m) => m.mailboxSlug === activeMailbox && m.status === "SPAM");
+  const mailboxInbox = MOCK_MESSAGES.filter((m) => m.mailboxSlug === activeMailbox && m.status !== "DRAFT" && m.status !== "SPAM");
+  const mailboxMessages = showSpam ? mailboxSpam : showDrafts ? mailboxDrafts : mailboxInbox;
   const selected = selectedId ? MOCK_MESSAGES.find((m) => m.id === selectedId) : null;
 
   return (
@@ -336,20 +418,20 @@ export default function EmailPage() {
         ))}
       </div>
 
-      {/* Inbox / Drafts toggle */}
+      {/* Inbox / Drafts / Spam toggle */}
       <div className="mb-4 flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
         <button
-          onClick={() => { setShowDrafts(false); setSelectedId(null); }}
+          onClick={() => { setShowDrafts(false); setShowSpam(false); setSelectedId(null); }}
           className={cn(
             "rounded-md px-3 py-1 text-sm font-medium transition-colors",
-            !showDrafts ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            !showDrafts && !showSpam ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
           )}
         >
           <Inbox className="inline h-3.5 w-3.5 mr-1" />
           Inkorg
         </button>
         <button
-          onClick={() => { setShowDrafts(true); setSelectedId(null); }}
+          onClick={() => { setShowDrafts(true); setShowSpam(false); setSelectedId(null); }}
           className={cn(
             "rounded-md px-3 py-1 text-sm font-medium transition-colors",
             showDrafts ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
@@ -360,6 +442,21 @@ export default function EmailPage() {
           {mailboxDrafts.length > 0 && (
             <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-700">
               {mailboxDrafts.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => { setShowSpam(true); setShowDrafts(false); setSelectedId(null); }}
+          className={cn(
+            "rounded-md px-3 py-1 text-sm font-medium transition-colors",
+            showSpam ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          )}
+        >
+          <Shield className="inline h-3.5 w-3.5 mr-1" />
+          Spam
+          {mailboxSpam.length > 0 && (
+            <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-100 px-1.5 text-xs font-semibold text-red-700">
+              {mailboxSpam.length}
             </span>
           )}
         </button>
@@ -386,8 +483,17 @@ export default function EmailPage() {
           <div className="divide-y divide-gray-50">
             {mailboxMessages.length === 0 ? (
               <div className="py-12 text-center">
-                <Inbox className="mx-auto h-10 w-10 text-gray-300" />
-                <p className="mt-2 text-sm text-gray-500">Inga meddelanden</p>
+                {showSpam ? (
+                  <>
+                    <Shield className="mx-auto h-10 w-10 text-green-300" />
+                    <p className="mt-2 text-sm text-green-600">Inget spam</p>
+                  </>
+                ) : (
+                  <>
+                    <Inbox className="mx-auto h-10 w-10 text-gray-300" />
+                    <p className="mt-2 text-sm text-gray-500">Inga meddelanden</p>
+                  </>
+                )}
               </div>
             ) : (
               mailboxMessages.map((msg) => (
@@ -408,6 +514,9 @@ export default function EmailPage() {
                         )}
                         {msg.status === "DRAFT" && (
                           <span className="rounded px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">Utkast</span>
+                        )}
+                        {msg.status === "SPAM" && (
+                          <span className="rounded px-1.5 py-0.5 text-xs font-medium bg-red-100 text-red-700">Spam</span>
                         )}
                         {msg.direction === "outbound" && msg.status !== "DRAFT" && (
                           <Send className="h-3 w-3 shrink-0 text-gray-400" />
@@ -580,7 +689,20 @@ export default function EmailPage() {
                   )}
                 </>
               )}
-              {selected.direction === "inbound" && selected.status !== "DRAFT" && (
+              {selected.status === "SPAM" && (
+                <>
+                  <button className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">
+                    <Shield className="h-3.5 w-3.5" /> Blockera avsändare
+                  </button>
+                  <button className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                    <Inbox className="h-3.5 w-3.5" /> Inte spam
+                  </button>
+                  <button className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                    <Trash2 className="h-3.5 w-3.5" /> Ta bort
+                  </button>
+                </>
+              )}
+              {selected.direction === "inbound" && selected.status !== "DRAFT" && selected.status !== "SPAM" && (
                 <>
                   <button
                     onClick={() => setShowCompose(true)}
@@ -601,9 +723,14 @@ export default function EmailPage() {
                       </button>
                     </>
                   )}
-                  <button className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
-                    <Archive className="h-3.5 w-3.5" /> Arkivera
-                  </button>
+                  <div className="ml-auto flex items-center gap-1">
+                    <button className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                      <Shield className="h-3.5 w-3.5" /> Spam
+                    </button>
+                    <button className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                      <Archive className="h-3.5 w-3.5" /> Arkivera
+                    </button>
+                  </div>
                 </>
               )}
               {selected.direction === "outbound" && selected.status !== "DRAFT" && (
