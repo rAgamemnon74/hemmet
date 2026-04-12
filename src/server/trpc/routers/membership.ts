@@ -4,6 +4,8 @@ import { submitApplicationSchema, reviewApplicationSchema } from "@/lib/validato
 import { TRPCError } from "@trpc/server";
 import { hash } from "bcryptjs";
 import { logPersonalDataAccess } from "@/lib/gdpr";
+import { logActivity } from "@/lib/audit";
+import { notify } from "@/lib/notifications";
 
 export const membershipRouter = router({
   // List all applications (board view)
@@ -195,7 +197,7 @@ export const membershipRouter = router({
         }
 
         // Update application
-        return ctx.db.membershipApplication.update({
+        const result = await ctx.db.membershipApplication.update({
           where: { id: input.id },
           data: {
             status: "APPROVED",
@@ -204,14 +206,18 @@ export const membershipRouter = router({
             boardNotes: input.boardNotes,
           },
         });
+
+        logActivity({ userId: ctx.user.id as string, action: "membership.approve", entityType: "MembershipApplication", entityId: input.id, description: `Godkände medlemsansökan: ${app.firstName} ${app.lastName}`, before: { status: app.status }, after: { status: "APPROVED", decisionId: input.decisionId } });
+
+        return result;
       }
 
       // REJECTED
       if (!input.rejectionReason) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Ange anledning till avslag" });
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Ange anledning till avslag (lagkrav)" });
       }
 
-      return ctx.db.membershipApplication.update({
+      const result = await ctx.db.membershipApplication.update({
         where: { id: input.id },
         data: {
           status: "REJECTED",
@@ -221,9 +227,26 @@ export const membershipRouter = router({
           boardNotes: input.boardNotes,
         },
       });
+
+      logActivity({ userId: ctx.user.id as string, action: "membership.reject", entityType: "MembershipApplication", entityId: input.id, description: `Avslog medlemsansökan: ${app.firstName} ${app.lastName} — ${input.rejectionReason}`, before: { status: app.status }, after: { status: "REJECTED", rejectionReason: input.rejectionReason } });
+
+      return result;
     }),
 
   // Get ownership summary for an apartment
+  // Pending applications ready for board review
+  getPending: protectedProcedure
+    .use(requirePermission("application:review"))
+    .query(async ({ ctx }) => {
+      return ctx.db.membershipApplication.findMany({
+        where: { status: { in: ["SUBMITTED", "UNDER_REVIEW"] } },
+        include: {
+          apartment: { select: { number: true, building: { select: { name: true } } } },
+        },
+        orderBy: { createdAt: "asc" },
+      });
+    }),
+
   getOwnership: protectedProcedure
     .use(requirePermission("member:view_registry"))
     .input(z.object({ apartmentId: z.string() }))

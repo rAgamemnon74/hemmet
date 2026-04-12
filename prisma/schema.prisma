@@ -494,6 +494,7 @@ enum AgendaItemType {
   SUBSTITUTE_ELECTION        // Val av styrelsesuppleanter
   AUDITOR_ELECTION           // Val av revisor
   ELECT_NOMINATING_COMMITTEE // Val av valberedning
+  MEMBERSHIP_REVIEW          // Beredda medlemsansökningar — godkänn/avslå med beslutskoppling
   MOTIONS                    // Visar kopplade motioner (årsmöte)
   BOARD_MATTERS              // Visar inkomna ärenden — motioner + förslag (styrelsemöte)
 }

@@ -19,4 +19,5 @@ export const reviewApplicationSchema = z.object({
   status: z.enum(["APPROVED", "REJECTED"]),
   rejectionReason: z.string().optional(),
   boardNotes: z.string().optional(),
+  decisionId: z.string().optional(),  // Koppling till styrelsebeslut (Decision)
 });

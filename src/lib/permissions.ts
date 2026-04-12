@@ -110,6 +110,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   BOARD_TREASURER: [
     ...BOARD_COMMON,
     "expense:approve",
+    "application:review",
     "transfer:create", "transfer:manage_financial", "transfer:view",
   ],
   BOARD_PROPERTY_MGR: [

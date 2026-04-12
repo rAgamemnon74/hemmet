@@ -2,7 +2,7 @@ export type AgendaTemplate = {
   title: string;
   description?: string;
   duration?: number;
-  specialType?: "OPENING" | "ATTENDANCE" | "QUORUM_CHECK" | "ELECT_CHAIR" | "ELECT_SECRETARY" | "ELECT_ADJUSTERS" | "AUDIT_REPORT" | "DISCHARGE_VOTE" | "BOARD_ELECTION" | "SUBSTITUTE_ELECTION" | "AUDITOR_ELECTION" | "ELECT_NOMINATING_COMMITTEE" | "MOTIONS" | "BOARD_MATTERS";
+  specialType?: "OPENING" | "ATTENDANCE" | "QUORUM_CHECK" | "ELECT_CHAIR" | "ELECT_SECRETARY" | "ELECT_ADJUSTERS" | "MEMBERSHIP_REVIEW" | "AUDIT_REPORT" | "DISCHARGE_VOTE" | "BOARD_ELECTION" | "SUBSTITUTE_ELECTION" | "AUDITOR_ELECTION" | "ELECT_NOMINATING_COMMITTEE" | "MOTIONS" | "BOARD_MATTERS";
 };
 
 export const BOARD_MEETING_TEMPLATE: AgendaTemplate[] = [
@@ -17,6 +17,7 @@ export const BOARD_MEETING_TEMPLATE: AgendaTemplate[] = [
   { title: "Ekonomisk rapport", description: "Kassören redovisar föreningens ekonomiska ställning.", duration: 10 },
   { title: "Fastighetsförvaltning", description: "Pågående och planerade underhållsåtgärder, felanmälningar.", duration: 15 },
   { title: "Inkomna skrivelser och ärenden", description: "Inlämnade motioner, förslag från boende och övriga inkomna ärenden.", duration: 10, specialType: "BOARD_MATTERS" },
+  { title: "Medlemsansökningar", description: "Beredda ansökningar om medlemskap. Beslut protokollförs.", duration: 10, specialType: "MEMBERSHIP_REVIEW" },
   { title: "Nya ärenden", description: "Övriga frågor som styrelseledamöter vill ta upp.", duration: 15 },
   { title: "Nästa möte", description: "Beslut om datum och tid för nästa styrelsemöte.", duration: 5 },
   { title: "Mötets avslutande", duration: 1 },
