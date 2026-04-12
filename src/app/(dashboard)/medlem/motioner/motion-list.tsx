@@ -8,6 +8,8 @@ import { sv } from "date-fns/locale";
 import { Plus, Vote, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
+import { AttachmentInput, type PendingAttachment } from "@/components/attachment-input";
+import { useAttachmentSubmitter } from "@/lib/use-create-with-attachments";
 import type { MotionStatus } from "@prisma/client";
 
 type Motion = {
@@ -46,9 +48,17 @@ export function MotionList({ initialData }: { initialData: Motion[] }) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", proposal: "" });
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const { submitAttachments } = useAttachmentSubmitter();
 
   const create = trpc.motion.create.useMutation({
-    onSuccess: (motion) => router.push(`/medlem/motioner/${motion.id}`),
+    onSuccess: async (motion) => {
+      if (attachments.length > 0) {
+        await submitAttachments("Motion", motion.id, attachments);
+      }
+      setAttachments([]);
+      router.push(`/medlem/motioner/${motion.id}`);
+    },
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -103,6 +113,7 @@ export function MotionList({ initialData }: { initialData: Motion[] }) {
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="Motionären yrkar att... *"
           />
+          <AttachmentInput attachments={attachments} onChange={setAttachments} label="Bilagor (underlag, ritningar etc.)" />
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => setShowForm(false)} className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
               Avbryt

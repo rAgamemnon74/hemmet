@@ -1,27 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { Paperclip, Plus, X, Link2, File } from "lucide-react";
+import { useState, useRef } from "react";
+import { Paperclip, Plus, X, Link2, File, Upload, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type PendingAttachment = {
   type: "file" | "link";
   name: string;
   url: string;
+  mimeType?: string;
+  fileSize?: number;
 };
 
 /**
  * Attachment input for creation forms.
- * Collects attachments locally — parent form submits them after entity creation.
- *
- * Usage:
- * const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
- * <AttachmentInput attachments={attachments} onChange={setAttachments} />
- *
- * After entity created:
- * for (const att of attachments) {
- *   await addAttachment({ entityType, entityId: newId, ...att });
- * }
+ * Supports both file upload and external links.
+ * Files are uploaded immediately to /api/documents/upload.
+ * Attachments are stored locally until parent form submits.
  */
 export function AttachmentInput({
   attachments,
@@ -33,20 +28,59 @@ export function AttachmentInput({
   label?: string;
 }) {
   const [adding, setAdding] = useState(false);
-  const [type, setType] = useState<"link" | "file">("link");
-  const [name, setName] = useState("");
-  const [url, setUrl] = useState("");
+  const [mode, setMode] = useState<"upload" | "link">("upload");
+  const [linkName, setLinkName] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function add() {
-    if (!name || !url) return;
-    onChange([...attachments, { type, name, url }]);
-    setName("");
-    setUrl("");
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    for (const file of Array.from(files)) {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("category", "OTHER");
+
+      try {
+        const res = await fetch("/api/documents/upload", { method: "POST", body: formData });
+        if (!res.ok) throw new Error("Uppladdning misslyckades");
+        const data = await res.json() as { id: string; fileName: string };
+
+        onChange([...attachments, {
+          type: "file",
+          name: file.name,
+          url: `/api/documents/${data.id}/download`,
+          mimeType: file.type,
+          fileSize: file.size,
+        }]);
+      } catch {
+        // Silently skip failed uploads
+      }
+    }
+    setUploading(false);
+    setAdding(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function addLink() {
+    if (!linkName || !linkUrl) return;
+    onChange([...attachments, { type: "link", name: linkName, url: linkUrl }]);
+    setLinkName("");
+    setLinkUrl("");
     setAdding(false);
   }
 
   function remove(index: number) {
     onChange(attachments.filter((_, i) => i !== index));
+  }
+
+  function formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   return (
@@ -69,8 +103,9 @@ export function AttachmentInput({
           {attachments.map((att, i) => (
             <div key={i} className="flex items-center justify-between rounded bg-gray-50 px-2 py-1">
               <div className="flex items-center gap-1.5 text-xs text-gray-700">
-                {att.type === "file" ? <File className="h-3 w-3 text-gray-400" /> : <Link2 className="h-3 w-3 text-gray-400" />}
-                {att.name}
+                {att.type === "file" ? <File className="h-3 w-3 text-blue-500" /> : <Link2 className="h-3 w-3 text-green-500" />}
+                <span>{att.name}</span>
+                {att.fileSize && <span className="text-gray-400">({formatSize(att.fileSize)})</span>}
               </div>
               <button type="button" onClick={() => remove(i)} className="text-gray-400 hover:text-red-500">
                 <X className="h-3 w-3" />
@@ -82,33 +117,49 @@ export function AttachmentInput({
 
       {/* Add form */}
       {adding && (
-        <div className="rounded border border-blue-200 bg-blue-50/30 p-2 space-y-1.5">
+        <div className="rounded border border-blue-200 bg-blue-50/30 p-2 space-y-2">
           <div className="flex gap-1.5">
-            <button type="button" onClick={() => setType("link")}
-              className={cn("rounded px-2 py-0.5 text-xs", type === "link" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600")}>
-              Länk
+            <button type="button" onClick={() => setMode("upload")}
+              className={cn("rounded px-2 py-0.5 text-xs", mode === "upload" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600")}>
+              <Upload className="inline h-3 w-3 mr-0.5" /> Ladda upp fil
             </button>
-            <button type="button" onClick={() => setType("file")}
-              className={cn("rounded px-2 py-0.5 text-xs", type === "file" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600")}>
-              Fil (URL)
+            <button type="button" onClick={() => setMode("link")}
+              className={cn("rounded px-2 py-0.5 text-xs", mode === "link" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600")}>
+              <Link2 className="inline h-3 w-3 mr-0.5" /> Extern länk
             </button>
           </div>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)}
-            placeholder={type === "link" ? "Beskrivning" : "Filnamn"}
-            className="w-full rounded-md border border-gray-300 px-2 py-1 text-xs" />
-          <input type="text" value={url} onChange={(e) => setUrl(e.target.value)}
-            placeholder={type === "link" ? "https://..." : "/api/documents/..."}
-            className="w-full rounded-md border border-gray-300 px-2 py-1 text-xs" />
-          <div className="flex gap-1.5">
-            <button type="button" onClick={add} disabled={!name || !url}
-              className="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700 disabled:opacity-50">
-              Lägg till
-            </button>
-            <button type="button" onClick={() => { setAdding(false); setName(""); setUrl(""); }}
-              className="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-600">
-              Avbryt
-            </button>
-          </div>
+
+          {mode === "upload" && (
+            <div>
+              <input ref={fileInputRef} type="file" multiple onChange={handleFileUpload}
+                className="w-full text-xs text-gray-600 file:mr-2 file:rounded file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-xs file:font-medium file:text-blue-700 hover:file:bg-blue-100" />
+              {uploading && (
+                <div className="flex items-center gap-1 mt-1 text-xs text-blue-600">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Laddar upp...
+                </div>
+              )}
+            </div>
+          )}
+
+          {mode === "link" && (
+            <>
+              <input type="text" value={linkName} onChange={(e) => setLinkName(e.target.value)}
+                placeholder="Beskrivning, t.ex. 'Besiktningsprotokoll hos leverantör'"
+                className="w-full rounded-md border border-gray-300 px-2 py-1 text-xs" />
+              <input type="text" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="https://..."
+                className="w-full rounded-md border border-gray-300 px-2 py-1 text-xs" />
+              <button type="button" onClick={addLink} disabled={!linkName || !linkUrl}
+                className="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700 disabled:opacity-50">
+                Lägg till
+              </button>
+            </>
+          )}
+
+          <button type="button" onClick={() => { setAdding(false); setLinkName(""); setLinkUrl(""); }}
+            className="rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-600">
+            Stäng
+          </button>
         </div>
       )}
     </div>
