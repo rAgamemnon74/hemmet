@@ -137,9 +137,30 @@ model EmailMailbox {
   name          String    // "Styrelsen", "Förvaltning", "Ekonomi"
   slug          String    @unique // "styrelsen", "forvaltning", "ekonomi"
   emailAddress  String    @unique // "styrelsen@brfexempel.se"
-  provider      String    // "resend", "postmark"
-  webhookSecret String?   // Verifiering av inkommande webhooks
   enabled       Boolean   @default(false)
+
+  // IMAP-anslutning (inkommande)
+  imapHost      String    // "outlook.office365.com"
+  imapPort      Int       @default(993)
+  imapTls       Boolean   @default(true)
+  imapUser      String    // "styrelsen@brfexempel.se"
+  imapPassword  String    // Krypterad med AES-256-GCM via src/lib/crypto.ts
+
+  // SMTP-anslutning (utgående)
+  smtpHost      String    // "smtp.office365.com"
+  smtpPort      Int       @default(587)
+  smtpTls       Boolean   @default(true)
+  smtpUser      String    // Ofta samma som IMAP
+  smtpPassword  String    // Krypterad
+
+  // Signatur
+  signature     String?   @db.Text // HTML-signatur för utgående mail
+  
+  // Synk-status
+  lastSyncAt    DateTime?
+  lastSyncError String?
+  syncEnabled   Boolean   @default(true)
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -239,77 +260,154 @@ Samma polymorfiska mönster som `Attachment` och `ActivityLog` — inga foreign 
 
 ## Teknisk arkitektur
 
-### E-postleverantör
+### Protokoll: IMAP + SMTP (universellt)
 
-**Rekommendation: Resend** (redan konfigurerad i `.env.example`)
-
-- Stödjer både sändning och mottagning (inbound webhooks)
-- Enkel DNS-setup (MX + SPF + DKIM)
-- Webhook för inkommande e-post med full metadata
-- Prisvärd för BRF-volymer (låg trafik, ~50–200 mail/mån)
-
-**Alternativ:** Postmark (starkare leveransgaranti, dyrare)
-
-### Inkommande e-post (webhook)
+Hemmet kopplar sig till föreningens **befintliga** e-postleverantör via standardprotokoll. Inga webhooks, inga API-integrationer, inga DNS-ändringar.
 
 ```
-Avsändare → MX-pekning → Resend → Webhook POST → /api/email/inbound
+IMAP = läsa inkommande mail (alla leverantörer stödjer detta)
+SMTP = skicka utgående mail (alla leverantörer stödjer detta)
 ```
 
-**Webhook-endpoint:** `/api/email/inbound`
+**Fungerar med alla e-postleverantörer:**
 
-Verifiering:
-1. Kontrollera webhook-signatur (Resend HMAC)
-2. Matcha mottagaradress → rätt `EmailMailbox`
-3. Parsea e-postinnehåll (from, to, cc, subject, body, bilagor)
-4. Spara bilagor till dokumentarkivet
-5. Tråda via In-Reply-To/References → hitta `threadId`
-6. Auto-matcha till ärende om möjligt
-7. Skapa `EmailMessage` med status `UNREAD`
-8. Notifiera behöriga roller via `notifyRole()`
+| Leverantör | IMAP-server | SMTP-server |
+|------------|------------|-------------|
+| Office 365 | outlook.office365.com:993 | smtp.office365.com:587 |
+| Gmail / Google Workspace | imap.gmail.com:993 | smtp.gmail.com:587 |
+| ProtonMail | 127.0.0.1:1143 (via Bridge) | 127.0.0.1:1025 (via Bridge) |
+| Loopia | mailcluster.loopia.se:993 | mailcluster.loopia.se:587 |
+| Bahnhof | imap.bahnhof.se:993 | smtp.bahnhof.se:587 |
+| One.com | imap.one.com:993 | send.one.com:587 |
+| Telia | imap.telia.com:993 | mailout.telia.com:587 |
+| Generiskt (alla) | Konfigureras per inkorg | Konfigureras per inkorg |
 
-### Utgående e-post
+### Setup för föreningen
 
 ```
-Styrelsemedlem → Hemmet UI → Resend API → Mottagare
+┌─ Konfigurera e-postinkorg ─────────────────────────────┐
+│                                                         │
+│  Inkorgensnamn: [Styrelsen                           ]  │
+│  E-postadress: [styrelsen@brfexempel.se              ]  │
+│                                                         │
+│  ┌─ Inkommande (IMAP) ─────────────────────────────┐   │
+│  │ Server: [outlook.office365.com                 ] │   │
+│  │ Port:   [993          ] ☑ SSL/TLS               │   │
+│  │ Användarnamn: [styrelsen@brfexempel.se         ] │   │
+│  │ Lösenord: [********                            ] │   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                         │
+│  ┌─ Utgående (SMTP) ───────────────────────────────┐   │
+│  │ Server: [smtp.office365.com                    ] │   │
+│  │ Port:   [587          ] ☑ STARTTLS              │   │
+│  │ Användarnamn: [styrelsen@brfexempel.se         ] │   │
+│  │ Lösenord: [********                            ] │   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                         │
+│  [Testa anslutning]  [Spara]                           │
+└─────────────────────────────────────────────────────────┘
 ```
 
-Sändning:
-1. Styrelsemedlem skriver svar i ärendets tidslinje eller i inkorgen
-2. API-anrop till Resend med:
-   - From: `inkorgensadress` (t.ex. `forvaltning@brfexempel.se`)
-   - Reply-To: `inkorg+ärendeId@brfexempel.se` (för automatisk trådning)
+Lösenord krypteras med AES-256-GCM (befintlig `src/lib/crypto.ts`) innan lagring.
+
+### Inkommande e-post (IMAP)
+
+```
+Brevlåda (O365/Gmail/Loopia/...) ← Hemmet ansluter via IMAP
+    ↓
+Hemmet hämtar nya mail (IMAP IDLE eller polling var 60:e sekund)
+    ↓
+Parsea: from, to, cc, subject, body (text + html), bilagor
+    ↓
+Tråda via Message-ID / In-Reply-To / References
+    ↓
+Spara i EmailMessage + bilagor i dokumentarkivet
+    ↓
+Notifiera behöriga roller
+```
+
+**IMAP IDLE:** De flesta moderna IMAP-servrar stödjer IDLE — Hemmet hålller en persistent anslutning och får push-notis vid nya mail. Ingen polling behövs.
+
+**Fallback:** Om IDLE inte stöds, pollar Hemmet var 60:e sekund (konfigurerbart).
+
+**Synk:** Mail som läses i Hemmet markeras som läst i brevlådan (IMAP FLAGS). Mail som läses i Outlook/Gmail syns som läst i Hemmet. Tvåvägssynk.
+
+### Utgående e-post (SMTP)
+
+```
+Styrelsemedlem → skriver svar i Hemmet → SMTP → Mottagare
+```
+
+1. Styrelsemedlem skriver svar i inkorgsvyn eller i ärendets tidslinje
+2. Hemmet skickar via SMTP med:
+   - From: inkorgensadress (styrelsen@brfexempel.se)
    - In-Reply-To: föregående meddelandets Message-ID
    - References: hela trådkedjan
-3. Spara som `EmailMessage` med `direction: "outbound"`
-4. Logga i ActivityLog
+3. Skickat mail sparas i brevlådans "Skickat"-mapp via IMAP APPEND
+4. Sparas även som `EmailMessage` med `direction: "outbound"` i Hemmet
 
-### Plus-adressering för automatisk ärendekoppling
+**Svaret kommer från föreningens riktiga adress** — mottagaren ser "styrelsen@brfexempel.se", inte en Hemmet-adress.
 
-Nyckelmekanismen för att koppla svar till rätt ärende:
+### Trådning — ärendekoppling
 
+Två mekanismer för att koppla mail till ärenden:
+
+**1. RFC 2822 trådning (automatisk)**
+Varje e-postmeddelande har `Message-ID`, `In-Reply-To` och `References`-headers. Svar i samma tråd kopplas automatiskt.
+
+**2. Tagg-baserad koppling (manuell/smart)**
+Styrelsemedlem kopplar mail till ärende → taggen `ÖVL-2026-007` eller `Felanmälan #142` sätts. Framtida mail i samma tråd ärver taggen.
+
+### Tekniska bibliotek
+
+| Funktion | Bibliotek | Beskrivning |
+|----------|-----------|-------------|
+| IMAP-klient | `imapflow` | Modern, promise-baserad IMAP för Node.js. Stödjer IDLE, BODYSTRUCTURE, streaming. |
+| SMTP-sändning | `nodemailer` | Standard för Node.js SMTP. Stödjer TLS, autentisering, bilagor. |
+| Mail-parsning | `mailparser` | Parsear MIME-meddelanden: body, bilagor, headers, adresser. |
+| Kryptering | `src/lib/crypto.ts` | AES-256-GCM för lösenordslagring (finns redan). |
+
+### Lokal utveckling
+
+För utveckling behövs ingen extern e-postleverantör:
+
+**Mailpit** (ersätter MailHog) — läggs till i Docker Compose:
+- SMTP på port 1025 (fångar alla utgående mail)
+- IMAP på port 1143 (Hemmet kan läsa fångade mail)
+- Webb-UI på port 8025 (visa fångade mail)
+- Stödjer IDLE, bilagor, HTML-mail
+
+```yaml
+# docker-compose.yml
+mailpit:
+  image: axllent/mailpit
+  ports:
+    - "8025:8025"   # Webb-UI
+    - "1025:1025"   # SMTP
+    - "1143:1143"   # IMAP
+  environment:
+    MP_SMTP_AUTH_ACCEPT_ANY: 1
+    MP_SMTP_AUTH_ALLOW_INSECURE: 1
 ```
-forvaltning+dmg_abc123@brfexempel.se  → DamageReport abc123
-ekonomi+exp_def456@brfexempel.se      → Expense def456
-styrelsen+sub_ghi789@brfexempel.se    → SubletApplication ghi789
+
+Dev-konfiguration:
+```env
+# IMAP (Mailpit)
+IMAP_HOST=localhost
+IMAP_PORT=1143
+IMAP_USER=test
+IMAP_PASS=test
+IMAP_TLS=false
+
+# SMTP (Mailpit)
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_USER=test
+SMTP_PASS=test
+SMTP_TLS=false
 ```
 
-Formatet: `{inkorg}+{ärendetypPrefix}_{entityId}@{domän}`
-
-Prefix-tabell:
-
-| Prefix | Ärendetyp |
-|--------|-----------|
-| `dmg` | DamageReport |
-| `exp` | Expense |
-| `ren` | RenovationApplication |
-| `sub` | SubletApplication |
-| `dst` | DisturbanceCase |
-| `ins` | Inspection |
-| `trf` | TransferCase |
-| `mot` | Motion |
-| `sug` | Suggestion |
-| `tsk` | Task |
+Testflöde: skicka testmail till Mailpit via `curl` eller SMTP-klient → Hemmet läser via IMAP → visas i `/styrelse/epost`.
 
 ---
 
@@ -499,40 +597,9 @@ Kopplas till `Contractor`-modellen om den finns, annars som fristående kontakt.
 
 ---
 
-## DNS och e-postkonfiguration
+## Ingen DNS-konfiguration behövs
 
-### Minimal setup för föreningen
-
-Föreningen behöver peka e-post till Hemmet. Tre alternativ:
-
-**Alt 1: Egen domän med MX-pekning (rekommenderat)**
-```
-MX   brfexempel.se → inbound.resend.com (prio 10)
-TXT  brfexempel.se → v=spf1 include:resend.com -all
-CNAME resend._domainkey.brfexempel.se → (DKIM-nyckel från Resend)
-```
-Fullständig kontroll. Styrelsen@, förvaltning@, ekonomi@ — allt hanteras.
-
-**Alt 2: Subdomän**
-```
-MX   hemmet.brfexempel.se → inbound.resend.com
-```
-Befintlig e-post störs inte. Adresser blir `styrelsen@hemmet.brfexempel.se`.
-
-**Alt 3: Vidarebefordring**
-Föreningen behåller sin befintliga e-post men sätter upp vidarebefordring till Hemmets inbound-adress. Enklast att starta med, men svar kan inte skickas från föreningens adress.
-
-### Setup-wizard i Hemmet
-
-```
-/installningar/epost
-  1. Välj metod: [Egen domän] [Subdomän] [Vidarebefordring]
-  2. Ange domän: brfexempel.se
-  3. DNS-instruktioner genereras automatiskt
-  4. Verifiera DNS (knapp → kontrollerar MX/SPF/DKIM)
-  5. Skapa inkorgar: ☑ Styrelsen  ☑ Förvaltning  ☑ Ekonomi
-  6. Testa: skicka testmail → bekräfta att det anländer
-```
+Eftersom Hemmet kopplar sig till föreningens **befintliga** brevlåda via IMAP/SMTP behövs inga DNS-ändringar. Föreningen behåller sin e-post exakt som den är. Allt som behövs är inloggningsuppgifter.
 
 ---
 
@@ -584,17 +651,19 @@ Svar skickas alltid från inkorgensadress (aldrig personlig e-post). Reply-To pe
 
 ## Implementationsfaser
 
-### Fas 1: Grundläggande infrastruktur
-**Mål:** E-post kan tas emot och visas i Hemmet
+### Fas 1: IMAP/SMTP-infrastruktur + lagring
+**Mål:** E-post kan läsas och visas i Hemmet
 
 - [ ] Datamodell: `EmailMailbox`, `EmailMessage`, `EmailAttachment`, `EmailMailboxAccess`
 - [ ] Prisma-migration
-- [ ] Webhook-endpoint `/api/email/inbound` (Resend)
-- [ ] E-postparsning: from, to, subject, body, bilagor
+- [ ] IMAP-klient (`imapflow`) — anslut, hämta mail, IDLE-lyssnare
+- [ ] Mail-parsning (`mailparser`) — from, to, subject, body, bilagor
 - [ ] Trådning via Message-ID/In-Reply-To/References
 - [ ] Bilagor → dokumentarkivet
+- [ ] Mailpit i Docker Compose (lokal dev)
+- [ ] Konfigurationssida: IMAP/SMTP-uppgifter per inkorg
 - [ ] tRPC-router `email.*` med RBAC per inkorg
-- [ ] Grundläggande inkorgsvyn (`/styrelse/epost`)
+- [ ] Koppla `/styrelse/epost` till riktig data (bort med mockdata)
 
 ### Fas 2: Ärendekoppling
 **Mål:** E-post kan kopplas till och skapa ärenden
@@ -606,13 +675,13 @@ Svar skickas alltid från inkorgensadress (aldrig personlig e-post). Reply-To pe
 - [ ] E-post synlig i ärendetidslinje
 - [ ] Auto-identifiera känd avsändare (medlem, entreprenör)
 
-### Fas 3: Svar och utgående
+### Fas 3: Svar och utgående (SMTP)
 **Mål:** Styrelsemedlemmar kan svara från Hemmet
 
+- [ ] SMTP-klient (`nodemailer`) — skicka via föreningens SMTP
 - [ ] Svarsfunktion i inkorgsvyn
 - [ ] Svarsfunktion i ärendetidslinje
-- [ ] Utgående e-post via Resend API
-- [ ] Reply-To med plus-adressering för automatisk trådkoppling
+- [ ] Skickat mail → IMAP APPEND till "Skickat"-mappen
 - [ ] Konfigurerbara signaturer per inkorg
 - [ ] CC-hantering
 
@@ -629,10 +698,10 @@ Svar skickas alltid från inkorgensadress (aldrig personlig e-post). Reply-To pe
 **Mål:** Föreningen kan sätta upp e-postintegration själv
 
 - [ ] Setup-wizard i `/installningar/epost`
-- [ ] DNS-verifiering
+- [ ] Testa anslutning (IMAP + SMTP)
 - [ ] Inkorgshantering (skapa, namnge, tilldela roller)
 - [ ] Signaturkonfiguration
-- [ ] Test-funktion (skicka testmail)
+- [ ] Synkintervall-konfiguration (IDLE vs polling)
 
 ### Fas 6: GDPR och livscykel
 **Mål:** E-post följer samma GDPR-regler som övriga systemet
@@ -640,7 +709,7 @@ Svar skickas alltid från inkorgensadress (aldrig personlig e-post). Reply-To pe
 - [ ] Gallringsregler för e-post (kopplat till ärendets livscykel)
 - [ ] Åtkomstloggning vid öppning av e-post
 - [ ] GDPR-export inkluderar e-post
-- [ ] Spam-markering och avsändarblockering
+- [ ] Avsändarblockering
 - [ ] Arkivering av gamla trådar
 
 ---
@@ -720,7 +789,11 @@ notifyRole("BOARD_CHAIRPERSON", {
 
 | Komponent | Val | Motivering |
 |-----------|-----|------------|
-| E-postleverantör | Resend | Redan i `.env.example`, enkel API, inbound webhooks |
+| IMAP-klient | `imapflow` | Modern Node.js IMAP, stödjer IDLE + streaming |
+| SMTP-sändning | `nodemailer` | Standard för Node.js, TLS + auth |
+| Mail-parsning | `mailparser` | MIME → text/html/bilagor/headers |
+| Lösenordskryptering | `src/lib/crypto.ts` | AES-256-GCM (finns redan) |
+| Lokal dev | Mailpit (Docker) | SMTP + IMAP + webbvy, fångar all dev-mail |
 | Bilagor | Befintligt dokumentarkiv | `/api/documents/upload` + Document-modellen |
 | RBAC | Befintligt permission-system | EmailMailboxAccess + requirePermission |
 | Notifieringar | Befintlig notify() | Utökas med e-postspecifika händelser |
