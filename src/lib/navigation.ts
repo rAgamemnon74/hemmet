@@ -58,7 +58,6 @@ export const navigation: NavSection[] = [
       { label: "Utlägg", href: "/styrelse/utlagg", icon: Receipt, permission: "expense:submit" },
       { label: "Årsberättelse", href: "/styrelse/arsberattelse", icon: ScrollText, permission: "annual_report:view" },
       { label: "Överlåtelser", href: "/styrelse/overlatelser", icon: ArrowRightLeft, permission: "transfer:view" },
-      { label: "Komponenter", href: "/styrelse/komponenter", icon: Wrench, permission: "meeting:view" },
       { label: "Dokument", href: "/styrelse/dokument", icon: FileText, permission: "document:view_board" },
     ],
   },
@@ -79,6 +78,15 @@ export const navigation: NavSection[] = [
       { label: "Lägenheter", href: "/medlem/lagenheter", icon: DoorOpen, permission: "member:view_registry" },
       { label: "Ansökningar", href: "/medlem/ansokningar", icon: UserPlus, permission: "application:review" },
       { label: "Organisationer", href: "/medlem/organisationer", icon: Landmark, permission: "member:view_registry" },
+    ],
+  },
+  {
+    title: "Förvaltning",
+    items: [
+      { label: "Översikt", href: "/forvaltning", icon: Building2, permission: "report:manage" },
+      { label: "Komponentregister", href: "/forvaltning/komponenter", icon: Wrench, permission: "meeting:view" },
+      { label: "Besiktningar", href: "/forvaltning/besiktningar", icon: ClipboardCheck, permission: "meeting:view" },
+      { label: "Leverantörer", href: "/forvaltning/leverantorer", icon: Users, permission: "meeting:view" },
     ],
   },
   {
