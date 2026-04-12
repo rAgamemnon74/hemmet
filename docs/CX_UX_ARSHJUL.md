@@ -184,52 +184,56 @@ Alltid: navigera direkt till relevant detaljsida.
 
 ---
 
-## Tre renderingslägen
+## Rendering: Integrerat i dashboarden
 
-### 1. Fullvy (`/arshjul`)
+Ingen separat sida. Årshjulet är en del av dashboarden (`/`).
 
-Hela tidslinjen med båda spår synliga. Scroll ner = framåt i tiden.
-Expanderbara sektioner: klicka på en process → visa detaljer inline.
-
-### 2. Dashboard-widget
-
-Kompakt: bara aktuella och nästa 2-3 processer per spår:
+### Dashboard-layout (en sida, tre sektioner)
 
 ```
-┌─────────────────────────────────────────────┐
-│  Årshjulet                                  │
-│                                             │
-│  2025 (avslutas):    → Revision pågår       │
-│                      ○ Stämma 15 maj        │
-│                                             │
-│  2026 (pågående):    Din felanmälan →       │
-│                      åtgärdas denna vecka    │
-│                      ○ Städdag 10 maj        │
-└─────────────────────────────────────────────┘
+/ (Dashboard)
+
+┌─ MITT JUST NU ──────────────────────────────┐
+│ Personliga poster som kräver uppmärksamhet   │
+│ (felanmälningar, protokoll att signera,      │
+│  aktiviteter att anmäla sig till)            │
+└──────────────────────────────────────────────┘
+
+┌─ ÅRSHJULET ─────────────────────────────────┐
+│ Kompakt: aktuella processer per verksamhetsår│
+│ [Visa hela tidslinjen ↓] expanderar inline  │
+└──────────────────────────────────────────────┘
+
+┌─ ROLLSPECIFIKT ─────────────────────────────┐
+│ Ordförande: ansökningar, utlägg att godkänna │
+│ Kassör: ekonomi, prisbasbelopp               │
+│ Boende: felanmälan, förslag                  │
+└──────────────────────────────────────────────┘
 ```
 
-### 3. Mobilvy
+### Kompaktvy (default)
 
-Samma vertikala tidslinje men enkelspårig — "mitt boende" och "föreningen" alternerar:
+Visar bara pågående + nästa process per verksamhetsår:
 
 ```
-┌──────────────────────┐
-│ ── 2025 (avslutas) ──│
-│ ✓ Bokslut            │
-│ ✓ Årsberättelse      │
-│ → Revision pågår     │
-│ ○ Stämma 15 maj      │
-│   Din motion behandlas│
-│                      │
-│ ── 2026 (pågående) ──│
-│ ✓ Avgift 4 500 kr    │
-│ → Felanmälan: kran   │
-│ ○ Städdag 10 maj     │
-│ ○ Underhåll tak aug  │
-└──────────────────────┘
+Årshjulet
+
+  2025 (avslutas)     → Revision pågår
+                      ○ Stämma 15 maj
+
+  2026 (pågående)     ✓ Budget beslutad
+                      → Underhåll tak planerat aug
+
+  [Visa hela tidslinjen ↓]
 ```
 
-Personliga poster markeras visuellt (t.ex. blå vänsterkant) för att skilja från formella.
+### Expanderad vy (klicka "visa hela")
+
+Hela tvåspåriga tidslinjen expanderar inline — scroll ner, ingen ny sida.
+
+### Mobil
+
+Samma kompaktvy som desktop. Vid "visa hela" renderas enkelspårig tidslinje med personliga poster markerade med blå vänsterkant.
 
 ---
 
@@ -275,14 +279,15 @@ Vid räkenskapsår jul-jun förskjuts hela tidslinjen. Grupperna "avslutande" oc
 
 ## Navigationsplacering
 
+Årshjulet är INTE en separat sida. Det är integrerat i dashboarden (`/`).
+
 ```
 Översikt:
-├── Dashboard (rollspecifikt)      ← befintlig
-├── Årshjulet (/arshjul)          ← NY sida, länk i nav + dashboard-widget
-└── Min sida (personligt)          ← befintlig
+├── Dashboard (/ — innehåller årshjul + personligt + rollspecifikt)
+└── Min sida (/min-sida — profil, lägenhet, samtycke)
 ```
 
-Ingen permission krävs för att se årshjulet. Det är föreningens gemensamma klocka.
+Ingen navigation till årshjulet behövs — det syns direkt på startsidan.
 
 ---
 
@@ -291,8 +296,8 @@ Ingen permission krävs för att se årshjulet. Det är föreningens gemensamma 
 | Prio | Komponent | Komplexitet |
 |------|-----------|:-----------:|
 | 1 | **tRPC endpoint** — beräkna processstatus + personliga poster per användare | Medel |
-| 2 | **Dashboard-widget** — kompakt tvåspår med aktuella processer | Låg |
-| 3 | **Fullvy** (`/arshjul`) — vertikal tvåspårig tidslinje | Medel |
-| 4 | **Mobilvy** — enkelspårig med visuell markering personligt/formellt | Låg |
+| 2 | **"Mitt just nu"** — personliga poster som kräver uppmärksamhet | Låg |
+| 3 | **Årshjul kompaktvy** — integrerad i dashboard, aktuella processer | Låg |
+| 4 | **Expanderbar tidslinje** — "visa hela" expanderar inline | Medel |
 | 5 | **Klicknavigation** — process → detaljsida med rollcheck | Medel |
 | 6 | **Konfiguration** — anpassning per räkenskapsår | Låg |
