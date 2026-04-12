@@ -1041,6 +1041,93 @@ Oäkta BRF:                      Fas A + Fas B (6-12) — allt behövs + momsred
 
 ---
 
+## Årsberättelsens tidslinje — räkenskapsår, stämma och deadlines
+
+### Grundprincip
+
+Årsberättelsen avser det **föregående** räkenskapsåret. Stämman hålls alltid under det **pågående** räkenskapsåret. Det är inte olagligt — det är den enda lagliga ordningen.
+
+### Lagkrav
+
+| Krav | Lagrum | Tidsfrist |
+|------|--------|-----------|
+| Stämma ska hållas | LEF 7 kap. 10 § | Inom 6 månader efter räkenskapsårets slut |
+| Årsredovisning till Bolagsverket | ÅRL + Bokföringslagen | Inom 7 månader efter räkenskapsårets slut |
+| Revisionsberättelse klar | LEF 8 kap. 13 § | Före stämman |
+| Kallelse utskickad | BrfRules.noticePeriodMinWeeks | 2-6 veckor före stämman |
+
+### Tidslinje (räkenskapsår jan-dec)
+
+```
+              Verksamhetsår 2025              │  Verksamhetsår 2026
+  ──────────────────────────────────────────  │  ──────────────────────────────────
+  Jan                                   Dec   │  Jan    Feb    Mar    Apr    Maj    Jun
+  ← Verksamheten pågår ──────────────── →     │
+                                        │     │
+                                    Bokslut   │
+                                              │  ← Bokslutsarbete →
+                                              │         ← Årsberättelse sammanställs →
+                                              │                ← Layoutas →
+                                              │                   ← Signeras av styrelsen →
+                                              │                      ← Revision →
+                                              │                         ← Kallelse med bilagor →
+                                              │                              ← STÄMMA →
+                                              │                                       │
+                                              │                               Senast 30 juni
+                                              │                               (6 mån efter bokslut)
+```
+
+### Varianter per räkenskapsår
+
+| Räkenskapsår | Bokslut | Stämma senast | Bolagsverket senast |
+|-------------|:-------:|:-------------:|:-------------------:|
+| Jan-Dec 2025 | 31 dec 2025 | 30 juni 2026 | 31 juli 2026 |
+| Jul-Jun 2025/2026 | 30 juni 2026 | 31 dec 2026 | 31 jan 2027 |
+| Sep-Aug 2025/2026 | 31 aug 2026 | 28 feb 2027 | 31 mars 2027 |
+
+### Systemets deadline-bevakning
+
+Baseras på `BrfSettings.fiscalYearEnd`, inte på stämmans datum:
+
+```
+Automatiska deadlines:
+├── fiscalYearEnd + 3 mån: "Årsberättelsen bör vara klar"
+├── fiscalYearEnd + 4 mån: "Revisionen bör vara klar"
+├── fiscalYearEnd + 5 mån: "Kallelse bör vara utskickad"
+├── fiscalYearEnd + 6 mån: "⚠ Sista dag för stämma (LEF 7:10)"
+└── fiscalYearEnd + 7 mån: "⚠ Sista dag för inlämning till Bolagsverket"
+```
+
+### Koppling till befintliga modeller
+
+| Systemdata | Modell | Fält |
+|-----------|--------|------|
+| Räkenskapsår | BrfSettings | `fiscalYearStart`, `fiscalYearEnd` |
+| Årsberättelse | AnnualReport | `fiscalYear` (t.ex. "2025") |
+| Stämma | Meeting (type=ANNUAL) | `scheduledAt` |
+| Kallelse | Meeting | Status DRAFT → SCHEDULED |
+| Revisionsberättelse | Audit | `submittedAt` |
+| Signering | AnnualReport | `signedBy[]`, `allSigned` |
+
+**Viktig insikt:** `AnnualReport.fiscalYear` = "2025" innebär att rapporten avser 2025. Stämman där den presenteras kan vara i maj 2026. Systemet kopplar dem via Meeting-relation, inte via datum.
+
+### Vad kassören ser på dashboarden
+
+```
+Årsberättelse 2025:
+├── ✓ Bokslut klart (31 dec 2025)
+├── ✓ Underlag sammanställt (15 feb 2026)
+├── ✓ Layoutad PDF uppladdad (1 mars 2026)
+├── ✓ Signerad av alla (10 mars 2026)
+├── ✓ Skickad till revisor (12 mars 2026)
+├── ✓ Revisionsberättelse klar (5 april 2026)
+├── → Kallelse att skicka (deadline: 15 april)
+├── ○ Stämma (planerad: 5 maj 2026, deadline: 30 juni)
+└── ○ Bolagsverket (deadline: 31 juli 2026)
+```
+
+---
+
 ## Sammanfattning
 
 BRF:en har två ansikten:
