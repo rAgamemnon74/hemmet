@@ -26,6 +26,7 @@ import {
   UserPlus,
   Landmark,
   Mail,
+  ShoppingCart,
   type LucideIcon,
 } from "lucide-react";
 import type { Permission } from "./permissions";
@@ -87,6 +88,8 @@ export const navigation: NavSection[] = [
     items: [
       { label: "Översikt", href: "/forvaltning", icon: Building2, permission: "report:manage" },
       { label: "Komponentregister", href: "/forvaltning/komponenter", icon: Wrench, permission: "meeting:view" },
+      { label: "Upphandlingar", href: "/forvaltning/upphandlingar", icon: ShoppingCart, permission: "meeting:view" },
+      { label: "Avtal", href: "/forvaltning/avtal", icon: FileText, permission: "meeting:view" },
       { label: "Besiktningar", href: "/forvaltning/besiktningar", icon: ClipboardCheck, permission: "meeting:view" },
       { label: "Leverantörer", href: "/forvaltning/leverantorer", icon: Users, permission: "meeting:view" },
     ],
