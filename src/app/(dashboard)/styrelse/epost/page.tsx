@@ -8,6 +8,7 @@ import {
   AlertTriangle, Shield, Link2, ChevronRight, X, Plus,
   Building2, Wrench, Receipt, ArrowRightLeft, FileText,
   User, Clock, Tag, CornerUpLeft, MoreHorizontal,
+  PenSquare, Edit3, Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
@@ -36,7 +37,7 @@ type MockMessage = {
   subject: string;
   bodyPreview: string;
   bodyText: string;
-  status: "UNREAD" | "READ" | "LINKED" | "ARCHIVED";
+  status: "UNREAD" | "READ" | "LINKED" | "ARCHIVED" | "DRAFT";
   receivedAt: Date;
   threadId: string;
   entityType?: string;
@@ -50,6 +51,8 @@ type MockMessage = {
     apartment?: string;
     role?: string;
   };
+  /** Källa som skapade utkastet — visas som kontext */
+  draftSource?: string;
 };
 
 type MockFlag = {
@@ -172,6 +175,47 @@ const MOCK_MESSAGES: MockMessage[] = [
     ],
     senderMatch: { type: "unknown" },
   },
+
+  // Utkast — skapade från andra funktioner i systemet
+  {
+    id: "m8", mailboxSlug: "styrelsen", direction: "outbound",
+    fromAddress: "styrelsen@brfexempel.se", fromName: "Styrelsen, BRF Exempelgården",
+    toAddresses: "anna.bergman@maklarfirman.se",
+    subject: "Re: Överlåtelse — Storgatan 1A lgh 1008",
+    bodyPreview: "Tack, vi har mottagit underlagen för överlåtelse av lgh 1008...",
+    bodyText: "Hej Anna,\n\nTack, vi har mottagit underlagen för överlåtelse av lgh 1008.\nÄrendenummer: ÖVL-2026-007.\n\nÖverlåtelseavgift: 1 495 kr (betalas av säljaren).\nPantsättningsavgift: 630 kr (vid ny pant).\n\nVi återkommer med besked om medlemskap efter styrelsens\nprövning. Handläggningstid normalt 2–4 veckor.\n\nMed vänliga hälsningar,\nStyrelsen, BRF Exempelgården",
+    status: "DRAFT", receivedAt: hoursAgo(1), threadId: "t1",
+    entityType: "TransferCase", entityId: "ovl-007", entityTitle: "Överlåtelse lgh 1008 — Svensson → Andersson",
+    attachments: [],
+    flags: [],
+    draftSource: "Överlåtelser → ÖVL-2026-007",
+  },
+  {
+    id: "m9", mailboxSlug: "ekonomi", direction: "outbound",
+    fromAddress: "ekonomi@brfexempel.se", fromName: "Kassören, BRF Exempelgården",
+    toAddresses: "pant@handelsbanken.se",
+    subject: "Pantsättningsbekräftelse — lgh 2003",
+    bodyPreview: "BRF Exempelgården bekräftar notering av pant om 1 500 000 kr...",
+    bodyText: "Brf Exempelgården bekräftar notering av pant om\n1 500 000 kr i bostadsrätt lgh 2003 för låntagare\nErik Lindqvist.\n\nPantsättningsavgift: 598 kr\nBankgiro för inbetalning: 123-4567\nReferens: PANT-2026-015\n\nMed vänliga hälsningar,\nKassören, BRF Exempelgården",
+    status: "DRAFT", receivedAt: hoursAgo(3), threadId: "t9",
+    entityType: "MortgageNotation", entityId: "pant-015", entityTitle: "Pantsättning lgh 2003 — Handelsbanken",
+    attachments: [],
+    flags: [],
+    draftSource: "Pantsättning → PANT-2026-015",
+  },
+  {
+    id: "m10", mailboxSlug: "forvaltning", direction: "outbound",
+    fromAddress: "forvaltning@brfexempel.se", fromName: "Förvaltning, BRF Exempelgården",
+    toAddresses: "erik.lindqvist@hotmail.com",
+    subject: "Re: Läcker från taket i källaren",
+    bodyPreview: "Hej Erik, tack för din felanmälan. Vi har registrerat ärendet...",
+    bodyText: "Hej Erik,\n\nTack för din felanmälan om vattenläcka i källargång B.\nVi har registrerat ärendet (referens: #142).\n\nVi har kontaktat VVS-jour och en tekniker kommer ut\nimorgon mellan 08:00–10:00.\n\nDu kan följa ärendet i Hemmet:\nhttps://hemmet.brfexempel.se/boende/skadeanmalan/142\n\nMed vänliga hälsningar,\nFörvaltning, BRF Exempelgården",
+    status: "DRAFT", receivedAt: hoursAgo(0.5), threadId: "t5",
+    entityType: "DamageReport", entityId: "dmg-142", entityTitle: "Felanmälan #142 — Vattenläcka källare B",
+    attachments: [],
+    flags: [],
+    draftSource: "Felanmälan → #142",
+  },
 ];
 
 // ============================================================
@@ -230,6 +274,8 @@ export default function EmailPage() {
   const [activeMailbox, setActiveMailbox] = useState("styrelsen");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showCreateCase, setShowCreateCase] = useState(false);
+  const [showCompose, setShowCompose] = useState(false);
+  const [showDrafts, setShowDrafts] = useState(false);
 
   if (!isBoardMember(userRoles)) {
     return (
@@ -241,17 +287,27 @@ export default function EmailPage() {
     );
   }
 
-  const mailboxMessages = MOCK_MESSAGES.filter((m) => m.mailboxSlug === activeMailbox);
+  const mailboxDrafts = MOCK_MESSAGES.filter((m) => m.mailboxSlug === activeMailbox && m.status === "DRAFT");
+  const mailboxInbox = MOCK_MESSAGES.filter((m) => m.mailboxSlug === activeMailbox && m.status !== "DRAFT");
+  const mailboxMessages = showDrafts ? mailboxDrafts : mailboxInbox;
   const selected = selectedId ? MOCK_MESSAGES.find((m) => m.id === selectedId) : null;
 
   return (
     <div className="mx-auto max-w-6xl">
       {/* Header */}
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Mail className="h-6 w-6 text-blue-600" /> E-post
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">Föreningens rollbaserade e-postinkorgar</p>
+      <div className="mb-4 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Mail className="h-6 w-6 text-blue-600" /> E-post
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">Föreningens rollbaserade e-postinkorgar</p>
+        </div>
+        <button
+          onClick={() => { setShowCompose(true); setSelectedId(null); }}
+          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+        >
+          <PenSquare className="h-4 w-4" /> Skriv nytt
+        </button>
       </div>
 
       {/* Mailbox tabs */}
@@ -278,6 +334,35 @@ export default function EmailPage() {
             )}
           </button>
         ))}
+      </div>
+
+      {/* Inbox / Drafts toggle */}
+      <div className="mb-4 flex gap-1 rounded-lg bg-gray-100 p-1 w-fit">
+        <button
+          onClick={() => { setShowDrafts(false); setSelectedId(null); }}
+          className={cn(
+            "rounded-md px-3 py-1 text-sm font-medium transition-colors",
+            !showDrafts ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          )}
+        >
+          <Inbox className="inline h-3.5 w-3.5 mr-1" />
+          Inkorg
+        </button>
+        <button
+          onClick={() => { setShowDrafts(true); setSelectedId(null); }}
+          className={cn(
+            "rounded-md px-3 py-1 text-sm font-medium transition-colors",
+            showDrafts ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          )}
+        >
+          <Edit3 className="inline h-3.5 w-3.5 mr-1" />
+          Utkast
+          {mailboxDrafts.length > 0 && (
+            <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-700">
+              {mailboxDrafts.length}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Two-column layout */}
@@ -321,7 +406,10 @@ export default function EmailPage() {
                         {msg.status === "UNREAD" && (
                           <span className="h-2 w-2 shrink-0 rounded-full bg-blue-600" />
                         )}
-                        {msg.direction === "outbound" && (
+                        {msg.status === "DRAFT" && (
+                          <span className="rounded px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">Utkast</span>
+                        )}
+                        {msg.direction === "outbound" && msg.status !== "DRAFT" && (
                           <Send className="h-3 w-3 shrink-0 text-gray-400" />
                         )}
                         <span className={cn(
@@ -337,7 +425,11 @@ export default function EmailPage() {
                       )}>
                         {msg.subject}
                       </p>
-                      <p className="mt-0.5 text-xs text-gray-400 truncate">{msg.bodyPreview}</p>
+                      {msg.draftSource ? (
+                        <p className="mt-0.5 text-xs text-amber-600 truncate">Från: {msg.draftSource}</p>
+                      ) : (
+                        <p className="mt-0.5 text-xs text-gray-400 truncate">{msg.bodyPreview}</p>
+                      )}
                     </div>
                     <div className="shrink-0 flex flex-col items-end gap-1">
                       <span className="text-xs text-gray-400">
@@ -470,9 +562,30 @@ export default function EmailPage() {
 
             {/* Actions footer */}
             <div className="border-t border-gray-100 px-5 py-3 flex items-center gap-2">
-              {selected.direction === "inbound" && (
+              {selected.status === "DRAFT" && (
                 <>
-                  <button className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">
+                  <button
+                    onClick={() => setShowCompose(true)}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" /> Redigera och skicka
+                  </button>
+                  <button className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                    <Trash2 className="h-3.5 w-3.5" /> Ta bort utkast
+                  </button>
+                  {selected.entityType && (
+                    <span className="ml-auto text-xs text-gray-400 flex items-center gap-1">
+                      <Link2 className="h-3 w-3" /> {selected.draftSource}
+                    </span>
+                  )}
+                </>
+              )}
+              {selected.direction === "inbound" && selected.status !== "DRAFT" && (
+                <>
+                  <button
+                    onClick={() => setShowCompose(true)}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                  >
                     <CornerUpLeft className="h-3.5 w-3.5" /> Svara
                   </button>
                   {!selected.entityType && (
@@ -493,7 +606,7 @@ export default function EmailPage() {
                   </button>
                 </>
               )}
-              {selected.direction === "outbound" && (
+              {selected.direction === "outbound" && selected.status !== "DRAFT" && (
                 <span className="text-xs text-gray-400 flex items-center gap-1">
                   <Send className="h-3 w-3" /> Skickat
                 </span>
@@ -510,6 +623,16 @@ export default function EmailPage() {
           </div>
         )}
       </div>
+
+      {/* Compose dialog */}
+      {showCompose && (
+        <ComposeDialog
+          mailbox={MOCK_MAILBOXES.find((mb) => mb.slug === activeMailbox)!}
+          replyTo={selected?.direction === "inbound" && selected.status !== "DRAFT" ? selected : undefined}
+          draft={selected?.status === "DRAFT" ? selected : undefined}
+          onClose={() => setShowCompose(false)}
+        />
+      )}
     </div>
   );
 }
@@ -618,6 +741,157 @@ function CreateCaseDialog({ message, onClose }: { message: MockMessage; onClose:
             className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
             Skapa ärende
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Compose / Reply / Edit draft dialog
+// ============================================================
+
+function ComposeDialog({
+  mailbox,
+  replyTo,
+  draft,
+  onClose,
+}: {
+  mailbox: MockMailbox;
+  replyTo?: MockMessage;
+  draft?: MockMessage;
+  onClose: () => void;
+}) {
+  const isDraft = !!draft;
+  const isReply = !!replyTo;
+
+  const [to, setTo] = useState(
+    draft?.toAddresses ?? replyTo?.fromAddress ?? ""
+  );
+  const [subject, setSubject] = useState(
+    draft?.subject ?? (replyTo ? `Re: ${replyTo.subject}` : "")
+  );
+  const [body, setBody] = useState(
+    draft?.bodyText ?? ""
+  );
+
+  const title = isDraft
+    ? "Redigera utkast"
+    : isReply
+      ? `Svara: ${replyTo.fromName}`
+      : "Nytt meddelande";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30">
+      <div className="w-full max-w-2xl rounded-t-lg sm:rounded-lg border border-gray-200 bg-white shadow-xl flex flex-col max-h-[85vh]">
+        {/* Header */}
+        <div className="border-b border-gray-100 px-5 py-3 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+            {isDraft && draft.draftSource && (
+              <span className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs text-amber-700">
+                {draft.draftSource}
+              </span>
+            )}
+          </div>
+          <button onClick={onClose} className="rounded p-1 text-gray-400 hover:bg-gray-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          {/* From */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-500 w-12 shrink-0">Från</label>
+            <div className="flex-1 rounded-md bg-gray-50 px-3 py-1.5 text-sm text-gray-600">
+              {mailbox.emailAddress}
+            </div>
+          </div>
+
+          {/* To */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-500 w-12 shrink-0">Till</label>
+            <input
+              type="text"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              placeholder="mottagare@example.com"
+              className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Subject */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-500 w-12 shrink-0">Ämne</label>
+            <input
+              type="text"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Ämnesrad"
+              className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Linked entity */}
+          {(draft?.entityType || replyTo?.entityType) && (
+            <div className="flex items-center gap-2 rounded-md bg-green-50 border border-green-200 px-3 py-2">
+              <Link2 className="h-4 w-4 text-green-600 shrink-0" />
+              <span className="text-sm text-green-700">
+                Kopplad till: {draft?.entityTitle ?? replyTo?.entityTitle ?? "Ärende"}
+              </span>
+            </div>
+          )}
+
+          {/* Body */}
+          <textarea
+            rows={12}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Skriv ditt meddelande..."
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-sans leading-relaxed focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y"
+          />
+
+          {/* Reply context */}
+          {isReply && (
+            <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-3">
+              <p className="text-xs font-medium text-gray-500 mb-1">
+                {format(replyTo.receivedAt, "d MMM yyyy HH:mm", { locale: sv })} — {replyTo.fromName}:
+              </p>
+              <pre className="whitespace-pre-wrap font-sans text-xs text-gray-500 leading-relaxed max-h-32 overflow-y-auto">
+                {replyTo.bodyText}
+              </pre>
+            </div>
+          )}
+
+          {/* Attachments */}
+          <div>
+            <button className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+              <Paperclip className="h-3.5 w-3.5" /> Bifoga fil
+            </button>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-gray-100 px-5 py-3 flex items-center gap-2 shrink-0">
+          <button
+            disabled={!to || !subject || !body}
+            className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            <Send className="h-3.5 w-3.5" /> Skicka
+          </button>
+          <button
+            disabled={!to || !subject}
+            className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-4 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+          >
+            <Edit3 className="h-3.5 w-3.5" /> Spara som utkast
+          </button>
+          <button
+            onClick={onClose}
+            className="ml-auto rounded-md border border-gray-300 px-4 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          >
+            Avbryt
           </button>
         </div>
       </div>
