@@ -1418,19 +1418,40 @@ model Inspection {
   @@index([nextDueAt])
 }
 
+// Deprecated — ersatt av generisk Attachment
 model InspectionAttachment {
   id            String   @id @default(cuid())
   inspectionId  String
-  type          String   // "file" | "link"
-  name          String   // Visningsnamn: "OVK-protokoll 2026.pdf" eller "Protokoll hos besiktningsfirma"
-  url           String   // Filsökväg (/api/documents/...) eller extern URL
-  mimeType      String?  // "application/pdf" etc. — null för externa länkar
+  type          String
+  name          String
+  url           String
+  mimeType      String?
   uploadedById  String?
   createdAt     DateTime @default(now())
 
   inspection    Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
 
   @@index([inspectionId])
+}
+
+// ============================================================
+// ATTACHMENTS (generisk bilagemodell — alla ärendetyper)
+// ============================================================
+
+model Attachment {
+  id            String   @id @default(cuid())
+  entityType    String   // "Inspection", "TransferCase", "Expense", "DamageReport", etc.
+  entityId      String   // ID på ärendet
+  type          String   // "file" | "link"
+  name          String   // Visningsnamn
+  url           String   // Filsökväg eller extern URL
+  mimeType      String?  // "application/pdf" etc. — null för externa länkar
+  fileSize      Int?     // Bytes — null för länkar
+  uploadedById  String
+  createdAt     DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([uploadedById])
 }
 
 // ============================================================
