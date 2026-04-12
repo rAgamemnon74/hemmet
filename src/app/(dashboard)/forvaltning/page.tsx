@@ -53,7 +53,7 @@ export default function PropertyManagementPage() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
         <QuickLink href="/forvaltning/komponenter" label="Komponentregister" description="K3-register och underhållsplan" />
         <QuickLink href="/forvaltning/besiktningar" label="Besiktningar" description="OVK, hiss, brand, energi" />
-        <QuickLink href="/forvaltning/leverantorer" label="Leverantörer" description="Avtal och kontakter" />
+        <QuickLink href="/ekonomi/leverantorer" label="Leverantörer" description="Avtal och kontakter" />
         <QuickLink href="/boende/skadeanmalan" label="Felanmälningar" description="Inkomna ärenden" />
       </div>
 

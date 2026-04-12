@@ -217,7 +217,7 @@ export const dashboardRouter = router({
     const cases: CaseItem[] = [];
 
     for (const e of expenses) {
-      cases.push({ id: e.id, caseType: "Utlägg", title: `${e.description} (${Number(e.amount).toLocaleString("sv-SE")} kr)`, status: e.status, urgency: 2, href: `/styrelse/utlagg/${e.id}`, createdAt: e.createdAt });
+      cases.push({ id: e.id, caseType: "Utlägg", title: `${e.description} (${Number(e.amount).toLocaleString("sv-SE")} kr)`, status: e.status, urgency: 2, href: `/ekonomi/utlagg/${e.id}`, createdAt: e.createdAt });
     }
     for (const t of transfers) {
       cases.push({ id: t.id, caseType: "Överlåtelse", title: `${t.apartment.building.name} lgh ${t.apartment.number}`, status: t.status, urgency: 2, href: `/styrelse/overlatelser/${t.id}`, createdAt: t.createdAt });

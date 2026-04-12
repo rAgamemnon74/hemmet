@@ -27,6 +27,7 @@ import {
   Landmark,
   Mail,
   ShoppingCart,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import type { Permission } from "./permissions";
@@ -58,7 +59,6 @@ export const navigation: NavSection[] = [
       { label: "Möten", href: "/styrelse/moten", icon: CalendarDays, permission: "meeting:view" },
       { label: "Ärenden", href: "/styrelse/arenden", icon: CheckSquare, permission: "task:view" },
       { label: "Beslut", href: "/styrelse/beslut", icon: BookOpen, permission: "meeting:view" },
-      { label: "Utlägg", href: "/styrelse/utlagg", icon: Receipt, permission: "expense:submit" },
       { label: "Årsberättelse", href: "/styrelse/arsberattelse", icon: ScrollText, permission: "annual_report:view" },
       { label: "Överlåtelser", href: "/styrelse/overlatelser", icon: ArrowRightLeft, permission: "transfer:view" },
       { label: "Dokument", href: "/styrelse/dokument", icon: FileText, permission: "document:view_board" },
@@ -84,14 +84,20 @@ export const navigation: NavSection[] = [
     ],
   },
   {
+    title: "Ekonomi",
+    items: [
+      { label: "Utlägg", href: "/ekonomi/utlagg", icon: Receipt, permission: "expense:submit" },
+      { label: "Upphandlingar", href: "/ekonomi/upphandlingar", icon: ShoppingCart, permission: "meeting:view" },
+      { label: "Avtal", href: "/ekonomi/avtal", icon: FileText, permission: "meeting:view" },
+      { label: "Leverantörer", href: "/ekonomi/leverantorer", icon: Users, permission: "meeting:view" },
+    ],
+  },
+  {
     title: "Förvaltning",
     items: [
       { label: "Översikt", href: "/forvaltning", icon: Building2, permission: "report:manage" },
       { label: "Komponentregister", href: "/forvaltning/komponenter", icon: Wrench, permission: "meeting:view" },
-      { label: "Upphandlingar", href: "/forvaltning/upphandlingar", icon: ShoppingCart, permission: "meeting:view" },
-      { label: "Avtal", href: "/forvaltning/avtal", icon: FileText, permission: "meeting:view" },
       { label: "Besiktningar", href: "/forvaltning/besiktningar", icon: ClipboardCheck, permission: "meeting:view" },
-      { label: "Leverantörer", href: "/forvaltning/leverantorer", icon: Users, permission: "meeting:view" },
     ],
   },
   {

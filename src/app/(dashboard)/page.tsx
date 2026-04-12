@@ -198,7 +198,7 @@ export default function DashboardPage() {
         {chair && (
           <>
             <CountCard icon={UserPlus} label="Ansökningar" count={chair.pendingApplications} href="/medlem/ansokningar" color="blue" />
-            <CountCard icon={Receipt} label="Utlägg att godkänna" count={chair.pendingExpenses} href="/styrelse/utlagg" color="amber" />
+            <CountCard icon={Receipt} label="Utlägg att godkänna" count={chair.pendingExpenses} href="/ekonomi/utlagg" color="amber" />
             <CountCard icon={ArrowRightLeft} label="Överlåtelser" count={chair.pendingTransfers} href="/styrelse/overlatelser" color="purple"
               alert={chair.overdueTransfers > 0 ? `${chair.overdueTransfers} försenade` : undefined} />
             {chair.unownedApartments > 0 && (
@@ -209,7 +209,7 @@ export default function DashboardPage() {
         )}
         {treasurer && !chair && (
           <>
-            <CountCard icon={Receipt} label="Utlägg att godkänna" count={treasurer.pendingExpenses} href="/styrelse/utlagg" color="amber" />
+            <CountCard icon={Receipt} label="Utlägg att godkänna" count={treasurer.pendingExpenses} href="/ekonomi/utlagg" color="amber" />
             <div className="rounded-lg border border-gray-200 bg-white p-4">
               <p className="text-xs text-gray-500">Utbetalat denna månad</p>
               <p className="text-xl font-bold text-gray-900">{treasurer.thisMonthPaid.toLocaleString("sv-SE")} kr</p>
