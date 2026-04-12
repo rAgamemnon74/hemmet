@@ -224,9 +224,117 @@ Per kan lämna in sin medlemsansökan via Hemmet:
 
 ---
 
-## 3. Arv (INHERITANCE)
+## 3–4. Dödsfall och arv — tvåfasmodell
 
-**Frekvens:** Låg men känslomässigt komplex.
+### Tonlägesprincip
+
+Dödsfall har en fundamental skillnad mot alla andra ärendetyper: **motparten sörjer**. Systemet måste separera det interna (juridiskt korrekt, effektivt) från det externa (empatiskt, tålmodigt).
+
+| Perspektiv | Språk | Referens |
+|------------|-------|----------|
+| **Internt** (i Hemmet) | `TransferCase`, `type: INHERITANCE`, checklista, avgiftsberäkning | Ärendenr som vanligt |
+| **Externt** (mot dödsboet) | "Angående lägenheten", "ägarskiftet", "er fars bostad" | Ärendenr utan "ÖVL-" — använd "Ärende" eller inget |
+
+**Ord att undvika i extern kommunikation:**
+- ~~"Överlåtelse"~~ → "ägarskifte", "överföring av lägenheten"
+- ~~"Köpare"~~ → "ny ägare", "den som tar över"
+- ~~"ÖVL-2026-012"~~ → "Ärende 2026-012" eller inget referensnummer alls
+- ~~"Vi behöver"~~ → "När ni är redo behöver vi"
+- ~~"Deadline"~~ → nämn inte tidspress om det inte är absolut nödvändigt
+
+**Ord att använda:**
+- "Vi beklagar sorgen"
+- "Ta den tid ni behöver"
+- "När ni är redo"
+- "Vi finns här om ni har frågor"
+- "Med varma hälsningar" (inte "Med vänliga hälsningar")
+
+---
+
+### Fas 1: Omhändertagande (Task, inte TransferCase)
+
+Dödsfallet skapar en `Task` med taggar `dödsfall` + `lgh 3001`. Det är ett **omhändertagandeärende** — ingen juridisk process har börjat.
+
+**Typiskt mail:**
+```
+Från: anna.pettersson@gmail.com
+Ämne: Pappa Karl Pettersson har gått bort
+"Hej, jag vill meddela att min far Karl Pettersson
+i lgh 3001 avled den 1 mars. Vi håller på med
+bouppteckning och återkommer om lägenheten.
+Det står en del post i hans brevlåda."
+```
+
+#### Systemets beteende
+
+```
+┌─ Dödsfall — omhändertagande ───────────────────────────┐
+│                                                         │
+│  ⚠ Ärendetyp: Omhändertagande vid dödsfall             │
+│  (Inte ett överlåtelseärende — skapas separat           │
+│  när dödsboet är redo.)                                 │
+│                                                         │
+│  Avliden: Karl Pettersson                               │
+│    → ✅ Match: Karl Pettersson, lgh 3001                │
+│    → Medlem sedan: 2005-04-01                           │
+│                                                         │
+│  Kontaktperson: Anna Pettersson (dotter)                │
+│    anna.pettersson@gmail.com                             │
+│                                                         │
+│  Omedelbart:                                            │
+│  ☐ Registrera dödsfall i systemet                      │
+│    (Karls konto markeras, utträdesorsak: DECEASED)      │
+│  ☐ Pausa automatiska utskick till Karl                 │
+│  ☐ Notera kontaktperson för dödsboet                   │
+│                                                         │
+│  Praktiskt:                                             │
+│  ☐ Hantera post/leveranser till lägenheten             │
+│  ☐ Kontrollera om Karl hade styrelseuppdrag            │
+│    → ⚠ Karl var ledamot i valberedningen               │
+│  ☐ Kontrollera pågående ärenden                        │
+│    → Inga pågående ärenden                              │
+│                                                         │
+│  Ekonomiskt:                                            │
+│  ☐ Avgifter fortsätter till dödsboet                   │
+│  ☐ Fakturering riktas till dödsboet                    │
+│                                                         │
+│  💡 Styrelsen driver INTE ägarskiftet.                  │
+│     Avvakta dödsboets kontakt. Ärendet kan ligga        │
+│     i månader — bouppteckning och arvsskifte            │
+│     tar tid och styrelsen ska inte stressa.             │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### Svar till anhörig
+```
+Hej Anna,
+
+Vi beklagar sorgen efter Karl. Vi har noterat informationen.
+
+Vad gäller lägenheten:
+- Månadsavgiften fortsätter att gälla tills vidare
+- Ni behöver inte skynda — ta den tid ni behöver
+- När bouppteckningen är klar och ni vet hur ni
+  vill göra med lägenheten, hör av er till oss
+  så hjälper vi till med det praktiska
+- Vi kan hjälpa till att vidarebefordra post om ni önskar
+
+Om Karl hade nycklar till gemensamma utrymmen, kontakta
+oss så löser vi det.
+
+Vi finns här om det är något.
+
+Med varma hälsningar,
+Styrelsen, BRF Exempelgården
+```
+
+Notera: ingen referens till ärendenummer, ingen "överlåtelse", inga deadlines.
+
+---
+
+### Fas 2: Ägarskifte (TransferCase, type: INHERITANCE)
+
+Fas 2 börjar **när dödsboet tar kontakt** om ägarbytet — ofta veckor eller månader efter dödsfallet. Typiskt kommer detta via jurist.
 
 **Typiskt mail:**
 ```
@@ -246,7 +354,7 @@ Pettersson som ensam ägare. Bouppteckning bifogas.
 Vänligen meddela vilka underlag ni behöver."
 ```
 
-### Krav
+#### Krav
 
 | Krav | Kommentar |
 |------|-----------|
@@ -256,17 +364,18 @@ Vänligen meddela vilka underlag ni behöver."
 | Ny ägare identifierad | Vem som ska ta över |
 | Medlemsansökan ny ägare | Om inte redan medlem |
 
-### Systemets beteende
+#### Systemets beteende
 
 ```
-┌─ Identifierat arvsärende ──────────────────────────────┐
+┌─ Ägarskifte vid arv ──────────────────────────────────┐
 │                                                         │
-│  Typ: Arv (INHERITANCE)                                 │
+│  Internt: TransferCase, type: INHERITANCE               │
+│  Externt: "Ägarskifte — lgh 3001"                      │
+│                                                         │
 │  Avsändare: Advokat Nilsson, Juristbyrån AB             │
 │                                                         │
 │  Avliden: Karl Pettersson                               │
 │    → ✅ Match: Karl Pettersson, lgh 3001                │
-│    → Medlem sedan: 2005-04-01                           │
 │    → Ägare: 50% (delat med Lisa Pettersson)             │
 │                                                         │
 │  Lisa Pettersson                                        │
@@ -279,130 +388,79 @@ Vänligen meddela vilka underlag ni behöver."
 │  ⚠ Överlåtelseavgift tas normalt INTE ut vid arv       │
 │    till närstående (kontrollera stadgarna).              │
 │                                                         │
+│  📋 Kopplat: Omhändertagande vid dödsfall               │
+│    (skapat 2026-03-03, kontaktperson Anna Pettersson)   │
+│                                                         │
 │  Åtgärder:                                              │
 │  ☐ Verifiera bouppteckning                             │
 │  ☐ Uppdatera ägarandel Lisa Pettersson → 100%          │
-│  ☐ Avsluta Karl Petterssons medlemskap (dödsfall)      │
+│  ☐ Avsluta Karl Petterssons medlemskap                 │
 │  ☐ Hantera eventuella pantbrev                         │
-│  ☐ Meddela advokaten om avgifter och process           │
+│  ☐ Meddela advokaten om process och avgifter           │
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Bekräftelse till advokaten
+#### Bekräftelse till advokaten
+
+Kommunikation med jurist kan vara mer formell och saklig — juristen förväntar sig det. Men undvik "överlåtelse" även här om det går via dödsbodelägare direkt.
+
 ```
 Hej,
 
-Tack för informationen om dödsboet efter Karl Pettersson.
-Vi beklagar sorgen.
+Tack för informationen angående lgh 3001.
+Vi beklagar sorgen efter Karl Pettersson.
 
-Vi har registrerat ärendet (ref: ÖVL-2026-012). 
-För att genomföra överlåtelsen behöver vi:
+Vi har registrerat ärendet (ref: Ärende 2026-012).
+För att genomföra ägarskiftet behöver vi:
 
 1. Bouppteckning (mottagen ✓)
 2. Arvskifteshandling eller dödsbodelägares samtycke
-   till överlåtelse till Lisa Pettersson
+   till överföring till Lisa Pettersson
 3. Eventuellt testamente
 
 Eftersom Lisa Pettersson redan är delägare och medlem
 behövs ingen ny medlemsansökan.
 
-Överlåtelseavgift: enligt stadgarna utgår normalt ingen
-avgift vid arv till maka/make/sambo.
+Avgifter: enligt stadgarna utgår normalt ingen avgift
+vid arv till maka/make/sambo.
 
 Med vänliga hälsningar,
 Styrelsen, BRF Exempelgården
 ```
 
+Notera: "Ärende 2026-012" (inte "ÖVL-2026-012"), "ägarskiftet" (inte "överlåtelsen"), "överföring" (inte "köp").
+
 ---
 
-## 4. Dödsfall — initialt meddelande
-
-**Skillnad mot arv:** Ibland kommer dödsfallsmeddelandet *innan* arvsfrågorna är utredda. Det första mailet handlar inte om överlåtelse — det handlar om att informera styrelsen.
-
-**Typiskt mail:**
-```
-Från: anna.pettersson@gmail.com
-Ämne: Pappa Karl Pettersson har gått bort
-"Hej, jag vill meddela att min far Karl Pettersson
-i lgh 3001 avled den 1 mars. Vi håller på med
-bouppteckning och återkommer om lägenheten.
-Det står en del post i hans brevlåda."
-```
-
-### Systemets beteende
-
-Dödsfallet är inget överlåtelseärende ännu — det är ett **informationsärende** som *kan leda till* överlåtelse.
+### Koppling fas 1 → fas 2
 
 ```
-┌─ Dödsfallsmeddelande ──────────────────────────────────┐
+┌─ Tidslinje ────────────────────────────────────────────┐
 │                                                         │
-│  Typ: Dödsfall (information)                            │
+│  📧 2026-03-03 Anna Pettersson: "Pappa har gått bort"  │
+│  → Task skapad: "Omhändertagande — Karl Pettersson"    │
 │                                                         │
-│  Avliden: Karl Pettersson                               │
-│    → ✅ Match: Karl Pettersson, lgh 3001                │
-│    → Medlem sedan: 2005-04-01                           │
+│  ✉ 2026-03-03 Svar till Anna (medkänsla, praktiskt)    │
 │                                                         │
-│  Kontaktperson: Anna Pettersson (dotter)                │
-│    anna.pettersson@gmail.com                             │
+│  ☐ 2026-03-04 Karls konto markerat (DECEASED)          │
+│  ☐ 2026-03-04 Fakturering omdirigerad till dödsboet    │
+│  ☐ 2026-03-05 Valberedningen meddelad                  │
 │                                                         │
-│  ⚠ Åtgärder vid dödsfall:                              │
+│  ... 3 månader passerar — systemet stressar inte ...    │
 │                                                         │
-│  Omedelbart:                                            │
-│  ☐ Registrera dödsfall i systemet                      │
-│    (Karls konto markeras, utträdesorsak: DECEASED)      │
-│  ☐ Pausa eventuella automatiska utskick till Karl      │
-│  ☐ Notera kontaktperson för dödsboet                   │
+│  📧 2026-06-10 Advokat Nilsson: bouppteckning klar     │
+│  → TransferCase skapad (INHERITANCE)                    │
+│  → Kopplas till Task "Omhändertagande"                  │
 │                                                         │
-│  Praktiskt:                                             │
-│  ☐ Hantera post/leveranser till lägenheten             │
-│  ☐ Kontrollera om Karl hade styrelsuppdrag             │
-│    → ⚠ Karl var ledamot i valberedningen               │
-│  ☐ Kontrollera pågående ärenden                        │
-│    → Inga pågående ärenden                              │
+│  ✉ 2026-06-10 Bekräftelse till advokaten               │
+│  ☐ 2026-06-15 Ägarandel uppdaterad                     │
+│  ☐ 2026-06-15 Karls medlemskap avslutat                │
 │                                                         │
-│  Ekonomiskt:                                            │
-│  ☐ Avgifter fortsätter till dödsboet tills överlåtelse │
-│  ☐ Fakturering riktas till dödsboet                    │
-│                                                         │
-│  Senare (när bouppteckning klar):                       │
-│  ☐ Skapa överlåtelseärende (arv)                       │
-│                                                         │
-│  💡 Lägenheten representeras av dödsboet tills          │
-│     överlåtelse sker. Styrelsen bör inte driva          │
-│     processen — avvakta dödsboets kontakt.              │
+│  ✅ Ärende klart                                       │
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Svar till anhörig
-```
-Hej Anna,
-
-Vi beklagar sorgen efter Karl. Vi har noterat informationen.
-
-Vad gäller lägenheten:
-- Månadsavgiften fortsätter att gälla tills överlåtelse sker
-- Ni behöver inte skynda — ta den tid ni behöver
-- När bouppteckningen är klar återkommer ni till oss
-  om hur lägenheten ska hanteras
-- Vi kan hjälpa till att vidarebefordra post om ni önskar
-
-Om Karl hade nycklar till gemensamma utrymmen, kontakta
-oss så löser vi det.
-
-Med varma hälsningar,
-Styrelsen, BRF Exempelgården
-```
-
-### Koppling dödsfall → överlåtelse
-
-Systemet skapar en `Task` eller intern notering vid dödsfallet. När advokaten/dödsboet senare kontaktar om överlåtelse kopplas det befintliga dödsfallsärendet till den nya `TransferCase`:
-
-```
-📋 Kopplat ärende:
-  Dödsfall Karl Pettersson (2026-03-01)
-  Kontaktperson dödsboet: Anna Pettersson / Advokat Nilsson
-  → Överlåtelseärende ÖVL-2026-012 (arv)
-```
+Hela tråden — från första mailet om dödsfallet till ägarskiftets avslut — är spårbar via taggarna. Men de är **två separata ärenden** med olika tonläge: omhändertagande (empatiskt, avvaktande) och ägarskifte (sakligt, processuellt).
 
 ---
 
