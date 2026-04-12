@@ -65,9 +65,6 @@ Du är normalt firmatecknare tillsammans med kassören. Det betyder att ni två 
 **Utslagsröst:**
 Om en omröstning slutar lika kan din röst vara avgörande — om stadgarna medger det.
 
-**Jäv:**
-Om du har personligt intresse i en fråga (t.ex. din egna renovering, eller din släktings firma lämnar offert) — deklarera jäv och lämna beslutet till övriga styrelsen.
-
 **Tips:** Kolla dashboarden varje vecka. Där ser du om det finns ansökningar, utlägg eller ärenden som väntar på dig.`,
   },
   {
@@ -174,9 +171,6 @@ Kolla dashboarden — under "Årshjulet" ser du vad som hänt sedan förra möte
 **Under mötet:**
 Var aktiv. Ställ frågor. Om du inte förstår — fråga. Det är bättre att fråga en gång för mycket än att rösta utan att förstå.
 
-**Jäv:**
-Om du har koppling till en fråga (din lägenhet, din firma, din släkting) — deklarera jäv. Det skyddar dig personligen.
-
 **Tips:** Svara alltid på kallelsen. Delta i alla möten. Ditt viktigaste bidrag är att vara närvarande och engagerad.`,
   },
   {
@@ -263,7 +257,14 @@ Planerar du att renovera? Ansök under Medlemmar → Renovering. Styrelsen och f
 **Motioner:**
 Har du ett förslag? Lämna en motion under Medlemmar → Motioner. Senast den 1 februari (kontrollera deadline i systemet).
 
-**Tips:** Knacka på hos grannen innan du anmäler en störning. De flesta problem löser sig med ett samtal.`,
+**Delta i föreningslivet:**
+En bostadsrättsförening är en gemenskap. Ju fler som engagerar sig, desto bättre blir det för alla:
+• Kom på städdagar och grillkvällar — det är så man lär känna sina grannar
+• Överväg att ställa upp i styrelsen eller valberedningen
+• Lämna förslag om saker du vill förbättra — styrelsen uppskattar det
+• Hälsa i trapphuset — det låter banalt men det gör skillnad
+
+**Tips:** Lär känna dina grannar. Det mesta löser sig enklare mellan människor som känner varandra.`,
   },
   {
     id: "boende",
