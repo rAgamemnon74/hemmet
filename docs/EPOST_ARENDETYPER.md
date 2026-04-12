@@ -21,13 +21,14 @@ Komplett mappning av inkommande e-post till ärendetyper, funktionell inkorg och
 | 11 | Andrahand | Styrelsen | Medlem | Medel | Verifierad medlem |
 | 12 | Störning | Styrelsen | Boende | Låg | Valfritt |
 | 13 | Förslag | Styrelsen | Boende/medlem | Medel | Valfritt |
-| 14 | Offert/besiktning | Förvaltning | Entreprenör | Hög | Känd entreprenör |
-| 15 | Faktura | Ekonomi | Leverantör | Hög | Leverantör + belopp |
-| 16 | Försäkring | Ekonomi | Försäkringsbolag | Låg | Referensnr |
-| 17 | Bank/lån | Ekonomi | Bank | Låg | Avtalsnr |
-| 18 | Revision | Ekonomi | Revisor | Säsong | Känd revisor |
-| 19 | Myndighetspost | Förvaltning/Styrelsen | Myndighet | Låg | Domänidentifiering |
-| 20 | Pantsättning | Ekonomi | Bank | Hög | Lägenhet + bank |
+| 14 | Upphandling/Offertförfrågan | Förvaltning | Styrelsen/Förvaltare | Hög | Leverantör + ärende |
+| 15 | Offert (inkommande) | Förvaltning | Entreprenör | Hög | Känd leverantör + upphandling |
+| 16 | Faktura | Ekonomi | Leverantör | Hög | Leverantör + belopp |
+| 17 | Försäkring | Ekonomi | Försäkringsbolag | Låg | Referensnr |
+| 18 | Bank/lån | Ekonomi | Bank | Låg | Avtalsnr |
+| 19 | Revision | Ekonomi | Revisor | Säsong | Känd revisor |
+| 20 | Myndighetspost | Förvaltning/Styrelsen | Myndighet | Låg | Domänidentifiering |
+| 21 | Pantsättning | Ekonomi | Bank | Hög | Lägenhet + bank |
 
 ---
 
