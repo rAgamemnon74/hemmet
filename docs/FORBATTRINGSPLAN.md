@@ -63,7 +63,7 @@ Gör systemet användbart för alla styrelsemedlemmar, inte bara specialiserade 
 |---|----------|-------|:-----------:|-------------|
 | 3.1 | **"Inför mötet"-vy** — samla dagordning, föregående protokoll, öppna ärenden, inkomna motioner | LEDAMOT_ROLLEN | Medel | Alla styrelsemedlemmar |
 | 3.2 | **"Sedan sist"-sammanfattning** — vad har hänt sedan förra styrelsemötet | LEDAMOT_ROLLEN | Medel | Alla styrelsemedlemmar |
-| 3.3 | **Notifieringssystem** — e-post/push vid nya uppgifter, möten, ärenden. `Notification`-modell finns, logik saknas | LEDAMOT_ROLLEN | Medel | Alla |
+| 3.3 | **Notifieringssystem** — e-post/push vid nya uppgifter, möten, ärenden. `Notification`-modell finns, `notify()` anropas i mutations — **DELVIS: inget UI för att visa/lista notifieringar** | LEDAMOT_ROLLEN | Medel | Alla |
 | 3.4 | **Ordförande-dashboard** — samlad vy: väntande ansökningar, utlägg att godkänna, överlåtelser, motioner | ORDFORANDE_ROLLEN | Medel | Ordförande |
 | 3.5 | **Kassör-dashboard** — ekonomisk översikt: väntande utlägg, utgifter per månad, prisbasbelopp-status | KASSOR_ROLLEN | Medel | Kassör |
 | 3.6 | **Fastighets-dashboard** — öppna felanmälningar, kommande besiktningar, underhållsstatus | FASTIGHETSANSV_ROLLEN | Medel | Fastighetsansvarig |
@@ -155,13 +155,13 @@ Större integrationer och avancerade funktioner, planeras när grundplattformen 
 |-----|------|:----------:|:------:|
 | **1** | Juridiskt skyddsnät | 6 | KLAR — Jäv, beslutförhet, utslagsröst, utläggsvalidering |
 | **2** | Protokoll | 4 | KLAR — Autogenerering, deadline, anteckningar, livscykel |
-| **3** | Styrelsemedlemmens vardag | 8 | KLAR — Dashboards, notifieringar, mötesförberedelse |
+| **3** | Styrelsemedlemmens vardag | 8 | DELVIS — Dashboards och mötesförberedelse klart; notifieringssystem saknar UI (3.3) |
 | **4** | Boende och medlem | 6 | KLAR — Andrahand, renovering, störning, bokning |
 | **5** | Revision och val | 8 | KLAR — Revisor ser ekonomi, valberedning, val-specialTypes |
 | **6** | GDPR och integrationer | 8 | KLAR — Kryptering, gallring, K3-komponenter, leverantörer |
 | — | Framtida | 19 | Ej påbörjad — Ekonomisystem, BankID, K3-beräkning, IoT |
 
-**Alla 40 fasplanerade leveranser implementerade.** 19 framtida förbättringar kvarstår.
+**39 av 40 fasplanerade leveranser implementerade.** 1 delvis (3.3 Notifieringssystem — backend finns, UI saknas). 19 framtida förbättringar kvarstår.
 
 ### Systemstatistik (aktuell)
 
@@ -184,6 +184,7 @@ Större integrationer och avancerade funktioner, planeras när grundplattformen 
 - Samlad ärendevy (8 ärendetyper i en lista)
 - Hjälpsida med rollspecifika guider
 - Dashboard med årshjul och profil integrerade
+- Permission-baserad dashboard — ersätter rollexklusiv logik med `hasPermission()`-gating, samlad "Sedan sist" och "Kräver uppmärksamhet" med avtal/besiktning/upphandlingsvarningar
 - Dödsfall-, utträdes- och överlåtelseprocess
 - Störningshantering med boendefilosofi
 - Årsberättelse med PDF-signering

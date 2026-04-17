@@ -6,6 +6,13 @@
 
 BOARD_TREASURER delar BOARD_COMMON (24 permissions) plus:
 - `expense:approve` — kan godkänna, avslå och markera utlägg som betalda
+- `application:review` — kan granska medlemsansökningar
+- `transfer:create` — kan skapa överlåtelseärenden
+- `transfer:manage_financial` — kan hantera ekonomiska delar av överlåtelser (avgifter, pantnoteringar)
+- `transfer:view` — kan se överlåtelseärenden
+- `contract:manage` — kan skapa, redigera och avsluta avtal
+- `procurement:manage` — kan hantera upphandlingar
+- `contractor:manage` — kan hantera leverantörsregistret
 
 ### Utläggshantering (kärnfunktion)
 
@@ -16,6 +23,51 @@ Fullt flöde implementerat:
 - Kan markera godkända utlägg som betalda (`paidAt`)
 - Kategorier: Underhåll, Trädgård, Administration, Städning, Reparation, Försäkring, Material, Representation, Övrigt
 - Belopp lagras som `Decimal` (korrekt hantering)
+
+### Kassör-dashboard (delvis implementerad)
+
+`treasurerOverview`-query returnerar ekonomisk sammanställning:
+- **pendingExpenses** — antal utlägg som väntar på godkännande
+- **approvedUnpaid** — antal godkända men ännu obetalda utlägg
+- **thisMonthPaid** — totalt betalt denna månad
+- **lastMonthPaid** — totalt betalt föregående månad
+- **pendingTransferFees** — väntande överlåtelseavgifter
+- **prisbasbelopp** — aktuellt prisbasbelopp
+
+Dashboarden visas korrekt baserat på permissions (tidigare bugg som dolde den för användare med dubbla roller är åtgärdad).
+
+**Saknas fortfarande:** Budget vs utfall, likviditetsöversikt, avgiftssammanställning.
+
+### Överlåtelsehantering
+
+Kassören har fullständiga överlåtelsepermissions:
+- Kan skapa och se överlåtelseärenden (`transfer:create`, `transfer:view`)
+- Kan hantera ekonomiska aspekter: avgiftsberäkning, pantnoteringar (`transfer:manage_financial`)
+- Överlåtelseavgifter konfigureras via `BrfRules` (procent av prisbasbelopp)
+
+### Avtalshantering (fullt implementerad)
+
+Komplett avtalsmodul med `contract:manage`:
+- **Kategorier:** SERVICE, INSURANCE, FINANCIAL, MANAGEMENT, UTILITY, PROJECT, CONSULTING, OTHER
+- **Statushantering:** fullständigt livscykelflöde
+- **Ramavtal** med avrop (call-offs)
+- **Utgångsspårning** — bevaka när avtal löper ut
+- Koppling till leverantörer via Contractor-modellen
+
+### Upphandlingshantering (fullt implementerad)
+
+Komplett upphandlingsmodul med `procurement:manage`:
+- **13-stegs upphandlingsflöde** — från behovsbeskrivning till avtalstecknande
+- **Offerthantering** — samla in och jämföra offerter
+- **Mandatspårning** — koppla upphandling till styrelsebeslut/beloppsgränser
+
+### Leverantörsregister (fullt implementerat)
+
+Komplett leverantörsregister med `contractor:manage`:
+- Kontaktuppgifter och organisationsnummer
+- **F-skattsedel** — spåra status
+- **PUB-avtal** (personuppgiftsbiträdesavtal) — spåra GDPR-krav
+- Koppling till avtal och upphandlingar
 
 ### Möteskontext
 
@@ -31,7 +83,7 @@ Fullt flöde implementerat:
 - Kan ladda upp dokument (`document:upload`)
 - Kan skapa meddelanden (`announcement:create`)
 
-## Kritiska brister
+## Kvarvarande brister
 
 ### 1. Ekonomiska inställningar — kassören utestängd
 
@@ -58,42 +110,37 @@ Fullt flöde implementerat:
 - Inget stöd för "i förening"-krav (dubbelsignering)
 - Kassören nämns explicit i firmateckningsregeln men systemet kontrollerar aldrig detta
 
-### 4. Ingen kassör-dashboard
-
-- Ingen samlad ekonomisk översikt
-- Ingen vy med: väntande utlägg, totalt godkänt denna månad, budget vs utfall
-- Ingen sammanställning av månadsavgifter, föreningens likviditet
-- Ingen påminnelse om utlägg som väntar på godkännande
-
-### 5. Budget och uppföljning saknas helt
+### 4. Budget och uppföljning saknas helt
 
 - Kategorier finns på utlägg men inga budgetgränser per kategori
 - Ingen varning vid höga belopp
 - Ingen sammanställning per period (månad/kvartal/år)
 - Ingen jämförelse budget vs utfall
 - Ingen koppling till underhållsplan (`maintenancePlanRequired`, `maintenancePlanYears` finns i BrfRules)
+- Inget årligt budgetverktyg eller prognostisering
 
-### 6. Kvittohantering primitiv
+### 5. Kvittohantering primitiv
 
-- `Expense.receiptUrl` finns i schemat men används inte i UI
-- Ingen uppladdning av kvitton/underlag
+- `Expense.receiptUrl` finns i schemat men UI:t är minimalt
+- Ingen fullständig uppladdningsvy för kvitton/underlag
 - Ingen verifikationskedja
 
-### 7. Utläggsvalidering saknas
+### 6. Utläggsvalidering saknas
 
 - Ingen beloppsgräns — kassören kan godkänna obegränsade belopp
-- Ingen kontroll att kassören inte godkänner egna utlägg (segregation of duties)
+- Blockering av godkännande av egna utlägg (segregation of duties) behöver verifieras
 - Inget krav på styrelsebeslut för belopp över viss gräns
 - Inget attestflöde med flera godkännare
 
-### 8. Ekonomisk rapportering saknas
+### 7. Ekonomisk rapportering saknas
 
 - Ingen resultaträkning eller balansräkning
 - Ingen kassaflödesrapport
 - Ingen export av ekonomisk data
 - Dagordningspunkten "Ekonomisk rapport" har ingen koppling till faktisk data
+- Dashboarden visar bara utläggsstatistik, inte fullständig ekonomisk bild
 
-### 9. Revision — begränsad åtkomst
+### 8. Revision — begränsad åtkomst
 
 - Kassören kan bara SE revision (`audit:view`)
 - Kan inte skicka underlag till revisor
@@ -105,6 +152,12 @@ Fullt flöde implementerat:
 | Förmåga | Kassör | Ordförande |
 |---------|:-:|:-:|
 | Godkänna utlägg | Y | Y |
+| Kassör-dashboard | Y (delvis) | - |
+| Skapa överlåtelser | Y | Y |
+| Hantera överlåtelseekonomi | Y | - |
+| Hantera avtal | Y | - |
+| Hantera upphandlingar | Y | - |
+| Hantera leverantörer | Y | - |
 | Se ekonomiska inställningar | - | Y |
 | Ändra ekonomiska inställningar | - | - (ADMIN) |
 | Ändra månadsavgifter | - | Y |
@@ -118,11 +171,10 @@ Fullt flöde implementerat:
 
 | Prio | Funktion | Varför |
 |------|----------|--------|
-| 1 | **Kassör-dashboard** | Samlad ekonomisk översikt: väntande utlägg, utgifter per månad, likviditet |
-| 2 | **Ge kassör ekonomi-permissions** | Kassör måste kunna se/redigera bankuppgifter, räkenskapsår, avgifter |
-| 3 | **Kvittouppladdning i utlägg** | receiptUrl finns i schemat, behöver UI |
-| 4 | **Utläggsvalidering** | Beloppsgränser, hindra godkännande av egna utlägg |
-| 5 | **Firmateckningsvalidering** | Koppla signatoryRule till godkännandeflöden |
-| 6 | **Ekonomisk rapportering** | Sammanställning per kategori/period, underlag för årsredovisning |
-| 7 | **Avgiftshantering** | Beräkning och avisering av månadsavgifter baserat på andelstal |
-| 8 | **Budgetverktyg** | Budget per kategori med uppföljning och varningar |
+| 1 | **Ge kassör ekonomi-permissions** | Kassör måste kunna se/redigera bankuppgifter, räkenskapsår, avgifter |
+| 2 | **Budgetverktyg** | Årlig budget per kategori, prognostisering, avvikelseanalys |
+| 3 | **Avgiftshantering** | Beräkning och avisering av månadsavgifter baserat på andelstal |
+| 4 | **Ekonomisk rapportering** | Sammanställning per kategori/period, underlag för årsredovisning |
+| 5 | **Kvittouppladdning (fullständig)** | receiptUrl finns i schemat, behöver komplett uppladdnings-UI |
+| 6 | **Utläggsvalidering** | Beloppsgränser, verifiera blockering av egna utlägg |
+| 7 | **Firmateckningsvalidering** | Koppla signatoryRule till godkännandeflöden |

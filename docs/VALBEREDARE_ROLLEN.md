@@ -1,39 +1,77 @@
-# Analys: Valberedningsrollen i Hemmet
+# Valberedningsrollen i Hemmet — status och kvarvarande luckor
 
 ## Rollens natur — en föreningsroll, inte en styrelseroll
 
 Valberedningen är **inte** en del av styrelsen. Den är en **föreningsroll** — vald av stämman, oberoende av styrelsen, med uppdrag att förbereda val av styrelseledamöter, suppleanter och revisorer till nästa stämma.
 
-Detta gör valberedningen till en ny rolltyp i systemet. Nuvarande roller är antingen:
-- **Styrelseroller** (BOARD_*) — valda av stämman, sitter i styrelsen
-- **Revisorsroll** (AUDITOR) — vald av stämman, granskar styrelsen
-- **Medlemsroller** (MEMBER, RESIDENT) — grundroller
+Rollerna tillhör en egen kategori i systemet, skild från både styrelseroller och revisorsroller:
 
-Valberedningen är varken styrelse, revisor eller vanlig medlem. Den behöver en **egen rollkategori** med egna permissions och eget arbetsflöde.
+| Aspekt | Styrelseroll | Föreningsroll (valberedning) |
+|--------|:------------:|:----------------------------:|
+| Vald av | Stämman | Stämman |
+| Ansvarar inför | Stämman | Stämman |
+| Del av styrelsen | JA | NEJ |
+| Tillgång till styrelsedata | Full | Begränsad |
+| Mandatperiod | Stadgebestämd | Till nästa stämma |
+| Oberoendekrav | Nej | JA — ska inte styras av styrelsen |
 
 ---
 
-## Nuläge i Hemmet
+## Implementerad funktionalitet
 
-### Vad som finns
+### Roller och permissions
 
-| Element | Status | Detalj |
-|---------|:------:|--------|
-| Roll i enum | Saknas | Ingen `NOMINATING_COMMITTEE` i Role-enum |
-| Agenda-punkt | Finns | "Val av valberedning" i ANNUAL_MEETING_TEMPLATE (rad 43), men utan `specialType` |
-| Nomineringsmodell | Saknas | Ingen datamodell för nomineringar eller kandidater |
-| Nomineringsflöde | Saknas | Ingen UI, inget API, inget arbetsflöde |
-| BrfRules-konfiguration | Delvis | `secretBallotOnDemand`, `tieBreakerLotteryForElection` finns men är oanvända |
-| Valresultat | Saknas | Ingen koppling mellan stämmobeslut och automatisk rolltilldelning |
-| Permissions | Saknas | Inga nomineringsspecifika permissions |
-| Testanvändare | Saknas | Ingen valberedningsanvändare i seed-data |
+`NOMINATING_COMMITTEE` och `NOMINATING_COMMITTEE_CHAIR` finns i Role-enumet. Fyra dedikerade permissions finns i `src/lib/permissions.ts`:
 
-### Vad som inte finns
+| Permission | Beskrivning |
+|-----------|-------------|
+| `nomination:view` | Se valberedningens förslag (alla medlemmar inför stämma) |
+| `nomination:submit` | Lämna nomineringsförslag som medlem |
+| `nomination:manage` | Hantera nomineringar (valberedningen) |
+| `nomination:finalize` | Låsa och presentera slutligt förslag (sammankallande) |
 
-- Ingen roll, ingen permission, inget API, ingen UI, ingen datamodell
-- Dagordningspunkten "Val av valberedning" är ren text utan funktionalitet
-- Dagordningspunkterna "Val av styrelseledamöter", "Val av styrelsesuppleanter", "Val av revisor" är också ren text
-- Inget sätt att registrera kandidater, ta emot nomineringar eller presentera förslag
+### Datamodell
+
+Tre modeller i `prisma/schema.prisma`:
+
+**NominationPeriod** — representerar en valberedningsperiod kopplad till ett räkenskapsår:
+- `status`: PLANNING, OPEN, CLOSED, PRESENTED
+- `fiscalYear`, `openAt`, `closeAt` för tidshantering
+
+**Nomination** — enskild nominering hanterad av valberedningen:
+- `position`: CHAIRPERSON, BOARD_MEMBER, BOARD_SUBSTITUTE, AUDITOR, AUDITOR_SUBSTITUTE
+- `status`: CONTACTED, ACCEPTED, DECLINED, WITHDRAWN, ELECTED, NOT_ELECTED
+- `motivation` och `competenceAreas` för att dokumentera valberedningens bedömning
+
+**MemberNomination** — förslag från medlemmar under öppen nomineringsperiod.
+
+### BrfRules-konfiguration
+
+Följande valberedningsregler finns i BrfRules-modellen:
+
+| Regel | Default | Beskrivning |
+|-------|---------|-------------|
+| `nominatingCommitteeSize` | 3 | Antal ledamöter i valberedningen |
+| `nominationPeriodWeeks` | 8 | Hur länge nomineringsperioden är öppen |
+| `nominationDeadlineBeforeMeeting` | 4 | Veckor före stämma som förslaget ska vara klart |
+| `allowSelfNomination` | true | Kan medlemmar nominera sig själva |
+| `allowMemberNomination` | true | Kan medlemmar nominera andra |
+
+### Dagordningsintegration
+
+Fyra specialTypes i AgendaItemType kopplar valberedningens arbete till stämmans dagordning:
+
+| Dagordningspunkt | specialType |
+|-----------------|:-----------:|
+| Val av styrelseledamöter | `BOARD_ELECTION` |
+| Val av styrelsesuppleanter | `SUBSTITUTE_ELECTION` |
+| Val av revisor | `AUDITOR_ELECTION` |
+| Val av valberedning | `ELECT_NOMINATING_COMMITTEE` |
+
+### API och UI
+
+- **tRPC-router:** `src/server/trpc/routers/nomination.ts` med full CRUD för nomineringsperioder, nomineringar och medlemsförslag.
+- **Medlemssida:** `src/app/(dashboard)/medlem/nomineringar/` där medlemmar kan se öppna nomineringsperioder och lämna förslag.
 
 ---
 
@@ -64,185 +102,50 @@ Stadgarna ska ange hur styrelseledamöter och revisorer utses. Valberedningen ä
 
 ---
 
-## Föreslagen rolltyp: Föreningsroller
-
-Valberedningen bör införas som en ny **föreningsrollkategori** som skiljer sig från styrelseroller:
-
-```
-// Nuvarande
-ADMIN, BOARD_*, AUDITOR, MEMBER, RESIDENT
-
-// Nytt — föreningsroller
-NOMINATING_COMMITTEE         // Valberedningsledamot
-NOMINATING_COMMITTEE_CHAIR   // Valberedningens sammankallande
-```
-
-### Varför en ny kategori?
-
-| Aspekt | Styrelseroll | Föreningsroll (valberedning) |
-|--------|:------------:|:----------------------------:|
-| Vald av | Stämman | Stämman |
-| Ansvarar inför | Stämman | Stämman |
-| Del av styrelsen | JA | NEJ |
-| Tillgång till styrelsedata | Full | Begränsad |
-| Mandatperiod | Stadgebestämd | Till nästa stämma |
-| Oberoendekrav | Nej | JA — ska inte styras av styrelsen |
-
----
-
-## Föreslagen datamodell
-
-### NominationPeriod (valberedningsperiod)
-
-```
-NominationPeriod {
-  id
-  annualMeetingId       // Vilket årsmöte detta gäller
-  committeeMembers[]    // Valberedningens ledamöter (userId[])
-  chairpersonId         // Sammankallande (userId)
-  opensAt               // När nomineringsperioden öppnar
-  closesAt              // Sista dag för nomineringar
-  presentedAt           // När förslaget presenterades
-  status                // PLANNING, OPEN, CLOSED, PRESENTED
-  createdAt
-  updatedAt
-}
-```
-
-### Nomination (nominering)
-
-```
-Nomination {
-  id
-  nominationPeriodId    // Koppling till period
-  position              // CHAIRPERSON, BOARD_MEMBER, BOARD_SUBSTITUTE, AUDITOR, AUDITOR_SUBSTITUTE
-  candidateId           // userId (befintlig medlem)
-  candidateName         // Namn (om extern/ej medlem)
-  nominatedById         // Vem som nominerade (userId, nullable = valberedningen själv)
-  source                // COMMITTEE, MEMBER_NOMINATION, SELF_NOMINATION
-  status                // PROPOSED, ACCEPTED, DECLINED, WITHDRAWN, ELECTED, NOT_ELECTED
-  motivation            // Valberedningens motivering
-  competenceAreas       // Kompetensområden: ekonomi, teknik, juridik, kommunikation etc.
-  acceptedAt            // När kandidaten accepterade
-  declinedReason        // Anledning om avböjd
-  createdAt
-  updatedAt
-}
-```
-
-### MemberNomination (medlemsförslag till valberedningen)
-
-```
-MemberNomination {
-  id
-  nominationPeriodId
-  submittedById         // Medlemmen som föreslår
-  candidateId           // Vem som föreslås (userId, nullable)
-  candidateName         // Fritext om personen ej är medlem
-  position              // Vilken post
-  motivation            // Varför denna kandidat
-  createdAt
-}
-```
-
----
-
-## Föreslagen permissions
-
-```
-// Valberedningsspecifika
-nomination:view          // Se valberedningens förslag (alla medlemmar inför stämma)
-nomination:submit        // Lämna nomineringsförslag som medlem
-nomination:manage        // Hantera nomineringar (valberedningen)
-nomination:finalize      // Låsa och presentera slutligt förslag (sammankallande)
-
-// Befintliga som bör utökas
-annual:view              // Redan finns — valberedningens förslag visas här
-member:view_registry     // Valberedningen behöver se medlemslista för att kontakta kandidater
-```
-
-### Rollmatris
-
-| Permission | NOMINATING_COMMITTEE | NOMINATING_COMMITTEE_CHAIR | MEMBER | BOARD_* |
-|-----------|:---:|:---:|:---:|:---:|
-| nomination:view | Y | Y | Y (efter presentation) | Y |
-| nomination:submit | — | — | Y | Y |
-| nomination:manage | Y | Y | — | — |
-| nomination:finalize | — | Y | — | — |
-| member:view_registry | Y (begränsat) | Y (begränsat) | — | Y |
-| annual:view | Y | Y | Y | Y |
-
-**Kritiskt:** Valberedningen bör se namn, lägenhet och kontaktuppgifter men **INTE** personnummer, ekonomisk data eller styrelseprotokoll.
-
----
-
-## Föreslagt arbetsflöde
+## Arbetsflöde
 
 ### Fas 1: Valberedningen tillsätts (vid stämman)
 
 ```
-Stämma → Dagordningspunkt "Val av valberedning"
+Stämma → Dagordningspunkt "Val av valberedning" (ELECT_NOMINATING_COMMITTEE)
        → Kandidater föreslås och röstas om
        → Beslut: X, Y, Z valda, X som sammankallande
-       → System: NominationPeriod skapas, roller tilldelas
 ```
-
-**Systemstöd:**
-- Ny `specialType: "ELECT_NOMINATING_COMMITTEE"` på dagordningspunkten
-- I mötesadmin: välj ledamöter och sammankallande (liknande ELECT_ADJUSTERS)
-- Vid beslut: automatisk rolltilldelning av NOMINATING_COMMITTEE/CHAIR
 
 ### Fas 2: Nomineringsperiod (mellan stämmor)
 
 ```
-Valberedning → Öppnar nomineringsperiod
-            → Medlemmar kan lämna förslag via systemet
-            → Valberedningen kontaktar kandidater
-            → Kandidater accepterar/avböjer
-            → Valberedningen sammanställer förslag
+Valberedning → Skapar NominationPeriod (status: PLANNING)
+            → Öppnar nomineringsperiod (status: OPEN)
+            → Medlemmar lämnar förslag via /medlem/nomineringar
+            → Valberedningen kontaktar kandidater (status: CONTACTED)
+            → Kandidater accepterar/avböjer (status: ACCEPTED/DECLINED)
+            → Valberedningen stänger perioden (status: CLOSED)
 ```
-
-**Systemstöd:**
-- Nomineringssida för medlemmar: `/medlem/nomineringar`
-- Valberedningens arbetsyta: `/valberedning` (eller liknande)
-- Formulär för medlemsförslag med position och motivering
-- Kandidathantering: status per kandidat (kontaktad, accepterat, avböjt)
-- Kompetensmatris: vilka kompetenser styrelsen behöver vs vad kandidaterna har
 
 ### Fas 3: Presentation (inför stämman)
 
 ```
-Valberedning → Låser förslaget
-            → Förslaget publiceras till alla medlemmar (ingår i kallelse)
-            → Presenteras vid stämman
+Valberedning → Sammankallande låser förslaget (nomination:finalize)
+            → Förslaget publiceras (status: PRESENTED)
+            → Förslaget syns för alla medlemmar
 ```
-
-**Systemstöd:**
-- Sammankallande låser förslaget (`nomination:finalize`)
-- Förslaget syns under årsmötessidan och i kallelsen
-- Presentationsvy i mötesadmin/presentation under relevanta dagordningspunkter
 
 ### Fas 4: Val vid stämman
 
 ```
-Stämma → Dagordningspunkt "Val av styrelseledamöter"
+Stämma → Dagordningspunkt BOARD_ELECTION / SUBSTITUTE_ELECTION / AUDITOR_ELECTION
        → Valberedningens förslag presenteras
-       → Motförslag från medlemmar kan lämnas
+       → Motförslag kan registreras
        → Omröstning (acklamation eller sluten)
-       → Beslut: roller tilldelas automatiskt
+       → Valda kandidater markeras ELECTED / NOT_ELECTED
 ```
-
-**Systemstöd:**
-- Dagordningspunkterna "Val av styrelseledamöter", "Val av styrelsesuppleanter", "Val av revisor" får `specialType: "BOARD_ELECTION"`, `"SUBSTITUTE_ELECTION"`, `"AUDITOR_ELECTION"`
-- Valberedningens förslag visas automatiskt
-- Motförslag kan registreras
-- Vid beslut: automatisk rolltilldelning + borttagning av gamla roller
 
 ---
 
-## Koppling till BrfRules
+## Koppling till befintliga BrfRules
 
-### Befintliga regler som påverkar valberedningen
+Följande befintliga regler påverkar valberedningens arbete:
 
 | Regel | Värde (default) | Relevans |
 |-------|----------------|----------|
@@ -256,41 +159,6 @@ Stämma → Dagordningspunkt "Val av styrelseledamöter"
 | `requireAuthorizedAuditor` | false | Krav på auktoriserad revisor |
 | `secretBallotOnDemand` | true | Sluten omröstning vid personval om någon begär |
 | `tieBreakerLotteryForElection` | true | Lottning vid lika röstetal vid val |
-
-### Nya regler att lägga till
-
-```
-BrfRules {
-  // Valberedning
-  nominatingCommitteeSize       Int     @default(3)    // Antal ledamöter
-  nominationPeriodWeeks         Int     @default(8)    // Hur länge nomineringsperioden är öppen
-  nominationDeadlineBeforeMeeting Int   @default(4)    // Veckor före stämma som förslag ska vara klart
-  allowSelfNomination           Boolean @default(true) // Kan medlemmar nominera sig själva
-  allowMemberNomination         Boolean @default(true) // Kan medlemmar nominera andra
-}
-```
-
----
-
-## Agenda-integration
-
-### Nuvarande dagordning (årsmöte) — relevanta punkter
-
-```
-§15  Val av styrelseledamöter          → Bör visa valberedningens förslag
-§16  Val av styrelsesuppleanter        → Bör visa valberedningens förslag
-§17  Val av revisor                    → Bör visa valberedningens förslag
-§18  Val av valberedning               → Tillsätta nästa valberedning
-```
-
-### Föreslagna specialTypes
-
-| Dagordningspunkt | Nuvarande specialType | Föreslagen specialType |
-|-----------------|:--------------------:|:----------------------:|
-| Val av styrelseledamöter | Ingen | `BOARD_ELECTION` |
-| Val av styrelsesuppleanter | Ingen | `SUBSTITUTE_ELECTION` |
-| Val av revisor | Ingen | `AUDITOR_ELECTION` |
-| Val av valberedning | Ingen | `ELECT_NOMINATING_COMMITTEE` |
 
 ---
 
@@ -336,16 +204,11 @@ Valberedningen behöver INTE:
 
 ---
 
-## Prioriterad åtgärdslista
+## Kvarvarande luckor
 
-| Prio | Funktion | Varför |
-|------|----------|--------|
-| 1 | **Roll + permissions i systemet** | Grundförutsättning — lägg till NOMINATING_COMMITTEE/CHAIR i enum och permissions |
-| 2 | **Datamodell** (NominationPeriod, Nomination, MemberNomination) | Kärnan i arbetsflödet |
-| 3 | **Dagordnings-specialTypes** för val-punkter | Koppla valberedningens förslag till stämmans dagordning |
-| 4 | **BrfRules-konfiguration** | Antal ledamöter, nomineringsperiod, deadlines |
-| 5 | **Nomineringssida för medlemmar** | Medlemmar ska kunna föreslå kandidater |
-| 6 | **Valberedningens arbetsyta** | Kandidathantering, kompetensmatris, förslagsdokument |
-| 7 | **Stämmo-integration** | Visa förslag i mötesadmin/presentation, registrera valresultat |
-| 8 | **Automatisk rolltilldelning** | Vid stämmobeslut: tilldela nya roller, ta bort gamla |
-| 9 | **Oberoendebegränsningar** | Separera valberedningens data från styrelsens |
+| Prio | Funktion | Beskrivning |
+|------|----------|-------------|
+| 1 | **Automatisk rolltilldelning** | Vid stämmobeslut bör systemet automatiskt tilldela nya roller och ta bort gamla. Idag måste detta göras manuellt. |
+| 2 | **Oberoendebegränsningar** | Valberedningen saknar idag tekniska begränsningar mot känslig styrelsedata. Permissions bör begränsa åtkomst till protokoll, ekonomi och utlägg. |
+| 3 | **Kommunikationsmallar** | Mallar för att kontakta kandidater (inbjudan, påminnelse, bekräftelse) saknas. Valberedningen behöver ett standardiserat sätt att nå ut. |
+| 4 | **Innehavarspårning** | Systemet visar inte vilka poster som är lediga eller vilka som sitter idag. Valberedningen behöver en överblick av nuvarande styrelsesammansättning och mandatperioder. |

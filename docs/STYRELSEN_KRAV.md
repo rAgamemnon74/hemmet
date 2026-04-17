@@ -125,15 +125,15 @@ Styrelsen är juridiskt ansvarig för all förvaltning men fungerar i praktiken 
 
 **Nuläge i Hemmet:**
 - `DamageReport`-modell finns för felanmälningar
-- `BrfRules.maintenancePlanRequired/Years` finns men ingen underhållsplanmodell
-- Ingen integration med teknisk förvaltare
-- Ingen koppling till OVK, hiss, energideklaration
+- `BuildingComponent`-modell med livscykel, gapanalys och statusbedömning
+- `Inspection`-modell med 9 inspektionstyper och förfallobevakning (OVK, hiss, brand, energi m.fl.)
+- `Contractor`-register med kontaktuppgifter, F-skatt och PUB-avtal
+- `Contract`-modul med kategorier, statusar, ramavtal, avrop och förfallopåminnelser
+- 13-stegs upphandlingsflöde med offerthantering och mandatspårning
+- Ingen integration med extern teknisk förvaltare
 
 **Systemintegrationsbehov:**
 - Felanmälningssystem (in/ut mot teknisk förvaltare)
-- Underhållsplan med komponentregister (K3-krav)
-- Besiktningskalender (OVK, hiss, brand, energi)
-- Entreprenadhantering (offertförfrågan, kontrakt, uppföljning)
 - IoT-integration (värmesystem, vattenläckagevakter, energimätare)
 
 ---
@@ -172,7 +172,7 @@ Styrelsen är juridiskt ansvarig för all förvaltning men fungerar i praktiken 
 | Cateringfirmor | Catering | Vid föreningsarrangemang |
 | Bokningssystem | SaaS-leverantör | Tvättstuga, bastu, gästlägenhet |
 
-**Nuläge i Hemmet:** Ingen rollspecifik funktionalitet implementerad. Inget bokningssystem.
+**Nuläge i Hemmet:** Ingen rollspecifik funktionalitet implementerad. `BookableResource`/`Booking`-modell finns men med minimal UI.
 
 ---
 
@@ -201,7 +201,7 @@ Styrelsen är juridiskt ansvarig för all förvaltning men fungerar i praktiken 
 | Auktoriserad revision | Revisionsbolag (BoRevision, PwC, Grant Thornton) | Extern revisor krävs ofta av stadgarna |
 | Förvaltningstillsyn | Förbundsrevisor (HSB, Riksbyggen) | Moderorganisationens revision |
 
-**Nuläge i Hemmet:** `audit:view` permission. Kan se men inte utföra revision. `Audit`-modell finns men revisionsflödet är primitivt.
+**Nuläge i Hemmet:** `audit:view` permission. `AUDITOR_SUBSTITUTE`-roll med egna permissions. `Audit`-modell finns men revisionsflödet är primitivt.
 
 ---
 
@@ -249,11 +249,22 @@ Styrelsen är juridiskt ansvarig för all förvaltning men fungerar i praktiken 
 | Styrelsemöten med dagordning | OK | Fullt mötesflöde med admin/presentation |
 | Beslut och beslutslogg | OK | Acklamation, votering, namnupprop |
 | Utläggshantering | OK | Attestflöde: submit → approve → paid |
-| Medlemsregister | Delvis | Saknar fältnivåfiltrering (GDPR) |
+| Medlemsregister med GDPR | OK | Fältnivåfiltrering per roll, personnummermaskering, åtkomstloggning, samtycke via UserConsent |
 | Motioner | OK | Fullt flöde med styrelsens yttrande |
 | Årsredovisning | Grundläggande | Saknar K3-stöd |
 | Felanmälan | Grundläggande | Ingen integration med teknisk förvaltare |
-| Roller och behörigheter | OK | 12 roller, 35+ permissions |
+| Roller och behörigheter | OK | 15 roller, 44 permissions |
+| Underhållsplan | OK | BuildingComponent med livscykel, gapanalys, 9 inspektionstyper med förfallobevakning |
+| Kontrakthantering/Avtal | OK | Kategorier, statusar, ramavtal, avrop, förfallopåminnelser |
+| Upphandling | OK | 13-stegs upphandlingsflöde med offerthantering och mandatspårning |
+| Entreprenörer/leverantörer | OK | Register med kontaktuppgifter, F-skatt, PUB-avtal |
+| Överlåtelseprocess | OK | TransferCase med 8 statusar, avgiftsberäkning, pantnotering, medlemsprövning |
+| Störningshantering | OK | DisturbanceCase med eskaleringsmodell och tidslinje |
+| Andrahandsuthyrning | OK | SubletApplication med tidsbegränsning och styrelsebeslut |
+| Renoveringsansökan | OK | RenovationApplication med teknisk och styrelsebedömning |
+| Valberedning | OK | NominationPeriod, Nomination, MemberNomination — fullt flöde |
+| Jävsdeklaration | OK | DecisionRecusal med deltagarlista per beslut |
+| Dashboard | OK | Behörighetsbaserad, rolloberoende |
 
 ### Vad som saknas för ett komplett styrelseverktyg
 
@@ -261,16 +272,11 @@ Styrelsen är juridiskt ansvarig för all förvaltning men fungerar i praktiken 
 |----------|-----------|:---------:|
 | **Ekonomisystemintegration** (Fortnox/Visma/SIE) | Kassör | HÖG |
 | **Digital signering** (BankID) | Sekreterare, Ordförande | HÖG |
-| **Underhållsplan** med komponentregister | Fastighetsansvarig | HÖG (K3-krav) |
 | **Aviseringshantering** (månadsavgifter) | Kassör | HÖG |
-| **Kallelseverktyg** (e-post/SMS) | Sekreterare | HÖG |
-| **Överlåtelseflöde** (mäklare → ansökan → prövning) | Ordförande | MEDEL |
-| **Besiktningskalender** (OVK, hiss, brand) | Fastighetsansvarig | MEDEL |
-| **Bokningssystem** (tvättstuga, bastu, gästrum) | Aktivitetsansvarig | MEDEL |
-| **Budgetverktyg** med uppföljning | Kassör | MEDEL |
-| **Energiuppföljning** (EPBD-krav) | Fastighetsansvarig, Miljöansvarig | MEDEL |
-| **Entreprenadhantering** | Fastighetsansvarig | LÅG |
-| **IoT-integration** (värmesystem, vattenläcka) | Fastighetsansvarig | LÅG |
+| **Kallelseverktyg** (digital distribution av kallelse/agenda) | Sekreterare | HÖG |
+| **Budget/ekonomisk planering** med uppföljning | Kassör | MEDEL |
+| **Bokningssystem** (tvättstuga, bastu, gästrum) — UI | Aktivitetsansvarig | MEDEL |
+| **Energiuppföljning/IoT** (EPBD-krav, värmesystem) | Fastighetsansvarig, Miljöansvarig | LÅG |
 
 ---
 
@@ -322,12 +328,12 @@ Under 2000-talet har juridiken kring BRF:er stramats åt markant. Lekmannastyrel
 - Beslut kan angripas och ogiltigförklaras av enskild medlem
 
 **Vad Hemmet bör stödja:**
-- [ ] Jävsdeklaration vid beslutsfattande — "Jag intygar att jag inte är jävig i detta ärende"
-- [ ] Loggning av vem som deltog/avstod vid varje beslut
-- [ ] Jävsregister per styrelsemedlem (kopplingar till företag/närstående)
+- [x] Jävsdeklaration vid beslutsfattande — DecisionRecusal-modell
+- [x] Loggning av vem som deltog/avstod vid varje beslut — participantIds + ActivityLog
+- [x] Jävsregister per styrelsemedlem — ConflictOfInterest-modell
 - [ ] Automatisk varning om en leverantör delar organisationsnummer/namn med styrelsemedlem
 
-**Nuläge i Hemmet:** Inget jävsstöd. Beslut loggar inte vem som deltog/avstod. Inget leverantörsregister att korsreferera mot.
+**Nuläge i Hemmet:** `DecisionRecusal`-modell med jävsdeklaration vid beslut. `participantIds` loggar vem som deltog/avstod. `ConflictOfInterest`-modell finns. `Contractor`-register med organisationsnummer möjliggör framtida korsreferens. Automatisk varning vid namnmatchning saknas ännu.
 
 ---
 
@@ -344,12 +350,12 @@ Under 2000-talet har juridiken kring BRF:er stramats åt markant. Lekmannastyrel
 - Mäklaren kan kräva ersättning för utebliven affär
 
 **Vad Hemmet bör stödja:**
-- [ ] Strukturerad medlemsprövning med obligatoriska fält (ekonomisk bedömning, kreditupplysning)
+- [x] Strukturerad medlemsprövning med obligatoriska fält — TransferCase med 8 statusar, avgiftsberäkning, kreditkontroll-checklista
 - [ ] Standardiserade avslagsmallar med juridiskt korrekta motiveringar
-- [ ] Beslutsspår: vilka grunder prövades, vilka underlag fanns, vem beslutade
+- [x] Beslutsspår: vilka grunder prövades, vilka underlag fanns, vem beslutade — ActivityLog
 - [ ] Varning vid avslag utan dokumenterad ekonomisk grund
 
-**Nuläge i Hemmet:** `MembershipApplication` med godkänn/avslå finns men ingen strukturerad prövningsmall. Inga standardiserade avslagsorsaker. Inget krav på motivering.
+**Nuläge i Hemmet:** `TransferCase` med fullt överlåtelseflöde (8 statusar), avgiftsberäkning, pantnotering och medlemsprövning. `MembershipApplication` finns parallellt. Standardiserade avslagsmallar saknas.
 
 ---
 
@@ -367,12 +373,12 @@ Under 2000-talet har juridiken kring BRF:er stramats åt markant. Lekmannastyrel
 - Försäkringsbolaget kan vägra ersättning om styrelsen känt till bristen
 
 **Vad Hemmet bör stödja:**
-- [ ] Tillståndsansökan för ombyggnad med godkännandeflöde
-- [ ] Dokumentation av villkor och besiktningskrav
+- [x] Tillståndsansökan för ombyggnad med godkännandeflöde — RenovationApplication
+- [x] Dokumentation av villkor och besiktningskrav — teknisk bedömning + styrelsebedömning
 - [ ] Automatisk påminnelse om uppföljning efter godkänd renovering
-- [ ] Ärendehistorik kopplad till lägenhet (inte bara person)
+- [x] Ärendehistorik kopplad till lägenhet
 
-**Nuläge i Hemmet:** Inget renoveringsstöd. Ingen tillståndsprocess. Ingen koppling mellan lägenhet och ärenden.
+**Nuläge i Hemmet:** `RenovationApplication`-modell med teknisk och styrelsebedömning. Koppling till lägenhet. Automatisk uppföljningspåminnelse saknas.
 
 ---
 
@@ -388,12 +394,12 @@ Under 2000-talet har juridiken kring BRF:er stramats åt markant. Lekmannastyrel
 - Hyresnämnden kan ge hyresgästen rätt att bo kvar
 
 **Vad Hemmet bör stödja:**
-- [ ] Andrahandsansökan med obligatoriska fält (skäl, tidsperiod, hyresgästuppgifter)
-- [ ] Automatisk tidsbegränsning med påminnelse vid utgång
+- [x] Andrahandsansökan med obligatoriska fält (skäl, tidsperiod, hyresgästuppgifter) — SubletApplication
+- [x] Automatisk tidsbegränsning med påminnelse vid utgång
 - [ ] Standardavtalsmall som undviker besittningsskydd
-- [ ] Logg över godkända/avslagna ansökningar med motivering
+- [x] Logg över godkända/avslagna ansökningar med motivering
 
-**Nuläge i Hemmet:** `BrfRules` har andrahandsparametrar (`subletFeeMaxPercent`) men inget flöde för andrahandsansökan.
+**Nuläge i Hemmet:** `SubletApplication`-modell med status, tidsperiod och styrelsebeslut. `BrfRules.subletFeeMaxPercent` styr avgift. Standardavtalsmall saknas.
 
 ---
 
@@ -447,12 +453,12 @@ Under 2000-talet har juridiken kring BRF:er stramats åt markant. Lekmannastyrel
 - Dramatiskt högre reparationskostnader jämfört med planerat underhåll
 
 **Vad Hemmet bör stödja:**
-- [ ] Underhållsplan med komponentregister och statusbedömning
-- [ ] Automatisk varning när planerat underhåll förfaller
+- [x] Underhållsplan med komponentregister och statusbedömning — BuildingComponent med livscykel och gapanalys
+- [x] Automatisk varning när planerat underhåll förfaller — Inspection med förfallobevakning (9 typer)
 - [ ] Koppling mellan underhållsplan och budget/avsättning
-- [ ] Besiktningsprotokoll kopplade till komponenter
+- [x] Besiktningsprotokoll kopplade till komponenter — Inspection-modell
 
-**Nuläge i Hemmet:** `BrfRules.maintenancePlanRequired/Years` finns men ingen underhållsplanmodell.
+**Nuläge i Hemmet:** `BuildingComponent`-modell med livscykel, gapanalys och statusbedömning. `Inspection`-modell med 9 inspektionstyper och förfallobevakning. Koppling till budget/ekonomisk planering saknas.
 
 ---
 
@@ -467,12 +473,12 @@ Under 2000-talet har juridiken kring BRF:er stramats åt markant. Lekmannastyrel
 - Överreaktion: ogiltigt förverkande, skadestånd mot den utpekade
 
 **Vad Hemmet bör stödja:**
-- [ ] Störningsärendehantering med tidslinje (anmälan → tillsägelse → varning → förverkande)
-- [ ] Dokumentation av varje steg för rättslig hållbarhet
+- [x] Störningsärendehantering med tidslinje (anmälan → tillsägelse → varning → förverkande) — DisturbanceCase med eskaleringsmodell
+- [x] Dokumentation av varje steg för rättslig hållbarhet
 - [ ] Mallar för tillsägelsebrev och varningsbrev
-- [ ] Koppling till lägenhet med ärendehistorik
+- [x] Koppling till lägenhet med ärendehistorik
 
-**Nuläge i Hemmet:** `DamageReport` finns men hanterar felanmälan, inte störningar. Inget störningsärendeflöde.
+**Nuläge i Hemmet:** `DisturbanceCase`-modell med 8-stegs eskaleringsmodell och tidslinje. Koppling till lägenhet. Brevmallar saknas.
 
 ---
 
@@ -535,6 +541,10 @@ Styrelser består av lekmän. Systemet bör vara deras **säkerhetsnät** — in
 | **Ekonomisk transparens** | Vilseledande information (#5) | MEDEL | IMPLEMENTERAD — Kassör-dashboard, överlåtelseprocess |
 | **Försäkringspåminnelse** | Personligt ansvar (#10) | LÅG | Saknas — BrfSettings har data men ingen bevakning |
 | **Renoveringsansökan** | Otillåtna ombyggnationer (#3) | MEDEL | IMPLEMENTERAD — RenovationApplication med teknisk bedömning |
+| **Kontrakthantering** | Avtalsrisker, förfallna avtal | HÖG | IMPLEMENTERAD — Contract med kategorier, ramavtal, förfallopåminnelser |
+| **Upphandlingsflöde** | Jäv, överpris (#1) | HÖG | IMPLEMENTERAD — 13-stegs flöde med offert och mandatspårning |
+| **Leverantörsregister** | GDPR/PUB-avtal, leverantörskontroll | MEDEL | IMPLEMENTERAD — Contractor med F-skatt, PUB-avtal |
+| **Valberedning** | Felaktig valberedningsprocess | MEDEL | IMPLEMENTERAD — NominationPeriod, Nomination, MemberNomination |
 
 ---
 

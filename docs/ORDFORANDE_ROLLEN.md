@@ -55,10 +55,11 @@ BOARD_CHAIRPERSON har flest permissions efter ADMIN och är den enda styrelserol
 - Inget stöd för "i förening"-krav (t.ex. två firmatecknare krävs)
 - Inget signeringsspår på dokument eller beslut
 
-### 4. Ingen ordförande-dashboard
+### 4. Ordförande-dashboard — delvis implementerad
 
-- Ingen samlad vy över ordförandens ansvarsområden
-- Ingen översikt av: väntande ansökningar, utlägg att godkänna, motioner att svara på
+- `chairpersonOverview`-query finns och renderas på dashboarden med: väntande ansökningar, utlägg att godkänna, väntande överlåtelser, förfallna överlåtelser och oägda lägenheter
+- Dashboarden är omdesignad till att vara behörighetsbaserad (inte längre dold av rollkonflikter)
+- **Saknas:** Motioner returneras av API:et (`pendingMotions`) men visas inte som kort på dashboarden
 - Ingen påminnelse om kommande möten eller deadlines
 - Ingen uppgiftslista kopplad till mötesbeslut
 
@@ -108,7 +109,7 @@ BOARD_CHAIRPERSON har flest permissions efter ADMIN och är den enda styrelserol
 |------|----------|--------|
 | 1 | **Implementera utslagsröst** | Finns i stadgarna, databas redo, saknar logik |
 | 2 | **Ge ordförande admin:settings** | Ordförande måste kunna ändra föreningsuppgifter |
-| 3 | **Ordförande-dashboard** | Samlad vy: utlägg, ansökningar, motioner, möten |
+| 3 | **Motioner-kort på dashboard** | Data finns i API men visas inte som kort |
 | 4 | **Firmateckningsvalidering** | Koppla signatoryRule till godkännandeflöden |
 | 5 | **Kallelseverktyg** | Skicka kallelse digitalt med dagordning |
 | 6 | **Mötesledning med verkställighet** | Ordförande styr dagordning exklusivt under mötet |

@@ -41,21 +41,18 @@ Alla styrelseledamöter kan bidra till protokollet (utkast). Sekreteraren äger 
    → Protokolldeadline kontrolleras (BrfRules.protocolDeadlineWeeks).
 ```
 
-### Datamodell (befintlig — utökas)
+### Datamodell (implementerad)
 
 ```
 Protocol {
-  // Befintliga fält
-  content      String    // Protokolltext
-  signedBy     String[]  // Array av userId som signerat
-  signedAt     DateTime? // Senaste signering
-  pdfUrl       String?   // Genererad PDF
-
-  // Nya fält
-  status       ProtocolStatus  // DRAFT, FINALIZED, SIGNED, ARCHIVED
-  finalizedAt  DateTime?       // När sekreteraren slutbehandlade
-  finalizedBy  String?         // Sekreterarens userId
-  archivedAt   DateTime?       // När protokollet arkiverades
+  content      String           // Protokolltext
+  signedBy     String[]         // Array av userId som signerat
+  signedAt     DateTime?        // Senaste signering
+  pdfUrl       String?          // Genererad PDF
+  status       ProtocolStatus   // DRAFT, FINALIZED, SIGNED, ARCHIVED
+  finalizedAt  DateTime?        // När sekreteraren slutbehandlade
+  finalizedBy  String?          // Sekreterarens userId
+  archivedAt   DateTime?        // När protokollet arkiverades
 }
 
 enum ProtocolStatus {
@@ -82,52 +79,62 @@ enum ProtocolStatus {
 - **Dokumentarkiv:** Protokollet sparas som Document med kategori MEETING_PROTOCOL
 - **Notifiering:** Vid FINALIZED notifieras ordförande + justerare, vid ARCHIVED notifieras alla styrelsemedlemmar
 
-## Kritiska brister
+## Implementerat
 
-### 1. Protokollsignering — databas delvis klar, UI och flöde saknas
+### 1. Protokollsignering — fullständigt flöde
 
-- `Protocol.signedBy[]` och `signedAt` finns i schemat men används aldrig
-- Protokollstatus (DRAFT → FINALIZED → SIGNED → ARCHIVED) saknas i schemat
-- Inget signeringsflöde i UI
-- Ingen låsning av protokoll efter slutbehandling
-- Ingen PDF-generering
+- `ProtocolStatus`-enum med 4 tillstånd: DRAFT, FINALIZED, SIGNED, ARCHIVED
+- Protocol-modellen har `status`, `finalizedAt`, `finalizedBy`, `archivedAt`
+- Protocol-routern har komplett livscykel: generera utkast, uppdatera anteckningar, slutbehandla, återöppna, signera, arkivera
+- `signedBy[]` och `signedAt` används i signeringsflödet
+- Låsning av protokoll efter slutbehandling
 
-### 2. Ingen sekreterar-specifik vy
+**Begränsning:** Signering sker via klick-bekräftelse, inte via BankID eller annan juridiskt bindande digital signatur.
 
-- Ingen dashboard med "mina uppgifter som sekreterare"
-- Ingen påminnelse om protokolldeadline (`BrfRules.protocolDeadlineWeeks` = 3 veckor)
-- Ingen notifiering vid val till mötessekreterare
+### 2. Protokollstatus i schemat
 
-### 3. Protokollstöd är primitivt
+- `ProtocolStatus`-enum (DRAFT, FINALIZED, SIGNED, ARCHIVED) finns i Prisma-schemat
+- Fullständig statushantering i protocol-routern
 
-- Fritext-textarea utan struktur
-- Ingen mall som förifylls från mötesloggen (dagordning, beslut, närvaro)
-- Ingen versionshistorik eller spårning av ändringar
+### 3. Sekreterardata på dashboard (delvis)
 
-### 4. Behörighetsseparation saknas under mötet
+- "Mitt just nu"-sektionen på dashboarden visar protokoll som väntar på signering (`protocolsToSign`)
+- `boardOverview`-queryn visar antal väntande protokoll
+- **Saknas fortfarande:** Dedikerad sekreterardashboard, protokolldeadline-påminnelse, notifiering vid val till mötessekreterare
 
-- Under IN_PROGRESS har sekreteraren samma rättigheter som alla styrelsemedlemmar
-- Ingen exklusiv "protokollförare"-vy i mötesadmin
-- Sekreteraren kan inte anteckna under punkterna i realtid
+## Kvarvarande brister
 
-### 5. Besluthantering
-
-- Sekreteraren har ingen särskild roll i att kvalitetssäkra beslut
-- Ingen validering att alla dagordningspunkter har dokumenterats
-- Ingen koppling mellan möteslogg -> protokollutkast
-
-### 6. Kallelsehantering
+### 1. Kallelsehantering
 
 - Sekreteraren ska normalt assistera ordföranden med kallelser
 - Inget stöd för att skicka ut kallelser (digital/e-post)
 - `BrfRules.noticeMethodDigital` finns men används inte
 
+### 2. Protokollstöd är primitivt
+
+- Fritext-textarea utan struktur
+- Ingen mall som förifylls från mötesloggen (dagordning, beslut, närvaro)
+- Ingen versionshistorik eller spårning av ändringar
+
+### 3. Behörighetsseparation saknas under mötet
+
+- Under IN_PROGRESS har sekreteraren samma rättigheter som alla styrelsemedlemmar med `meeting:edit`
+- Ingen exklusiv "protokollförare"-vy i mötesadmin
+- Sekreteraren kan inte anteckna under punkterna i realtid
+
+### 4. Besluthantering
+
+- Sekreteraren har ingen särskild roll i att kvalitetssäkra beslut
+- Ingen validering att alla dagordningspunkter har dokumenterats
+- Ingen koppling mellan möteslogg -> protokollutkast
+
 ## Prioriterad åtgärdslista
 
-| Prio | Funktion | Varför |
-|------|----------|--------|
-| 1 | **Protokoll från möteslogg** | Autogenerera utkast från loggdata — sekreterarens viktigaste uppgift |
-| 2 | **Signeringsflöde** | Lagkrav: protokoll ska justeras av ordförande + justerare |
-| 3 | **Protokolldeadline-påminnelse** | Stadgarna kräver protokoll inom X veckor |
-| 4 | **Realtidsanteckningar i mötesadmin** | Sekreteraren behöver anteckna under varje punkt |
-| 5 | **Kallelseverktyg** | Skicka ut kallelse digitalt med dagordning |
+| Prio | Funktion | Status | Varför |
+|------|----------|--------|--------|
+| ~~1~~ | ~~**Signeringsflöde**~~ | Implementerat | Komplett livscykel i protocol-routern (klick-signering, ej BankID) |
+| 2 | **Protokoll från möteslogg** | Saknas | Autogenerera utkast från loggdata — sekreterarens viktigaste uppgift |
+| 3 | **Protokolldeadline-påminnelse** | Saknas | Stadgarna kräver protokoll inom X veckor |
+| 4 | **Realtidsanteckningar i mötesadmin** | Saknas | Sekreteraren behöver anteckna under varje punkt |
+| 5 | **Kallelseverktyg** | Saknas | Skicka ut kallelse digitalt med dagordning |
+| 6 | **BankID-signering** | Saknas | Juridiskt bindande digital signatur för protokolljustering |

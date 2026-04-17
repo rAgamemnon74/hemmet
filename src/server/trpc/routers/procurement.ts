@@ -9,6 +9,18 @@ import { logActivity } from "@/lib/audit";
 import { Prisma } from "@prisma/client";
 
 export const procurementRouter = router({
+  activeCounts: protectedProcedure
+    .use(requirePermission("procurement:view"))
+    .query(async ({ ctx }) => {
+      const active = await ctx.db.procurement.count({
+        where: { status: { notIn: ["COMPLETED", "CANCELLED", "REJECTED"] } },
+      });
+      const awaitingDecision = await ctx.db.procurement.count({
+        where: { status: { in: ["DECISION_PENDING", "EVALUATION"] } },
+      });
+      return { active, awaitingDecision };
+    }),
+
   list: protectedProcedure
     .use(requirePermission("procurement:view"))
     .input(z.object({

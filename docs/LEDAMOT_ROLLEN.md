@@ -74,7 +74,7 @@ Alla styrelseledamöter — oavsett titel — delar **solidariskt ansvar** för 
 | Delta i styrelsemöten | 6-12/år | OK — möten, dagordning, röstning |
 | Läsa och godkänna protokoll | Efter varje möte | OK — protokollvy |
 | Följa upp tilldelade uppgifter | Löpande | OK — task-systemet |
-| Läsa in sig på ärenden inför möte | Före varje möte | Delvis — ingen samlad "inför mötet"-vy |
+| Läsa in sig på ärenden inför möte | Före varje möte | OK — boardOverview visar nästa möte + dagordning |
 | Bevaka sitt ansvarsområde (om tilldelat) | Löpande | Beror på område |
 | Representera styrelsen vid behov | Vid behov | Inget stöd |
 | Anmäla jäv | Vid varje berört beslut | **Saknas** |
@@ -118,16 +118,9 @@ BOARD_CHAIRPERSON = BOARD_COMMON + 11 extra permissions
 
 ## Kritiska brister
 
-### 1. Ingen samlad "inför mötet"-vy
+### 1. "Inför mötet"-vy — implementerad
 
-Ledamoten ska komma förberedd till styrelsemöten. Idag måste de manuellt navigera:
-- Se dagordningen
-- Läsa föregående protokoll
-- Kolla öppna ärenden/uppgifter
-- Läsa inkomna motioner och förslag
-- Se felanmälningar
-
-**Åtgärd:** En "Förbered inför möte"-vy som samlar allt relevant material för kommande möte.
+`boardOverview`-query returnerar nästa möte med dagordningspunkter samt "sedan förra mötet"-räknare. Detta renderas nu på dashboarden som en "Sedan förra mötet"-sektion med antal nya uppgifter, motioner, förslag, felanmälningar, utlägg, överlåtelser och väntande protokoll.
 
 ### 2. Ingen jävsdeklaration
 
@@ -148,9 +141,9 @@ Ledamoten får inga notifieringar om:
 
 Ordförande kan muntligt ge en ledamot ett uppdrag ("kan du kontakta leverantören om offert?"). Det finns inget sätt att formellt delegera en specifik uppgift med deadline och uppföljning utöver det generella task-systemet.
 
-### 5. Ingen insyn i vad som händer mellan möten
+### 5. "Sedan sist"-vy — implementerad
 
-Mellan möten kan det hända mycket — nya felanmälningar, godkända utlägg, inkomna ansökningar. Ledamoten har ingen "sedan sist"-vy som sammanfattar vad som hänt sedan förra mötet.
+`boardOverview.sinceLast` returnerar räknare för händelser sedan förra styrelsemötet: nya uppgifter, motioner, förslag, felanmälningar, utlägg, överlåtelser och väntande protokoll. Visas nu på dashboarden som "Sedan förra mötet"-sektionen.
 
 ### 6. Protokoll-behörighet bör ifrågasättas
 
@@ -166,8 +159,8 @@ Alla styrelseledamöter har `meeting:protocol` — dvs alla kan redigera protoko
 
 | Behov | Beskrivning | Prioritet | Status |
 |-------|-------------|:---------:|:------:|
-| **Mötesförberedelse** | Samlad vy med dagordning, öppna ärenden, underlag inför nästa möte | HÖG | Saknas |
-| **"Sedan sist"** | Sammanfattning av händelser sedan förra styrelsemötet | HÖG | Saknas |
+| **Mötesförberedelse** | Samlad vy med dagordning, öppna ärenden, underlag inför nästa möte | HÖG | Implementerad |
+| **"Sedan sist"** | Sammanfattning av händelser sedan förra styrelsemötet | HÖG | Implementerad |
 | **Notifieringar** | Push/e-post vid nya uppgifter, möten, ärenden | HÖG | Modell finns, logik saknas |
 | **Jävsdeklaration** | Checkbox + motivering per beslut | HÖG | Saknas |
 | **Min sida (styrelsevy)** | Mina uppgifter, mina tilldelade ärenden, min närvarohistorik | MEDEL | Min sida finns, styrelsevy saknas |
@@ -188,9 +181,6 @@ Alla styrelseledamöter har `meeting:protocol` — dvs alla kan redigera protoko
 
 | Prio | Funktion | Varför |
 |------|----------|--------|
-| 1 | **"Inför mötet"-vy** | Ledamotens viktigaste förberedelse — samla dagordning, underlag, öppna ärenden |
-| 2 | **"Sedan sist"-sammanfattning** | Hålla sig informerad mellan möten (informationsplikt) |
-| 3 | **Jävsdeklaration** | Juridiskt krav, personligt ansvar |
-| 4 | **Notifieringar** | Reagera i tid på nya ärenden |
-| 5 | **Utvärdera meeting:protocol** | Bör kanske begränsas till sekreterare |
-| 6 | **Testanvändare** | Lägg till `ledamot@hemmet.se` i seed-data |
+| 1 | **Jävsdeklaration** | Juridiskt krav, personligt ansvar |
+| 2 | **Notifieringar** | Reagera i tid på nya ärenden |
+| 3 | **Utvärdera meeting:protocol** | Bör kanske begränsas till sekreterare |

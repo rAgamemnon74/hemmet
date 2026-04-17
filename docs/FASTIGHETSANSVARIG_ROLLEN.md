@@ -5,11 +5,15 @@
 ### Permissions
 
 BOARD_PROPERTY_MGR har BOARD_COMMON (24 permissions) plus:
-- `report:manage` — enda rollspecifika permissionen (hanterar felanmälningsstatus och resolution)
+- `report:manage` — hanterar felanmälningsstatus och resolution
+- `contract:manage` — avtal (CRUD, ramavtal, avrop)
+- `procurement:manage` — upphandlingar (offerter, jämförelse, beslut)
+- `contractor:manage` — leverantörsregister (kontaktpersoner, F-skatt, försäkring)
 
 Delar `report:manage` med BOARD_CHAIRPERSON och ADMIN.
+Delar `contract:manage`, `procurement:manage`, `contractor:manage` med BOARD_CHAIRPERSON, BOARD_SECRETARY och BOARD_TREASURER.
 
-### Felanmälningshantering (enda specialiserade funktionen)
+### Felanmälningshantering
 
 Fullt flöde implementerat:
 - **SUBMITTED** -> **ACKNOWLEDGED** -> **IN_PROGRESS** -> **RESOLVED** -> **CLOSED**
@@ -18,6 +22,72 @@ Fullt flöde implementerat:
 - Allvarlighetsnivåer: LOW, NORMAL, HIGH, CRITICAL
 - Platskategorier: Trapphus, Tvättstuga, Cykelrum, Källare, Garage, Innergård, Tak, Fasad, Hiss, Entré, Soprum, Övrigt
 - Koppling till lägenhet (valfritt — gemensamma utrymmen har `apartmentId: null`)
+
+### Underhållsplan och komponentregister (K3-krav)
+
+Fullständigt implementerat i `BuildingComponent`-modellen:
+- **Komponentregister** per byggnad med kategorier (TAK, STAMMAR, FONSTER, FASAD, HISS, EL, VVS, VENTILATION m.fl.)
+- **Livscykelspårning:** installationsår, förväntad livslängd, skick (GOOD/FAIR/POOR/CRITICAL), planerat åtgärdsår, beräknad kostnad
+- **Gap-analys** (`property.gapAnalysis`) identifierar automatiskt: saknade kategorier, komponenter som passerat livslängd, kritiskt skick, saknade kostnadsuppskattningar
+- Koppling till besiktningar via `Inspection`-relationen
+
+Router: `src/server/trpc/routers/property.ts`
+
+### Besiktningskalender
+
+Fullständigt implementerat i `Inspection`-modellen:
+- **9 besiktningstyper:** OVK, HISS (ELEVATOR), BRAND (FIRE_SAFETY), ENERGI (ENERGY), RADON, LEKPLATS (PLAYGROUND), CISTERN, KOMPONENT (COMPONENT), ÖVRIGT (OTHER)
+- **Statusspårning:** scheduledAt, completedAt, result (APPROVED, APPROVED_WITH_REMARKS, FAILED, PENDING)
+- **Nästa besiktningsdatum** (`nextDueAt`) med index för snabb sökning
+- **Försenade besiktningar** identifieras via `property.getOverdueInspections`
+- Koppling till byggnad och valfritt till specifik komponent
+- Bilagor via `InspectionAttachment` (samt generisk `Attachment`-modell)
+
+| Besiktning | Lagkrav | Intervall | Status i Hemmet |
+|-----------|---------|-----------|:---------------:|
+| OVK (ventilation) | PBL + BFS | 3-6 år beroende på typ | Implementerat |
+| Hissbesiktning | AFS 2003:6 | Årlig | Implementerat |
+| Brandskydd (SBA) | LSO 2003:778 | Löpande egenkontroll | Implementerat |
+| Energideklaration | Lag 2006:985 | 10 år | Implementerat |
+| Radonmätning | Miljöbalken | Vid behov / egenkontroll | Implementerat |
+| Lekplatsbesiktning | SS-EN 1176 | Årlig | Implementerat |
+| Cisternkontroll | NFS 2021:10 | 6/12 år | Implementerat |
+
+Router: `src/server/trpc/routers/property.ts`
+
+### Entreprenad- och leverantörshantering
+
+Tre sammankopplade modeller:
+
+**Contractor** (leverantörsregister):
+- Fullständig CRUD med kategori (PLUMBER, ELECTRICIAN, LOCKSMITH, PAINTER m.fl.)
+- Organisationsdata: org-nummer, moms-nummer, DUNS
+- Skatt och juridik: F-skattsedel, momsregistrering, ansvarsförsäkring med giltighetstid
+- PUB-avtal (GDPR art. 28) med status och giltighetstid
+- Flera kontaktpersoner per leverantör (`ContractorContact` med roll, primär-markering)
+- Betyg och anteckningar
+
+**Contract** (avtalsregister):
+- Status: DRAFT, ACTIVE, RENEWAL_PENDING, EXPIRING, EXPIRED, TERMINATED
+- Kategorier: SERVICE, INSURANCE, FINANCIAL, CONSTRUCTION, CONSULTING, IT, ENERGY, WASTE, OTHER
+- Ramavtal med årstak och avrop (`ContractCallOff`)
+- Ekonomi: årskostnad, totalvärde, betalningsvillkor
+- Uppsägningstid, automatisk förlängning, förhandlingspåminnelse
+- Koppling till leverantör (valfritt — fritext som fallback)
+
+**Procurement** (upphandlingar):
+- 13-stegsflöde: NEED -> NEED_DEFERRED -> RFQ_DRAFT -> RFQ_SENT -> QUOTES_IN -> EVALUATION -> DECISION_PENDING -> APPROVED -> REJECTED -> CONTRACT_SIGNED -> IN_PROGRESS -> COMPLETED -> CANCELLED
+- Offerter (`ProcurementQuote`) med belopp, villkor, garanti, betalningssätt, intern bedömning
+- Anteckningar (`ProcurementNote`) per upphandling
+- Koppling till budget, mandatnivå, styrelsebeslut, avtal och leverantör
+
+Routrar: `src/server/trpc/routers/contractor.ts`, `src/server/trpc/routers/contract.ts`, `src/server/trpc/routers/procurement.ts`
+
+### Fastighets-dashboard (delvis implementerat)
+
+- `dashboard.propertyOverview` visar samlad vy för fastighetsansvarig och admin
+- Försenade besiktningar visas på huvuddashboarden
+- Avtal som snart löper ut visas på huvuddashboarden
 
 ### Möteskontext
 
@@ -33,82 +103,44 @@ Fullt flöde implementerat:
 - Kan svara på motioner (`motion:respond`)
 - Kan redigera årsredovisning (`annual_report:edit`)
 
-## Kritiska brister
+## Kvarvarande brister
 
-### 1. Underhållsplan — saknas helt (K3-krav 2026)
-
-- `BrfRules.maintenancePlanRequired` = true, `maintenancePlanYears` = 30 — men **ingen datamodell**
-- Ingen komponentregister (tak, stammar, fönster, hiss, fasad etc.)
-- Ingen statusbedömning per komponent
-- Ingen koppling till avskrivningsberäkning (K3-obligatorium)
-- Ingen koppling till budget/avsättning
-- Ingen möjlighet att planera eller prioritera underhållsåtgärder
-
-**Detta är den mest kritiska bristen** — K3 kräver komponentavskrivning från räkenskapsåret 2026, vilket förutsätter att systemet kan spåra fastighetens komponenter med livslängd, skick och planerad åtgärd.
-
-### 2. Besiktningskalender — saknas helt
-
-Lagstadgade besiktningar som fastighetsansvarig måste bevaka:
-
-| Besiktning | Lagkrav | Intervall | Status i Hemmet |
-|-----------|---------|-----------|:---------------:|
-| OVK (ventilation) | PBL + BFS | 3-6 år beroende på typ | Saknas |
-| Hissbesiktning | AFS 2003:6 | Årlig | Saknas |
-| Brandskydd (SBA) | LSO 2003:778 | Löpande egenkontroll | Saknas |
-| Energideklaration | Lag 2006:985 | 10 år | `Building.energyDeclarationExpiry` finns men oanvänd |
-| Radonmätning | Miljöbalken | Vid behov / egenkontroll | Saknas |
-| Lekplatsbesiktning | SS-EN 1176 | Årlig | Saknas |
-| Cisternkontroll | NFS 2021:10 | 6/12 år | Saknas |
-
-`Building`-modellen har `energyRating` och `energyDeclarationExpiry` men ingen logik använder dem. Inga påminnelser, inga automatiska varningar.
-
-### 3. Entreprenad- och leverantörshantering — saknas helt
-
-- Inget leverantörsregister
-- Inga avtal med kontraktstid och uppsägningstid
-- Ingen offertförfrågan eller offertjämförelse
-- Ingen koppling mellan felanmälan och entreprenör
-- Ingen uppföljning av utfört arbete
-- Inget stöd för garantibevakning
-
-### 4. Felanmälningen saknar djup
+### 1. Felanmälningen saknar djup
 
 Grundflödet fungerar men saknar:
 - **Kostnadsuppskattning** — inget fält för beräknad reparationskostnad
-- **Entreprenörstilldelning** — kan inte tilldela felanmälan till extern utförare
 - **SLA/svarstider** — ingen bevakning av hur lång tid det tar att hantera ärenden
 - **Koppling till underhållsplan** — en felanmälan om läckande tak borde trigga granskning av takkomponenten
-- **Fotodokumentation** — `Document`-koppling finns men inget dedikerat foto-UI
 - **Ärendehistorik per lägenhet** — ingen vy som visar alla ärenden för en specifik lägenhet
 - **Prioriterad kö** — ingen vy sorterad efter allvarlighet och ålder
 - **Automatisk eskalering** — inga varningar om ärenden som legat länge utan åtgärd
 
-### 5. Byggnadsadministration — utestängd
+### 2. Byggnadsadministration — utestängd
 
 - Fastighetsansvarig kan INTE redigera byggnadsdata (`admin:settings` krävs)
 - Kan inte uppdatera `Building`-information (konstruktionsår, uppvärmning, energiklass)
 - Kan inte hantera `Apartment`-data (area, rum, förråd, parkering)
 - Kan inte ens SE föreningens inställningar (`admin:integrations` saknas)
 
-### 6. Ingen fastighets-dashboard
-
-- Ingen samlad vy: öppna felanmälningar, kommande besiktningar, underhållsstatus
-- Felanmälningar blandat i "Boende"-sektionen i navigationen (inte i "Styrelse")
-- Ingen överblick av fastighetens skick
-- Ingen koppling till ekonomisk uppföljning av fastighetsutgifter
-
-### 7. IoT och energidata — saknas helt
+### 3. IoT och energidata — saknas helt
 
 - Ingen integration med värmesystem, energimätare, vattenläckagevakter
 - Ingen energiförbrukningsdata (EPBD-krav 2026)
 - Ingen automatiserad övervakning eller larm
 - `Building.heatingType` finns som textfält men är oanvänt
 
-### 8. Uppgifter saknar koppling till felanmälningar
+### 4. Uppgifter saknar koppling till felanmälningar
 
 - `Task`-modellen kan kopplas till `Decision` men inte till `DamageReport`
 - Fastighetsansvarig kan inte skapa en uppgift direkt från en felanmälan
 - Ingen automatisk uppgiftsgenerering vid statusändring
+
+### 5. Fastighets-dashboard behöver utvidgas
+
+Grundläggande propertyOverview finns, men saknar:
+- Samlad skickbedömning av fastigheten (baserat på komponentdata)
+- Koppling till ekonomisk uppföljning av fastighetsutgifter
+- Underhållsplanens tidslinje (kommande åtgärder visuellt)
 
 ## Jämförelse: Fastighetsansvarig vs andra roller
 
@@ -118,81 +150,22 @@ Grundflödet fungerar men saknar:
 | Skapa möten | - | Y | - | Y |
 | Godkänna utlägg | - | Y | Y | - |
 | Ändra byggnadsdata | - | - (ADMIN) | - | - |
-| Underhållsplan | - | - | - | - |
-| Besiktningskalender | - | - | - | - |
-| Entreprenörshantering | - | - | - | - |
+| Underhållsplan / komponenter | Y | Y | Y | Y |
+| Besiktningskalender | Y | Y | Y | Y |
+| Entreprenörshantering | Y | Y | Y | Y |
+| Avtal och upphandlingar | Y | Y | Y | Y |
 | Energiuppföljning | - | - | - | - |
-
-## Vad borde finnas: Datamodell
-
-### Komponentregister (K3-krav)
-
-```
-BuildingComponent {
-  id
-  buildingId          // Koppling till byggnad
-  category            // Tak, Stammar, Fönster, Fasad, Hiss, El, VVS, Ventilation, etc.
-  name                // "Yttertak - Hus A"
-  installYear         // Installationsår
-  expectedLifespan    // Förväntad livslängd i år
-  condition           // GOOD, FAIR, POOR, CRITICAL
-  lastInspectedAt     // Senaste besiktning
-  nextActionYear      // Planerat åtgärdsår
-  estimatedCost       // Beräknad åtgärdskostnad
-  notes
-  
-  inspections[]       // Besiktningshistorik
-  maintenanceActions[] // Utförda åtgärder
-}
-```
-
-### Besiktning
-
-```
-Inspection {
-  id
-  buildingId
-  componentId?        // Valfri koppling till komponent
-  type                // OVK, HISS, BRAND, ENERGI, RADON, LEKPLATS, CISTERN
-  scheduledAt
-  completedAt
-  result              // APPROVED, APPROVED_WITH_REMARKS, FAILED
-  inspector           // Namn/företag
-  certificateUrl      // Besiktningsprotokoll
-  nextDueAt           // Nästa besiktningsdatum
-  remarks
-}
-```
-
-### Entreprenör/Leverantör
-
-```
-Contractor {
-  id
-  name
-  orgNumber
-  contactPerson
-  phone
-  email
-  category            // PLUMBER, ELECTRICIAN, LOCKSMITH, PAINTER, etc.
-  contractStartDate
-  contractEndDate
-  contractUrl         // Avtalsdokument
-  rating              // Intern bedömning
-  notes
-}
-```
 
 ## Prioriterad åtgärdslista
 
-| Prio | Funktion | Varför |
-|------|----------|--------|
-| 1 | **Komponentregister + underhållsplan** | K3-krav 2026, absolut nödvändigt |
-| 2 | **Besiktningskalender med påminnelser** | Lagstadgade besiktningar (OVK, hiss, brand) |
-| 3 | **Fastighets-dashboard** | Samlad vy: öppna felanmälningar, kommande besiktningar, underhållsstatus |
-| 4 | **Utöka felanmälan** med kostnad, entreprenörstilldelning, SLA-bevakning |
-| 5 | **Leverantörsregister** med avtal, kontaktuppgifter, avtalsbevakning |
-| 6 | **Ge fastighetsansvarig byggnadspermissions** — redigera Building-data utan admin |
-| 7 | **Koppling felanmälan → uppgift** — automatisk uppgiftsgenerering |
-| 8 | **Energiuppföljning** — EPBD-krav, energiförbrukningsdata |
-| 9 | **Ärendehistorik per lägenhet** — alla felanmälningar, renoveringar, ägarbyte |
+| Prio | Funktion | Status | Varför |
+|------|----------|--------|--------|
+| ~~1~~ | ~~Komponentregister + underhållsplan~~ | **Implementerat** | BuildingComponent med livscykelspårning och gap-analys |
+| ~~2~~ | ~~Besiktningskalender med påminnelser~~ | **Implementerat** | 9 besiktningstyper, förseningsbevakning, bilagor |
+| ~~3~~ | ~~Leverantörsregister med avtal~~ | **Implementerat** | Contractor, Contract, Procurement med fullständiga flöden |
+| 4 | **Utöka felanmälan** med kostnad och SLA-bevakning | Saknas | Bättre uppföljning och prioritering |
+| 5 | **Ge fastighetsansvarig byggnadspermissions** | Saknas | Redigera Building-data utan admin-rättigheter |
+| 6 | **Koppling felanmälan -> uppgift** | Saknas | Automatisk uppgiftsgenerering |
+| 7 | **Utvidga fastighets-dashboard** | Delvis | Samlad skickvy, underhållstidslinje, ekonomikoppling |
+| 8 | **Energiuppföljning** | Saknas | EPBD-krav, energiförbrukningsdata |
+| 9 | **Ärendehistorik per lägenhet** | Saknas | Alla felanmälningar, renoveringar, ägarbyte |

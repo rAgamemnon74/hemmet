@@ -9,11 +9,12 @@ import {
   CalendarDays, AlertTriangle, CheckSquare, FileText, Receipt,
   ArrowRightLeft, Wrench, UserPlus, Loader2, ChevronDown,
   PenLine, Key, Hammer, Clock, Plus, BookOpen, Sparkles,
+  FileWarning, ClipboardList, ShieldCheck, Banknote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import type { Role } from "@prisma/client";
-import { hasPermission } from "@/lib/permissions";
+import { hasPermission, isBoardMember } from "@/lib/permissions";
 import { ProfileSection } from "@/components/dashboard/profile-section";
 
 const statusIcon: Record<string, string> = {
@@ -27,22 +28,39 @@ const statusColor: Record<string, string> = {
 export default function DashboardPage() {
   const { data: session } = useSession();
   const userRoles = (session?.user?.roles ?? []) as Role[];
-  const isBoard = userRoles.some((r) => r.startsWith("BOARD_") || r === "ADMIN");
-  const isChairperson = hasPermission(userRoles, "transfer:review");
-  const isTreasurer = hasPermission(userRoles, "transfer:manage_financial");
-  const isPropertyMgr = hasPermission(userRoles, "report:manage");
+  const isBoard = isBoardMember(userRoles);
+  const canApproveExpenses = hasPermission(userRoles, "expense:approve");
+  const canReviewApplications = hasPermission(userRoles, "application:review");
+  const canReviewTransfers = hasPermission(userRoles, "transfer:review");
+  const canManageFinancials = hasPermission(userRoles, "transfer:manage_financial");
+  const canManageReports = hasPermission(userRoles, "report:manage");
+  const canViewContracts = hasPermission(userRoles, "contract:manage");
+  const canViewProcurement = hasPermission(userRoles, "procurement:manage");
 
   const [expanded, setExpanded] = useState(false);
 
+  // Zon 1 & 2: Personal items + annual timeline (alla användare)
   const timelineQuery = trpc.dashboard.annualTimeline.useQuery();
-  const chairQuery = trpc.dashboard.chairpersonOverview.useQuery(undefined, { enabled: isChairperson });
-  const treasurerQuery = trpc.dashboard.treasurerOverview.useQuery(undefined, { enabled: isTreasurer });
-  const propertyQuery = trpc.dashboard.propertyOverview.useQuery(undefined, { enabled: isPropertyMgr });
+
+  // Zon 3: Sedan sist (styrelsemedlemmar)
+  const boardQuery = trpc.dashboard.boardOverview.useQuery(undefined, { enabled: isBoard });
+
+  // Zon 4: Kräver uppmärksamhet (permission-gated)
+  const chairQuery = trpc.dashboard.chairpersonOverview.useQuery(undefined, { enabled: canReviewApplications || canReviewTransfers });
+  const treasurerQuery = trpc.dashboard.treasurerOverview.useQuery(undefined, { enabled: canManageFinancials });
+  const propertyQuery = trpc.dashboard.propertyOverview.useQuery(undefined, { enabled: canManageReports });
+  const expiringContractsQuery = trpc.contract.getExpiring.useQuery({ withinDays: 90 }, { enabled: canViewContracts });
+  const overdueInspectionsQuery = trpc.property.getOverdueInspections.useQuery(undefined, { enabled: canManageReports });
+  const procurementQuery = trpc.procurement.activeCounts.useQuery(undefined, { enabled: canViewProcurement });
 
   const timeline = timelineQuery.data;
+  const board = boardQuery.data;
   const chair = chairQuery.data;
   const treasurer = treasurerQuery.data;
   const property = propertyQuery.data;
+  const expiringContracts = expiringContractsQuery.data;
+  const overdueInspections = overdueInspectionsQuery.data;
+  const procurement = procurementQuery.data;
 
   if (timelineQuery.isLoading) {
     return <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div>;
@@ -61,11 +79,10 @@ export default function DashboardPage() {
         Välkommen, {session?.user?.name?.split(" ")[0]}
       </h1>
 
-      {/* ═══ MITT JUST NU — alltid synlig ═══ */}
+      {/* ═══ ZON 1: MITT JUST NU — alltid synlig ═══ */}
       <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-5">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xs font-semibold text-blue-700 uppercase">Mitt just nu</h2>
-          {/* Snabbåtgärder per roll */}
           <div className="flex gap-2">
             {hasPermission(userRoles, "meeting:create") && (
               <Link href="/styrelse/moten/nytt" className="inline-flex items-center gap-1 rounded-md border border-blue-300 bg-white px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50">
@@ -126,7 +143,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ═══ ÅRSHJULET ═══ */}
+      {/* ═══ ZON 2: ÅRSHJULET ═══ */}
       {timeline && (
         <div className="rounded-lg border border-gray-200 bg-white p-5">
           <h2 className="text-xs font-semibold text-gray-500 uppercase mb-4">Årshjulet</h2>
@@ -193,39 +210,209 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ═══ ROLLSPECIFIKT ═══ */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {chair && (
-          <>
-            <CountCard icon={UserPlus} label="Ansökningar" count={chair.pendingApplications} href="/medlem/ansokningar" color="blue" />
-            <CountCard icon={Receipt} label="Utlägg att godkänna" count={chair.pendingExpenses} href="/ekonomi/utlagg" color="amber" />
-            <CountCard icon={ArrowRightLeft} label="Överlåtelser" count={chair.pendingTransfers} href="/styrelse/overlatelser" color="purple"
-              alert={chair.overdueTransfers > 0 ? `${chair.overdueTransfers} försenade` : undefined} />
-            {chair.unownedApartments > 0 && (
-              <CountCard icon={AlertTriangle} label="Utan ägare" count={chair.unownedApartments} href="/medlem/lagenheter" color="red"
-                alert="Lägenheter utan registrerad ägare" />
-            )}
-          </>
-        )}
-        {treasurer && !chair && (
-          <>
-            <CountCard icon={Receipt} label="Utlägg att godkänna" count={treasurer.pendingExpenses} href="/ekonomi/utlagg" color="amber" />
-            <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <p className="text-xs text-gray-500">Utbetalat denna månad</p>
-              <p className="text-xl font-bold text-gray-900">{treasurer.thisMonthPaid.toLocaleString("sv-SE")} kr</p>
-              <p className="text-xs text-gray-400">Förra månaden: {treasurer.lastMonthPaid.toLocaleString("sv-SE")} kr</p>
+      {/* ═══ ZON 3: SEDAN SIST — styrelsemedlemmar ═══ */}
+      {board && (
+        <div className="rounded-lg border border-gray-200 bg-white p-5">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase mb-4">Sedan förra mötet</h2>
+
+          {board.nextMeeting && (
+            <div className="mb-4 flex items-start gap-3 rounded-md bg-blue-50 p-3">
+              <CalendarDays className="mt-0.5 h-4 w-4 text-blue-600 shrink-0" />
+              <div>
+                <Link href={`/styrelse/moten/${board.nextMeeting.id}`} className="text-sm font-medium text-gray-900 hover:text-blue-600">
+                  {board.nextMeeting.title}
+                </Link>
+                {board.nextMeeting.scheduledAt && (
+                  <p className="text-xs text-gray-500">
+                    {format(new Date(board.nextMeeting.scheduledAt), "EEEE d MMMM 'kl' HH:mm", { locale: sv })}
+                    {" — "}{board.nextMeeting._count.agendaItems} dagordningspunkter
+                  </p>
+                )}
+              </div>
             </div>
-          </>
-        )}
-        {property && (
-          <CountCard icon={Wrench} label="Felanmälningar" count={property.openReports} href="/boende/skadeanmalan" color="red"
-            alert={property.criticalReports > 0 ? `${property.criticalReports} kritiska` : undefined} />
-        )}
-      </div>
+          )}
+
+          {board.sinceLast && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              <SinceLastBadge count={board.sinceLast.newExpenses} label="utlägg" href="/ekonomi/utlagg" />
+              <SinceLastBadge count={board.sinceLast.newDamageReports} label="felanmälningar" href="/boende/skadeanmalan" />
+              <SinceLastBadge count={board.sinceLast.newMotions} label="motioner" href="/medlem/motioner" />
+              <SinceLastBadge count={board.sinceLast.newSuggestions} label="förslag" href="/boende/forslag" />
+              <SinceLastBadge count={board.sinceLast.newTransfers} label="överlåtelser" href="/styrelse/overlatelser" />
+              <SinceLastBadge count={board.sinceLast.newTasks} label="uppgifter" href="/styrelse/arenden" />
+              <SinceLastBadge count={board.sinceLast.pendingProtocols} label="protokoll att slutföra" href="/styrelse/moten" />
+            </div>
+          )}
+
+          {board.lastMeeting && (
+            <p className="mt-3 text-xs text-gray-400">
+              Sedan: {board.lastMeeting.title} ({format(new Date(board.lastMeeting.scheduledAt), "d MMM", { locale: sv })})
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ═══ ZON 4: KRÄVER UPPMÄRKSAMHET — permission-gated ═══ */}
+      <AttentionSection
+        chair={chair}
+        treasurer={treasurer}
+        property={property}
+        expiringContracts={expiringContracts}
+        overdueInspections={overdueInspections}
+        procurement={procurement}
+        canApproveExpenses={canApproveExpenses}
+        canReviewApplications={canReviewApplications}
+        canReviewTransfers={canReviewTransfers}
+        canManageFinancials={canManageFinancials}
+        canManageReports={canManageReports}
+        canViewContracts={canViewContracts}
+        canViewProcurement={canViewProcurement}
+      />
 
       {/* Profil, lägenhet, samtycke */}
       <ProfileSection />
     </div>
+  );
+}
+
+// ─── Zon 4: Kräver uppmärksamhet ─────────────────────────────────
+
+function AttentionSection({
+  chair, treasurer, property, expiringContracts, overdueInspections, procurement,
+  canApproveExpenses, canReviewApplications, canReviewTransfers,
+  canManageFinancials, canManageReports, canViewContracts, canViewProcurement,
+}: {
+  chair: { pendingApplications: number; pendingExpenses: number; pendingTransfers: number; pendingMotions: number; overdueTransfers: number; unownedApartments: number } | null | undefined;
+  treasurer: { pendingExpenses: number; approvedUnpaid: number; thisMonthPaid: number; lastMonthPaid: number; pendingTransferFees: number } | null | undefined;
+  property: { openReports: number; criticalReports: number } | null | undefined;
+  expiringContracts: unknown[] | null | undefined;
+  overdueInspections: unknown[] | null | undefined;
+  procurement: { active: number; awaitingDecision: number } | null | undefined;
+  canApproveExpenses: boolean;
+  canReviewApplications: boolean;
+  canReviewTransfers: boolean;
+  canManageFinancials: boolean;
+  canManageReports: boolean;
+  canViewContracts: boolean;
+  canViewProcurement: boolean;
+}) {
+  const cards: React.ReactNode[] = [];
+
+  // Ansökningar
+  if (canReviewApplications && chair && chair.pendingApplications > 0) {
+    cards.push(
+      <CountCard key="apps" icon={UserPlus} label="Ansökningar" count={chair.pendingApplications} href="/medlem/ansokningar" color="blue" />
+    );
+  }
+
+  // Utlägg att godkänna
+  const pendingExpenses = chair?.pendingExpenses ?? treasurer?.pendingExpenses ?? 0;
+  if (canApproveExpenses && pendingExpenses > 0) {
+    cards.push(
+      <CountCard key="expenses" icon={Receipt} label="Utlägg att godkänna" count={pendingExpenses} href="/ekonomi/utlagg" color="amber" />
+    );
+  }
+
+  // Överlåtelser
+  if (canReviewTransfers && chair && chair.pendingTransfers > 0) {
+    cards.push(
+      <CountCard key="transfers" icon={ArrowRightLeft} label="Överlåtelser" count={chair.pendingTransfers} href="/styrelse/overlatelser" color="purple"
+        alert={chair.overdueTransfers > 0 ? `${chair.overdueTransfers} försenade` : undefined} />
+    );
+  }
+
+  // Lägenheter utan ägare
+  if (canReviewApplications && chair && chair.unownedApartments > 0) {
+    cards.push(
+      <CountCard key="unowned" icon={AlertTriangle} label="Utan ägare" count={chair.unownedApartments} href="/medlem/lagenheter" color="red"
+        alert="Lägenheter utan registrerad ägare" />
+    );
+  }
+
+  // Kassör: Utbetalat denna månad
+  if (canManageFinancials && treasurer) {
+    cards.push(
+      <Link key="paid" href="/ekonomi/utlagg" className="rounded-lg border border-gray-200 bg-white p-4 hover:bg-gray-50">
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg p-2 bg-green-50 text-green-600"><Banknote className="h-5 w-5" /></div>
+          <div>
+            <p className="text-xs text-gray-500">Utbetalat denna månad</p>
+            <p className="text-xl font-bold text-gray-900">{treasurer.thisMonthPaid.toLocaleString("sv-SE")} kr</p>
+          </div>
+        </div>
+        <p className="mt-1 text-xs text-gray-400">Förra månaden: {treasurer.lastMonthPaid.toLocaleString("sv-SE")} kr</p>
+      </Link>
+    );
+  }
+
+  // Godkända ej betalda
+  if (canManageFinancials && treasurer && treasurer.approvedUnpaid > 0) {
+    cards.push(
+      <CountCard key="unpaid" icon={Receipt} label="Godkända, ej betalda" count={treasurer.approvedUnpaid} href="/ekonomi/utlagg" color="amber" />
+    );
+  }
+
+  // Obetalda överlåtelseavgifter
+  if (canManageFinancials && treasurer && treasurer.pendingTransferFees > 0) {
+    cards.push(
+      <CountCard key="transferfees" icon={ArrowRightLeft} label="Obetalda överlåtelseavgifter" count={treasurer.pendingTransferFees} href="/styrelse/overlatelser" color="purple" />
+    );
+  }
+
+  // Felanmälningar
+  if (canManageReports && property && property.openReports > 0) {
+    cards.push(
+      <CountCard key="reports" icon={Wrench} label="Felanmälningar" count={property.openReports} href="/boende/skadeanmalan" color="red"
+        alert={property.criticalReports > 0 ? `${property.criticalReports} kritiska` : undefined} />
+    );
+  }
+
+  // Avtal som löper ut
+  const expiringCount = expiringContracts?.length ?? 0;
+  if (canViewContracts && expiringCount > 0) {
+    cards.push(
+      <CountCard key="contracts" icon={FileWarning} label="Avtal löper ut (90 dagar)" count={expiringCount} href="/ekonomi/avtal" color="amber" />
+    );
+  }
+
+  // Försenade besiktningar
+  const overdueCount = overdueInspections?.length ?? 0;
+  if (canManageReports && overdueCount > 0) {
+    cards.push(
+      <CountCard key="inspections" icon={ShieldCheck} label="Försenade besiktningar" count={overdueCount} href="/forvaltning/besiktningar" color="red" />
+    );
+  }
+
+  // Upphandlingar
+  if (canViewProcurement && procurement && procurement.awaitingDecision > 0) {
+    cards.push(
+      <CountCard key="procurement" icon={ClipboardList} label="Upphandlingar väntar beslut" count={procurement.awaitingDecision} href="/ekonomi/upphandlingar" color="blue" />
+    );
+  }
+
+  if (cards.length === 0) return null;
+
+  return (
+    <div>
+      <h2 className="text-xs font-semibold text-gray-500 uppercase mb-3">Kräver uppmärksamhet</h2>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {cards}
+      </div>
+    </div>
+  );
+}
+
+// ─── Hjälpkomponenter ─────────────────────────────────────────────
+
+function SinceLastBadge({ count, label, href }: { count: number; label: string; href: string }) {
+  if (count === 0) return null;
+  return (
+    <Link href={href} className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-blue-600">
+      <span className="inline-flex items-center justify-center rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700">
+        {count}
+      </span>
+      {label}
+    </Link>
   );
 }
 
