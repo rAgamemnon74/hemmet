@@ -31,6 +31,7 @@ import {
   Leaf,
   FlaskConical,
   Recycle,
+  Calculator,
   type LucideIcon,
 } from "lucide-react";
 import type { Permission } from "./permissions";
@@ -65,6 +66,7 @@ export const navigation: NavSection[] = [
       { label: "Årsberättelse", href: "/styrelse/arsberattelse", icon: ScrollText, permission: "annual_report:view" },
       { label: "Överlåtelser", href: "/styrelse/overlatelser", icon: ArrowRightLeft, permission: "transfer:view" },
       { label: "Dokument", href: "/styrelse/dokument", icon: FileText, permission: "document:view_board" },
+      { label: "Simulator", href: "/styrelse/simulator", icon: Calculator, permission: "meeting:view" },
     ],
   },
   {
