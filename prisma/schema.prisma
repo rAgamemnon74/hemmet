@@ -2245,3 +2245,215 @@ model ActivityLog {
   @@index([entityType, entityId])
   @@index([createdAt])
 }
+
+// ============================================================
+// ENVIRONMENT (Miljöarbete)
+// ============================================================
+
+enum EgenkontrollStatus {
+  DRAFT
+  ACTIVE
+  UNDER_REVIEW
+  ARCHIVED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum EnvironmentalIncidentStatus {
+  REPORTED
+  INVESTIGATING
+  REPORTED_TO_AUTHORITY
+  RESOLVED
+  CLOSED
+}
+
+enum WastePlanStatus {
+  DRAFT
+  ACTIVE
+  EXPIRED
+}
+
+enum ChemicalHazardClass {
+  FLAMMABLE
+  TOXIC
+  CORROSIVE
+  OXIDIZING
+  ENVIRONMENTAL
+  HEALTH_HAZARD
+  OTHER
+}
+
+// Egenkontrollprogram enligt förordning (1998:901)
+model Egenkontroll {
+  id                          String             @id @default(cuid())
+  title                       String             // "Egenkontrollprogram 2026"
+  status                      EgenkontrollStatus @default(DRAFT)
+  version                     Int                @default(1)
+
+  // Lagkrav
+  responsibilityDescription   String?            @db.Text // §4 — ansvarsfördelning
+  riskAssessmentDescription   String?            @db.Text // §6 — riskbedömning
+  routinesDescription         String?            @db.Text // §5 — driftrutiner
+  chemicalInventoryNote       String?            @db.Text // §7 — kemiska produkter
+  incidentRoutineNote         String?            @db.Text // Rutiner vid driftstörning
+
+  approvedAt                  DateTime?
+  approvedBy                  String?
+  nextReviewDate              DateTime?
+
+  createdById                 String
+  createdAt                   DateTime           @default(now())
+  updatedAt                   DateTime           @updatedAt
+
+  riskAssessments             EnvironmentalRiskAssessment[]
+
+  @@index([status])
+}
+
+// Enskilda riskbedömningar inom egenkontrollprogram
+model EnvironmentalRiskAssessment {
+  id                String        @id @default(cuid())
+  egenkontrollId    String?
+  buildingId        String?       // Referens utan FK — håller Building orörd
+
+  title             String
+  description       String        @db.Text
+  area              String?       // Ventilation, Avfall, Kemikalier, Radon, Asbest, PCB
+  riskLevel         RiskLevel     @default(MEDIUM)
+  probability       Int?          // 1-5
+  consequence       Int?          // 1-5
+
+  existingMeasures  String?       @db.Text
+  plannedMeasures   String?       @db.Text
+  responsibleUserId String?
+
+  assessedAt        DateTime      @default(now())
+  nextReviewDate    DateTime?
+  resolvedAt        DateTime?
+
+  createdById       String
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  egenkontroll      Egenkontroll? @relation(fields: [egenkontrollId], references: [id])
+
+  @@index([egenkontrollId])
+  @@index([riskLevel])
+  @@index([buildingId])
+}
+
+// Kemikalieförteckning (förordning 1998:901 §7)
+model ChemicalProduct {
+  id                 String                @id @default(cuid())
+  productName        String
+  manufacturer       String?
+  articleNumber      String?
+
+  safetyDataSheetUrl String?
+  hazardClasses      ChemicalHazardClass[]
+  hazardStatements   String?               // H-fraser
+  riskPhrases        String?               // R-fraser (äldre produkter)
+
+  usageArea          String?               // Tvättstuga, Trädgård, VVS
+  storageLocation    String?
+  annualQuantity     String?
+  buildingId         String?
+
+  active             Boolean               @default(true)
+  lastVerifiedAt     DateTime?
+  notes              String?               @db.Text
+
+  createdById        String
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@index([buildingId])
+  @@index([active])
+}
+
+// Avfallsplan
+model WasteManagementPlan {
+  id                         String          @id @default(cuid())
+  title                      String
+  status                     WastePlanStatus @default(DRAFT)
+
+  municipality               String?
+  sortingStations            String?         @db.Text
+  collectionSchedule         String?         @db.Text
+  hazardousWasteRoutine      String?         @db.Text
+  hazardousWasteContractorId String?
+
+  recyclingRoomLocation      String?
+  recyclingRoomRules         String?         @db.Text
+
+  lastAuditDate              DateTime?
+  nextAuditDate              DateTime?
+  notes                      String?         @db.Text
+
+  validFrom                  DateTime        @default(now())
+  validUntil                 DateTime?
+
+  createdById                String
+  createdAt                  DateTime        @default(now())
+  updatedAt                  DateTime        @updatedAt
+
+  @@index([status])
+}
+
+// Miljöincidenter / driftstörningar
+model EnvironmentalIncident {
+  id                     String                        @id @default(cuid())
+  title                  String
+  description            String                        @db.Text
+  status                 EnvironmentalIncidentStatus    @default(REPORTED)
+
+  incidentType           String                        // WATER_DAMAGE, CHEMICAL_SPILL, REFRIGERANT_LEAK, etc.
+  buildingId             String?
+  location               String?
+
+  occurredAt             DateTime
+  discoveredAt           DateTime                      @default(now())
+  reportedToAuthorityAt  DateTime?
+  authorityName          String?
+  authorityReference     String?
+
+  immediateMeasures      String?                       @db.Text
+  followUpMeasures       String?                       @db.Text
+  resolvedAt             DateTime?
+  resolution             String?                       @db.Text
+
+  reportedById           String
+  createdAt              DateTime                      @default(now())
+  updatedAt              DateTime                      @updatedAt
+
+  @@index([status])
+  @@index([buildingId])
+  @@index([incidentType])
+}
+
+// Hållbarhetsmål
+model SustainabilityGoal {
+  id            String    @id @default(cuid())
+  title         String
+  description   String?   @db.Text
+  category      String    // ENERGY, WASTE, WATER, BIODIVERSITY, TRANSPORT
+  targetValue   Float?
+  currentValue  Float?
+  unit          String?   // kWh/m2, kg/hushåll, %
+  targetDate    DateTime?
+  achieved      Boolean   @default(false)
+  achievedAt    DateTime?
+  notes         String?   @db.Text
+
+  createdById   String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([category])
+  @@index([achieved])
+}

@@ -371,4 +371,27 @@ export const dashboardRouter = router({
       },
     };
   }),
+
+  // Miljöansvarig-specifik dashboard
+  environmentOverview: protectedProcedure.query(async ({ ctx }) => {
+    const userRoles = (ctx.user.roles ?? []) as Role[];
+    const isEnvironment = userRoles.includes(Role.BOARD_ENVIRONMENT) || userRoles.includes(Role.ADMIN);
+    if (!isEnvironment) return null;
+
+    const [activeEgenkontroll, openIncidents, chemicalCount, overdueRiskReviews] = await Promise.all([
+      ctx.db.egenkontroll.findFirst({
+        where: { status: "ACTIVE" },
+        select: { id: true, title: true, nextReviewDate: true },
+      }),
+      ctx.db.environmentalIncident.count({
+        where: { status: { in: ["REPORTED", "INVESTIGATING"] } },
+      }),
+      ctx.db.chemicalProduct.count({ where: { active: true } }),
+      ctx.db.environmentalRiskAssessment.count({
+        where: { nextReviewDate: { lt: new Date() }, resolvedAt: null },
+      }),
+    ]);
+
+    return { activeEgenkontroll, openIncidents, chemicalCount, overdueRiskReviews };
+  }),
 });

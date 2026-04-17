@@ -28,6 +28,9 @@ import {
   Mail,
   ShoppingCart,
   Wallet,
+  Leaf,
+  FlaskConical,
+  Recycle,
   type LucideIcon,
 } from "lucide-react";
 import type { Permission } from "./permissions";
@@ -98,6 +101,16 @@ export const navigation: NavSection[] = [
       { label: "Översikt", href: "/forvaltning", icon: Building2, permission: "report:manage" },
       { label: "Komponentregister", href: "/forvaltning/komponenter", icon: Wrench, permission: "meeting:view" },
       { label: "Besiktningar", href: "/forvaltning/besiktningar", icon: ClipboardCheck, permission: "meeting:view" },
+    ],
+  },
+  {
+    title: "Miljö",
+    items: [
+      { label: "Översikt", href: "/miljo", icon: Leaf, permission: "environment:view" },
+      { label: "Egenkontroll", href: "/miljo/egenkontroll", icon: ClipboardCheck, permission: "environment:view" },
+      { label: "Kemikalier", href: "/miljo/kemikalier", icon: FlaskConical, permission: "environment:view" },
+      { label: "Avfallsplan", href: "/miljo/avfall", icon: Recycle, permission: "environment:view" },
+      { label: "Incidenter", href: "/miljo/incidenter", icon: AlertTriangle, permission: "environment:view" },
     ],
   },
   {

@@ -37,6 +37,7 @@ import { attachmentRouter } from "./routers/attachment";
 import { contractorRouter } from "./routers/contractor";
 import { contractRouter } from "./routers/contract";
 import { procurementRouter } from "./routers/procurement";
+import { environmentRouter } from "./routers/environment";
 
 export const appRouter = router({
   meeting: meetingRouter,
@@ -77,6 +78,7 @@ export const appRouter = router({
   contractor: contractorRouter,
   contract: contractRouter,
   procurement: procurementRouter,
+  environment: environmentRouter,
 });
 
 export type AppRouter = typeof appRouter;

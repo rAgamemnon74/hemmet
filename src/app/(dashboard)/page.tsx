@@ -9,7 +9,7 @@ import {
   CalendarDays, AlertTriangle, CheckSquare, FileText, Receipt,
   ArrowRightLeft, Wrench, UserPlus, Loader2, ChevronDown,
   PenLine, Key, Hammer, Clock, Plus, BookOpen, Sparkles,
-  FileWarning, ClipboardList, ShieldCheck, Banknote,
+  FileWarning, ClipboardList, ShieldCheck, Banknote, Leaf,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
@@ -36,6 +36,7 @@ export default function DashboardPage() {
   const canManageReports = hasPermission(userRoles, "report:manage");
   const canViewContracts = hasPermission(userRoles, "contract:manage");
   const canViewProcurement = hasPermission(userRoles, "procurement:manage");
+  const canManageEnvironment = hasPermission(userRoles, "environment:manage");
 
   const [expanded, setExpanded] = useState(false);
 
@@ -52,6 +53,7 @@ export default function DashboardPage() {
   const expiringContractsQuery = trpc.contract.getExpiring.useQuery({ withinDays: 90 }, { enabled: canViewContracts });
   const overdueInspectionsQuery = trpc.property.getOverdueInspections.useQuery(undefined, { enabled: canManageReports });
   const procurementQuery = trpc.procurement.activeCounts.useQuery(undefined, { enabled: canViewProcurement });
+  const environmentQuery = trpc.dashboard.environmentOverview.useQuery(undefined, { enabled: canManageEnvironment });
 
   const timeline = timelineQuery.data;
   const board = boardQuery.data;
@@ -61,6 +63,7 @@ export default function DashboardPage() {
   const expiringContracts = expiringContractsQuery.data;
   const overdueInspections = overdueInspectionsQuery.data;
   const procurement = procurementQuery.data;
+  const environment = environmentQuery.data;
 
   if (timelineQuery.isLoading) {
     return <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div>;
@@ -267,6 +270,8 @@ export default function DashboardPage() {
         canManageReports={canManageReports}
         canViewContracts={canViewContracts}
         canViewProcurement={canViewProcurement}
+        environment={environment}
+        canManageEnvironment={canManageEnvironment}
       />
 
       {/* Profil, lägenhet, samtycke */}
@@ -281,6 +286,7 @@ function AttentionSection({
   chair, treasurer, property, expiringContracts, overdueInspections, procurement,
   canApproveExpenses, canReviewApplications, canReviewTransfers,
   canManageFinancials, canManageReports, canViewContracts, canViewProcurement,
+  environment, canManageEnvironment,
 }: {
   chair: { pendingApplications: number; pendingExpenses: number; pendingTransfers: number; pendingMotions: number; overdueTransfers: number; unownedApartments: number } | null | undefined;
   treasurer: { pendingExpenses: number; approvedUnpaid: number; thisMonthPaid: number; lastMonthPaid: number; pendingTransferFees: number } | null | undefined;
@@ -288,6 +294,7 @@ function AttentionSection({
   expiringContracts: unknown[] | null | undefined;
   overdueInspections: unknown[] | null | undefined;
   procurement: { active: number; awaitingDecision: number } | null | undefined;
+  environment: { activeEgenkontroll: unknown; openIncidents: number; chemicalCount: number; overdueRiskReviews: number } | null | undefined;
   canApproveExpenses: boolean;
   canReviewApplications: boolean;
   canReviewTransfers: boolean;
@@ -295,6 +302,7 @@ function AttentionSection({
   canManageReports: boolean;
   canViewContracts: boolean;
   canViewProcurement: boolean;
+  canManageEnvironment: boolean;
 }) {
   const cards: React.ReactNode[] = [];
 
@@ -387,6 +395,28 @@ function AttentionSection({
   if (canViewProcurement && procurement && procurement.awaitingDecision > 0) {
     cards.push(
       <CountCard key="procurement" icon={ClipboardList} label="Upphandlingar väntar beslut" count={procurement.awaitingDecision} href="/ekonomi/upphandlingar" color="blue" />
+    );
+  }
+
+  // Miljö — öppna incidenter
+  if (canManageEnvironment && environment && environment.openIncidents > 0) {
+    cards.push(
+      <CountCard key="env-incidents" icon={Leaf} label="Miljöincidenter" count={environment.openIncidents} href="/miljo/incidenter" color="red" />
+    );
+  }
+
+  // Miljö — förfallna riskbedömningar
+  if (canManageEnvironment && environment && environment.overdueRiskReviews > 0) {
+    cards.push(
+      <CountCard key="env-risks" icon={Leaf} label="Riskbedömningar att granska" count={environment.overdueRiskReviews} href="/miljo/risker" color="amber" />
+    );
+  }
+
+  // Miljö — inget egenkontrollprogram
+  if (canManageEnvironment && environment && !environment.activeEgenkontroll) {
+    cards.push(
+      <CountCard key="env-egenkontroll" icon={Leaf} label="Egenkontroll saknas" count={0} href="/miljo/egenkontroll" color="red"
+        alert="Lagkrav — skapa egenkontrollprogram" />
     );
   }
 
