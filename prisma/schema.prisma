@@ -2286,6 +2286,7 @@ enum PersonalDataAction {
   EXPORT_CSV              // Exporterade medlemsregister till CSV
   VIEW_PROXY_DETAILS      // Visade ombudsuppgifter (extern person)
   VIEW_ORGANIZATION_REPS  // Visade organisationsombud (personnummer)
+  DOWNLOAD_DOCUMENT       // Laddade ner dokument som kan innehålla persondata
 }
 
 model PersonalDataAccessLog {

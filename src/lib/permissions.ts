@@ -38,6 +38,7 @@ export type Permission =
   // Documents
   | "document:upload"
   | "document:view_board"
+  | "document:publish"        // Får ladda upp med visibleToAll (publikt tillgängliga)
   // Annual report & audit
   | "annual_report:edit"
   | "annual_report:view"
@@ -107,6 +108,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "contract:manage", "procurement:manage", "contractor:manage",
     "environment:manage",
     "booking:manage",
+    "document:publish",
     "admin:users", "admin:integrations", "admin:settings",
   ],
   BOARD_CHAIRPERSON: [
@@ -121,6 +123,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "contract:manage", "procurement:manage", "contractor:manage",
     "environment:manage",
     "booking:manage",
+    "document:publish",
     "admin:users", "admin:integrations",
   ],
   BOARD_SECRETARY: [
@@ -128,6 +131,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "meeting:create", "meeting:assign_roles",
     "meeting:protocol",
     "transfer:view",
+    "document:publish",
   ],
   BOARD_TREASURER: [
     ...BOARD_COMMON,

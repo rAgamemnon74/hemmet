@@ -4,6 +4,8 @@ import { auth } from "@/server/auth";
 import { db } from "@/server/db";
 import { getStoredFilePath } from "@/lib/upload";
 import { isBoardMember } from "@/lib/permissions";
+import { getDisposition } from "@/lib/upload-security";
+import { logPersonalDataAccess } from "@/lib/gdpr";
 import type { Role } from "@prisma/client";
 
 export async function GET(
@@ -21,7 +23,7 @@ export async function GET(
     return NextResponse.json({ error: "Dokumentet hittades inte" }, { status: 404 });
   }
 
-  // Check access
+  // ─── Behörighetskontroll ────────────────────────────────────────────────
   const userRoles = (session.user.roles ?? []) as Role[];
   const isBoard = isBoardMember(userRoles);
 
@@ -39,11 +41,30 @@ export async function GET(
     const filePath = getStoredFilePath(document.category, document.storedName);
     const buffer = await readFile(filePath);
 
+    // Audit: logga åtkomst till dokument (fire-and-forget)
+    logPersonalDataAccess(
+      session.user.id as string,
+      "DOWNLOAD_DOCUMENT",
+      document.uploadedById,
+      `doc=${document.id} cat=${document.category} file=${document.fileName}`,
+    );
+
+    // ─── Säkra headers ──────────────────────────────────────────────────────
+    // SAFE inline-typer (PDF, bild, text) renderas i browsern.
+    // Allt annat tvingas till "attachment" → användaren får ladda ner filen.
+    // nosniff stoppar browsers MIME-sniffing (skydd mot typ-förvirring).
+    // CSP + sandbox är extra lager om innehållet ändå körs — blockerar JS/XHR.
+    const disposition = getDisposition(document.mimeType);
+    const filenameEncoded = encodeURIComponent(document.fileName);
+
     return new NextResponse(buffer, {
       headers: {
         "Content-Type": document.mimeType,
-        "Content-Disposition": `inline; filename="${encodeURIComponent(document.fileName)}"`,
+        "Content-Disposition": `${disposition}; filename*=UTF-8''${filenameEncoded}`,
         "Content-Length": buffer.length.toString(),
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+        "Cache-Control": "private, max-age=300",
       },
     });
   } catch {
