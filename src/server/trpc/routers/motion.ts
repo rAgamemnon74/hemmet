@@ -3,6 +3,7 @@ import { router, protectedProcedure, requirePermission } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { Role } from "@prisma/client";
 import { isBoardMember } from "@/lib/permissions";
+import { logActivity } from "@/lib/audit";
 
 const createMotionSchema = z.object({
   title: z.string().min(1, "Titel krävs"),
@@ -15,6 +16,8 @@ const respondMotionSchema = z.object({
   boardResponse: z.string().min(1, "Styrelsens yttrande krävs"),
   boardRecommendation: z.enum(["APPROVE", "REJECT", "AMEND", "NEUTRAL"]),
   alternativeProposal: z.string().optional(),
+  // Vid yttrande under pågående styrelsemöte — länkar Motion till mötesloggen
+  meetingId: z.string().optional(),
 });
 
 const addVoteProposalSchema = z.object({
@@ -214,7 +217,7 @@ export const motionRouter = router({
     .mutation(async ({ ctx, input }) => {
       const motion = await ctx.db.motion.findUnique({
         where: { id: input.id },
-        include: { voteProposals: true },
+        include: { voteProposals: true, author: { select: { firstName: true, lastName: true } } },
       });
       if (!motion) throw new TRPCError({ code: "NOT_FOUND" });
       if (!["SUBMITTED", "RECEIVED"].includes(motion.status)) {
@@ -234,14 +237,39 @@ export const motionRouter = router({
         });
       }
 
-      return ctx.db.motion.update({
+      const updated = await ctx.db.motion.update({
         where: { id: input.id },
         data: {
           boardResponse: input.boardResponse,
           boardRecommendation: input.boardRecommendation,
           status: "BOARD_RESPONSE",
+          boardResponseMeetingId: input.meetingId ?? null,
+          boardRespondedAt: input.meetingId ? new Date() : null,
         },
       });
+
+      const recLabel = ({
+        APPROVE: "tillstyrker", REJECT: "avstyrker",
+        AMEND: "föreslår ändring", NEUTRAL: "tar inte ställning",
+      } as const)[input.boardRecommendation];
+      const description = input.meetingId
+        ? `Behandlade motion "${motion.title}" från ${motion.author.firstName} ${motion.author.lastName}: styrelsen ${recLabel}`
+        : `Yttrande på motion "${motion.title}" från ${motion.author.firstName} ${motion.author.lastName}: styrelsen ${recLabel}`;
+
+      logActivity({
+        userId: ctx.user.id as string,
+        action: "motion.respond",
+        entityType: "Motion",
+        entityId: motion.id,
+        description,
+        after: {
+          boardRecommendation: input.boardRecommendation,
+          boardResponse: input.boardResponse,
+          meetingId: input.meetingId ?? null,
+        },
+      });
+
+      return updated;
     }),
 
   acknowledge: protectedProcedure

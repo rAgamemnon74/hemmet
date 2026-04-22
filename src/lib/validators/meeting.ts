@@ -39,6 +39,7 @@ export const updateAgendaItemSchema = z.object({
   duration: z.number().int().positive().optional().nullable(),
   presenter: z.string().optional().nullable(),
   voteType: z.enum(["SIMPLE_MAJORITY", "QUALIFIED_MAJORITY", "UNANIMOUS", "SHOW_OF_HANDS", "BALLOT"]).optional().nullable(),
+  proposedDate: z.coerce.date().optional().nullable(),
 });
 
 export const reorderAgendaSchema = z.object({

@@ -62,6 +62,68 @@ export const settingsRouter = router({
       });
     }),
 
+  // Importera BRF-data från YAML-mall
+  importBrf: protectedProcedure
+    .use(requirePermission("admin:settings"))
+    .input(z.object({
+      yaml: z.string().min(1, "Ingen YAML-data inskickad"),
+      apply: z.boolean(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { parse: parseYaml } = await import("yaml");
+      const { brfYamlSchema } = await import("../../../../prisma/brfs/schema");
+      const { loadBrfFromYaml } = await import("../../../../prisma/brfs/loader");
+
+      let parsed: unknown;
+      try {
+        parsed = parseYaml(input.yaml);
+      } catch (err) {
+        return {
+          ok: false as const,
+          error: `YAML-parsningsfel: ${(err as Error).message}`,
+        };
+      }
+
+      const validated = brfYamlSchema.safeParse(parsed);
+      if (!validated.success) {
+        return {
+          ok: false as const,
+          error: "YAML matchar inte schemat",
+          issues: validated.error.issues.map((i) => ({
+            path: i.path.join("."),
+            message: i.message,
+          })),
+        };
+      }
+
+      const report = await loadBrfFromYaml(ctx.db, validated.data, { apply: input.apply });
+      return {
+        ok: true as const,
+        applied: input.apply,
+        report,
+      };
+    }),
+
+  // Protokoll-huvud: toggles per mötestyp
+  updateProtocolHeaderConfig: protectedProcedure
+    .use(requirePermission("admin:settings"))
+    .input(z.object({
+      config: z.record(
+        z.enum(["BOARD", "ANNUAL", "EXTRAORDINARY"]),
+        z.record(z.string(), z.boolean()),
+      ),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.brfSettings.upsert({
+        where: { id: "default" },
+        update: { protocolHeaderConfig: input.config },
+        create: {
+          name: "", orgNumber: "", address: "", city: "", postalCode: "",
+          protocolHeaderConfig: input.config,
+        },
+      });
+    }),
+
   // Buildings CRUD
   listBuildings: protectedProcedure
     .use(requirePermission("admin:integrations"))

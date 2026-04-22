@@ -1,26 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Play, ChevronLeft, ChevronRight, CheckCircle,
-  Gavel, Monitor, Vote, FileText, Square, Lightbulb,
+  Gavel, Monitor, Vote, FileText, Square, Lightbulb, Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
-import type { DecisionMethod } from "@prisma/client";
+import type { DecisionMethod, MotionRecommendation, AgendaItemType, MeetingType } from "@prisma/client";
+import { getAgendaSnippets } from "@/lib/agenda-snippets";
+import { NextMeetingPicker, formatProposedSwedish } from "@/components/meeting/next-meeting-picker";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getSubItems(activeItem: any, meeting: any) {
   if (!activeItem) return [];
-  const items: Array<{ id: string; title: string; type: "motion" | "suggestion" }> = [];
+  const items: Array<{ id: string; title: string; type: "motion" | "suggestion"; handled: boolean }> = [];
   if (activeItem.specialType === "MOTIONS") {
-    for (const m of meeting.motions ?? []) items.push({ id: m.id, title: m.title, type: "motion" });
+    for (const m of meeting.motions ?? []) items.push({ id: m.id, title: m.title, type: "motion", handled: m.status === "BOARD_RESPONSE" || m.status === "DECIDED" });
   }
   if (activeItem.specialType === "BOARD_MATTERS") {
-    for (const m of meeting.pendingMotions ?? []) items.push({ id: m.id, title: m.title, type: "motion" });
-    for (const s of meeting.pendingSuggestions ?? []) items.push({ id: s.id, title: s.title, type: "suggestion" });
+    for (const m of meeting.pendingMotions ?? []) items.push({ id: m.id, title: m.title, type: "motion", handled: m.status === "BOARD_RESPONSE" || m.status === "DECIDED" });
+    for (const s of meeting.pendingSuggestions ?? []) items.push({ id: s.id, title: s.title, type: "suggestion", handled: false });
   }
   return items;
 }
@@ -37,12 +39,7 @@ export default function MeetingAdminPage() {
   const quickDecision = trpc.meetingLive.quickDecision.useMutation({ onSuccess: () => stateQuery.refetch() });
   const updateAttendance = trpc.attendance.update.useMutation({ onSuccess: () => stateQuery.refetch() });
   const updateMeetingRoles = trpc.meeting.update.useMutation({ onSuccess: () => stateQuery.refetch() });
-  const updateNotes = trpc.agenda.updateNotes.useMutation();
-
   const [decisionForm, setDecisionForm] = useState({ title: "", decisionText: "", method: "ACCLAMATION" as DecisionMethod, votesFor: "", votesAgainst: "", votesAbstained: "" });
-  const [notesValue, setNotesValue] = useState("");
-  const [notesSaving, setNotesSaving] = useState(false);
-  const notesTimerRef = { current: null as NodeJS.Timeout | null };
   const [showDecisionForm, setShowDecisionForm] = useState(false);
   const [recusals, setRecusals] = useState<Record<string, string>>({});  // userId → reason
 
@@ -109,20 +106,36 @@ export default function MeetingAdminPage() {
     }
   }
 
-  function handleQuickDecision() {
+  async function handleQuickDecision() {
     if (!activeItem) return;
-    quickDecision.mutate({
-      meetingId,
-      agendaItemId: activeItem.id,
-      title: decisionForm.title || activeItem.title,
-      decisionText: decisionForm.decisionText,
-      method: decisionForm.method,
-      votesFor: decisionForm.votesFor ? parseInt(decisionForm.votesFor) : undefined,
-      votesAgainst: decisionForm.votesAgainst ? parseInt(decisionForm.votesAgainst) : undefined,
-      votesAbstained: decisionForm.votesAbstained ? parseInt(decisionForm.votesAbstained) : undefined,
-    });
-    setShowDecisionForm(false);
-    setDecisionForm({ title: "", decisionText: "", method: "ACCLAMATION", votesFor: "", votesAgainst: "", votesAbstained: "" });
+    try {
+      const decision = await quickDecision.mutateAsync({
+        meetingId,
+        agendaItemId: activeItem.id,
+        title: decisionForm.title || activeItem.title,
+        decisionText: decisionForm.decisionText,
+        method: decisionForm.method,
+        votesFor: decisionForm.votesFor ? parseInt(decisionForm.votesFor) : undefined,
+        votesAgainst: decisionForm.votesAgainst ? parseInt(decisionForm.votesAgainst) : undefined,
+        votesAbstained: decisionForm.votesAbstained ? parseInt(decisionForm.votesAbstained) : undefined,
+      });
+
+      // Registrera jäv för varje markerad person (fire-and-wait)
+      const recusalEntries = Object.entries(recusals).filter(([, reason]) => reason.trim().length > 0);
+      for (const [userId, reason] of recusalEntries) {
+        await declareRecusal.mutateAsync({
+          decisionId: decision.id,
+          userId,
+          reason: reason.trim(),
+        }).catch((err) => {
+          console.error("Kunde inte registrera jäv:", err);
+        });
+      }
+    } finally {
+      setShowDecisionForm(false);
+      setDecisionForm({ title: "", decisionText: "", method: "ACCLAMATION", votesFor: "", votesAgainst: "", votesAbstained: "" });
+      setRecusals({});
+    }
   }
 
   // Current position label
@@ -229,10 +242,22 @@ export default function MeetingAdminPage() {
                               isSubActive ? "bg-blue-100 border-l-2 border-l-blue-600" : "hover:bg-gray-100"
                             )}
                           >
-                            {sub.type === "motion" ? <FileText className="h-3 w-3 text-purple-500 shrink-0" /> : <Lightbulb className="h-3 w-3 text-amber-500 shrink-0" />}
-                            <span className={cn("text-[11px]", isSubActive ? "font-semibold text-blue-900" : "text-gray-600")}>
+                            {sub.handled ? (
+                              <CheckCircle className="h-3 w-3 text-green-600 shrink-0" />
+                            ) : sub.type === "motion" ? (
+                              <FileText className="h-3 w-3 text-purple-500 shrink-0" />
+                            ) : (
+                              <Lightbulb className="h-3 w-3 text-amber-500 shrink-0" />
+                            )}
+                            <span className={cn(
+                              "text-[11px] flex-1",
+                              isSubActive ? "font-semibold text-blue-900" : sub.handled ? "text-gray-500 line-through decoration-gray-400" : "text-gray-600"
+                            )}>
                               §{i + 1}.{si + 1} {sub.title}
                             </span>
+                            {sub.handled && !isSubActive && (
+                              <span className="text-[9px] text-green-700 font-medium uppercase tracking-wide shrink-0">Klar</span>
+                            )}
                           </button>
                         );
                       })}
@@ -265,30 +290,22 @@ export default function MeetingAdminPage() {
                 )}
               </div>
 
-              {/* Secretary notes */}
+              {/* Secretary notes — per-punkt via key ↓ */}
               {canControl && (
-                <div className="rounded-lg border border-gray-200 bg-white p-4">
-                  <h3 className="text-xs font-semibold text-gray-700 uppercase mb-2 flex items-center gap-1">
-                    Anteckningar {notesSaving && <span className="text-gray-400 font-normal">(sparar...)</span>}
-                  </h3>
-                  <textarea
-                    rows={3}
-                    value={activeItem.id === (meeting.agendaItems.find((i) => i.id === meeting.activeAgendaItemId))?.id ? notesValue : (activeItem.notes ?? "")}
-                    onChange={(e) => {
-                      setNotesValue(e.target.value);
-                      if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
-                      notesTimerRef.current = setTimeout(() => {
-                        setNotesSaving(true);
-                        updateNotes.mutate({ id: activeItem.id, notes: e.target.value }, {
-                          onSettled: () => setNotesSaving(false),
-                        });
-                      }, 2000);
-                    }}
-                    onFocus={() => setNotesValue(activeItem.notes ?? "")}
-                    placeholder="Sekreterarens anteckningar under denna punkt..."
-                    className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  />
-                </div>
+                <AgendaNotesEditor
+                  key={activeItem.id}
+                  itemId={activeItem.id}
+                  specialType={activeItem.specialType as AgendaItemType | null}
+                  meetingType={meeting.type as MeetingType}
+                  initialNotes={activeItem.notes ?? ""}
+                  initialPresenter={activeItem.presenter ?? ""}
+                  initialProposedDate={(activeItem as { proposedDate?: Date | string | null }).proposedDate
+                    ? new Date((activeItem as { proposedDate: Date | string }).proposedDate)
+                    : null}
+                  attendees={meeting.attendances
+                    .filter((a) => a.status === "PRESENT" || a.status === "PROXY")
+                    .map((a) => ({ id: a.user.id, firstName: a.user.firstName, lastName: a.user.lastName }))}
+                />
               )}
 
               {/* ATTENDANCE: Board meeting — show all board members with status */}
@@ -510,8 +527,24 @@ export default function MeetingAdminPage() {
               {activeMotionDetail.boardResponse && (
                 <div className="rounded-lg border border-purple-200 bg-white p-4">
                   <p className="text-xs font-semibold text-purple-700 mb-1">Styrelsens yttrande</p>
-                  <p className="text-sm text-gray-700">{activeMotionDetail.boardResponse}</p>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{activeMotionDetail.boardResponse}</p>
+                  {activeMotionDetail.boardRecommendation && (
+                    <p className="mt-2 text-xs text-purple-600">
+                      Rekommendation: <span className="font-medium">{recommendationLabel(activeMotionDetail.boardRecommendation)}</span>
+                    </p>
+                  )}
                 </div>
+              )}
+
+              {/* Styrelsens yttrande — inline under pågående möte */}
+              {canControl && ["SUBMITTED", "RECEIVED"].includes(activeMotionDetail.status) && (
+                <InlineMotionResponseForm
+                  key={activeMotionDetail.id}
+                  motionId={activeMotionDetail.id}
+                  meetingId={meetingId}
+                  status={activeMotionDetail.status}
+                  onRefetch={() => stateQuery.refetch()}
+                />
               )}
 
               {activeMotionDetail.voteProposals.length > 0 && (
@@ -643,5 +676,292 @@ export default function MeetingAdminPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function recommendationLabel(r: MotionRecommendation): string {
+  switch (r) {
+    case "APPROVE":  return "Tillstyrker";
+    case "REJECT":   return "Avstyrker";
+    case "AMEND":    return "Föreslår ändring";
+    case "NEUTRAL":  return "Tar inte ställning";
+    default:         return r;
+  }
+}
+
+function InlineMotionResponseForm({
+  motionId, meetingId, status, onRefetch,
+}: {
+  motionId: string;
+  meetingId: string;
+  status: string;
+  onRefetch: () => void;
+}) {
+  const [response, setResponse] = useState("");
+  const [recommendation, setRecommendation] = useState<MotionRecommendation>("APPROVE");
+  const [altProposal, setAltProposal] = useState("");
+
+  const acknowledge = trpc.motion.acknowledge.useMutation({ onSuccess: () => onRefetch() });
+  const respond = trpc.motion.respond.useMutation({ onSuccess: () => onRefetch() });
+
+  return (
+    <div className="rounded-lg border border-purple-300 bg-purple-50/60 p-4 space-y-3">
+      <h3 className="text-sm font-semibold text-purple-900 flex items-center gap-1.5">
+        <Gavel className="h-4 w-4" /> Styrelsens yttrande
+      </h3>
+
+      {status === "SUBMITTED" && (
+        <button
+          onClick={() => acknowledge.mutate({ id: motionId })}
+          disabled={acknowledge.isPending}
+          className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+          {acknowledge.isPending ? "Bekräftar..." : "Bekräfta mottagande"}
+        </button>
+      )}
+
+      <textarea
+        rows={4}
+        value={response}
+        onChange={(e) => setResponse(e.target.value)}
+        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+        placeholder="Styrelsen har behandlat motionen..."
+      />
+
+      <div>
+        <label className="mb-1 block text-xs font-medium text-gray-700">Rekommendation</label>
+        <select
+          value={recommendation}
+          onChange={(e) => setRecommendation(e.target.value as MotionRecommendation)}
+          className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500">
+          <option value="APPROVE">Tillstyrker (bifall)</option>
+          <option value="REJECT">Avstyrker (avslag)</option>
+          <option value="AMEND">Föreslår ändring (eget förslag)</option>
+          <option value="NEUTRAL">Tar inte ställning</option>
+        </select>
+      </div>
+
+      {recommendation === "AMEND" && (
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-700">Styrelsens alternativa beslutsförslag</label>
+          <textarea
+            rows={3}
+            value={altProposal}
+            onChange={(e) => setAltProposal(e.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+            placeholder="Styrelsen föreslår att stämman beslutar att..."
+          />
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => respond.mutate({
+            id: motionId,
+            meetingId,
+            boardResponse: response,
+            boardRecommendation: recommendation,
+            alternativeProposal: recommendation === "AMEND" ? altProposal : undefined,
+          })}
+          disabled={!response.trim() || respond.isPending || (recommendation === "AMEND" && !altProposal.trim())}
+          className="inline-flex items-center gap-1.5 rounded-md bg-purple-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50">
+          <Send className="h-3.5 w-3.5" />
+          {respond.isPending ? "Sparar..." : "Lämna yttrande"}
+        </button>
+        {respond.error && <span className="text-xs text-red-600">{respond.error.message}</span>}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// AgendaNotesEditor — per-punkt-anteckningar med snabbtext
+// ─────────────────────────────────────────────────────────────
+
+function AgendaNotesEditor({
+  itemId, specialType, meetingType, initialNotes, initialPresenter, initialProposedDate, attendees,
+}: {
+  itemId: string;
+  specialType: AgendaItemType | null;
+  meetingType: MeetingType;
+  initialNotes: string;
+  initialPresenter: string;
+  initialProposedDate: Date | null;
+  attendees: Array<{ id: string; firstName: string; lastName: string }>;
+}) {
+  const [notes, setNotes] = useState(initialNotes);
+  const [presenter, setPresenter] = useState(initialPresenter);
+  const [proposedDate, setProposedDate] = useState<Date | null>(initialProposedDate);
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [presenterSaving, setPresenterSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const presenterTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const updateNotesMutation = trpc.agenda.updateNotes.useMutation();
+  const updateItemMutation = trpc.agenda.update.useMutation();
+
+  // Ändras itemId → komponenten remountas via key i parent.
+  // useEffect städar timers om nuvarande instans unmountas med osparade ändringar.
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      if (presenterTimerRef.current) clearTimeout(presenterTimerRef.current);
+    };
+  }, []);
+
+  function scheduleNotesSave(value: string) {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      setNotesSaving(true);
+      updateNotesMutation.mutate({ id: itemId, notes: value }, {
+        onSettled: () => {
+          setNotesSaving(false);
+          setJustSaved(true);
+          setTimeout(() => setJustSaved(false), 1500);
+        },
+      });
+    }, 1500);
+  }
+
+  function schedulePresenterSave(value: string) {
+    if (presenterTimerRef.current) clearTimeout(presenterTimerRef.current);
+    presenterTimerRef.current = setTimeout(() => {
+      setPresenterSaving(true);
+      updateItemMutation.mutate({ id: itemId, presenter: value || null }, {
+        onSettled: () => setPresenterSaving(false),
+      });
+    }, 1500);
+  }
+
+  function insertSnippet(text: string) {
+    const ta = notesTextareaRef.current;
+    const needsLeadingNewline = notes.length > 0 && !notes.endsWith("\n") && !notes.endsWith(" ");
+    const insertion = (needsLeadingNewline ? " " : "") + text;
+    const nextValue = notes + insertion;
+    setNotes(nextValue);
+    scheduleNotesSave(nextValue);
+    // Flytta markören till slutet så man kan fortsätta skriva
+    setTimeout(() => {
+      if (ta) {
+        ta.focus();
+        ta.setSelectionRange(nextValue.length, nextValue.length);
+      }
+    }, 0);
+  }
+
+  const snippets = getAgendaSnippets(specialType, meetingType, presenter);
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
+      <div className="flex items-baseline justify-between">
+        <h3 className="text-xs font-semibold text-gray-700 uppercase">Anteckningar för denna punkt</h3>
+        <span className="text-[10px] text-gray-400">
+          {notesSaving || presenterSaving ? "sparar..." : justSaved ? <span className="text-green-600">✓ sparat</span> : ""}
+        </span>
+      </div>
+
+      {/* Presenter — fritext + dropdown med närvarande */}
+      <div className="flex items-center gap-2">
+        <label className="text-[11px] font-medium text-gray-600 shrink-0">Föredragande:</label>
+        <input
+          value={presenter}
+          onChange={(e) => {
+            setPresenter(e.target.value);
+            schedulePresenterSave(e.target.value);
+          }}
+          placeholder="välj nedan eller skriv fritt"
+          className="flex-1 rounded-md border border-gray-200 px-2 py-1 text-xs focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+        />
+        <select
+          value=""
+          onChange={(e) => {
+            if (!e.target.value) return;
+            setPresenter(e.target.value);
+            schedulePresenterSave(e.target.value);
+          }}
+          className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+          title="Välj bland närvarande"
+        >
+          <option value="">Välj närvarande...</option>
+          {attendees.map((a) => {
+            const name = `${a.firstName} ${a.lastName}`;
+            return <option key={a.id} value={name}>{name}</option>;
+          })}
+        </select>
+      </div>
+
+      {/* NEXT_MEETING — datum- och tidsväljare */}
+      {specialType === "NEXT_MEETING" && (
+        <div className="border-t border-gray-100 pt-3">
+          <NextMeetingPicker
+            value={proposedDate}
+            onChange={(d) => {
+              setProposedDate(d);
+              if (presenterTimerRef.current) clearTimeout(presenterTimerRef.current);
+              presenterTimerRef.current = setTimeout(() => {
+                setPresenterSaving(true);
+                updateItemMutation.mutate({ id: itemId, proposedDate: d }, {
+                  onSettled: () => {
+                    setPresenterSaving(false);
+                    setJustSaved(true);
+                    setTimeout(() => setJustSaved(false), 1500);
+                  },
+                });
+              }, 600);
+            }}
+            onInsertToNotes={(text) => insertSnippet(text)}
+          />
+        </div>
+      )}
+
+      {/* Snabbtext-knappar — typ-specifika baserat på agendapunktens specialType */}
+      {snippets.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 border-t border-gray-100 pt-2">
+          <span className="text-[10px] text-gray-400 self-center mr-1">Snabbtext:</span>
+          {snippets.map((s) => (
+            <SnippetButton
+              key={s.label}
+              label={s.label}
+              title={s.tip}
+              onClick={() => {
+                // För "Föredrag"-snippets som kräver presenter — varna om tomt
+                if (s.text.startsWith("[Föredragande]") && !presenter.trim()) {
+                  alert("Ange föredragande först (fält ovanför).");
+                  return;
+                }
+                insertSnippet(s.text);
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Notes textarea */}
+      <textarea
+        ref={notesTextareaRef}
+        rows={4}
+        value={notes}
+        onChange={(e) => {
+          setNotes(e.target.value);
+          scheduleNotesSave(e.target.value);
+        }}
+        placeholder="Sekreterarens anteckningar under denna punkt..."
+        className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+      />
+    </div>
+  );
+}
+
+function SnippetButton({ label, title, onClick }: { label: string; title?: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="inline-flex items-center gap-1 rounded border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700"
+    >
+      {label}
+    </button>
   );
 }

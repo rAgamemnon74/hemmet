@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# hemmet-import-brf — importerar BRF-data från en YAML-mall.
+#
+# Användning:
+#   sudo hemmet-import-brf [--dry-run|--apply] /path/to/brf.yaml
+#
+# Default är dry-run. Lägg till --apply för att skriva till databasen.
+
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "❌ Måste köras som root (eller via sudo)" >&2
+    exit 1
+fi
+
+ENV_FILE=/etc/hemmet/env
+if [ ! -e "$ENV_FILE" ]; then
+    echo "❌ $ENV_FILE saknas. Kör hemmet-setup först." >&2
+    exit 1
+fi
+
+IMPORTER=/opt/hemmet/scripts/import-brf.js
+if [ ! -e "$IMPORTER" ]; then
+    echo "❌ $IMPORTER saknas i paketet" >&2
+    exit 1
+fi
+
+set -a
+# shellcheck disable=SC1090
+. "$ENV_FILE"
+set +a
+
+cd /opt/hemmet
+sudo -u hemmet --preserve-env=DATABASE_URL /usr/bin/node "$IMPORTER" "$@"

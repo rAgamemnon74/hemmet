@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+# hemmet-setup — förstagångs-initiering av Hemmet
+#
+# Gör följande, idempotent:
+#   1. Kontrollerar att PostgreSQL-server är igång
+#   2. Skapar hemmet-roll + hemmet-databas om de saknas
+#   3. Genererar slumpmässigt DB-lösenord (om inget finns)
+#   4. Genererar AUTH_SECRET (om inget finns)
+#   5. Skriver /etc/hemmet/env med riktiga värden
+#   6. Kör Prisma migrations
+#   7. Aktiverar och startar hemmet.service
+#
+# Får köra flera gånger utan biverkningar — steg som redan är gjorda hoppas över.
+
+set -euo pipefail
+
+ENV_FILE=/etc/hemmet/env
+APP_DIR=/opt/hemmet
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "❌ Måste köras som root (eller via sudo)" >&2
+    exit 1
+fi
+
+echo "▶ Hemmet setup"
+echo ""
+
+# ── 1. Kontrollera PostgreSQL-server ────────────────────────
+if ! systemctl is-active --quiet postgresql 2>/dev/null; then
+    if ! command -v psql >/dev/null; then
+        echo "❌ PostgreSQL-servern verkar inte installerad."
+        echo ""
+        echo "Installera den först:"
+        echo "  sudo apt install postgresql"
+        echo ""
+        echo "Alternativt — använd fjärr-databas genom att redigera"
+        echo "DATABASE_URL i $ENV_FILE direkt."
+        exit 1
+    fi
+    echo "⚠  postgresql.service kör inte. Försöker starta..."
+    systemctl start postgresql || {
+        echo "❌ Kunde inte starta PostgreSQL. Kontrollera 'systemctl status postgresql'."
+        exit 1
+    }
+fi
+echo "✓ PostgreSQL kör"
+
+# ── 2. Säkerställ att /etc/hemmet/env finns ─────────────────
+if [ ! -e "$ENV_FILE" ]; then
+    install -d -m 0750 -o root -g hemmet /etc/hemmet
+    install -m 0640 -o root -g hemmet "$APP_DIR/packaging/env.example" "$ENV_FILE"
+    echo "✓ Skapade $ENV_FILE från mall"
+fi
+
+# Helper: läs värde ur env-fil (enkel parser för KEY=VALUE-format)
+env_get() {
+    local key="$1"
+    grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | sed "s/^${key}=//; s/^\"\(.*\)\"\$/\1/; s/^'\(.*\)'\$/\1/"
+}
+
+# Helper: skriv/uppdatera värde i env-fil
+env_set() {
+    local key="$1"
+    local value="$2"
+    if grep -qE "^${key}=" "$ENV_FILE"; then
+        # Uppdatera existerande
+        sed -i "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+    else
+        echo "${key}=${value}" >> "$ENV_FILE"
+    fi
+}
+
+# ── 3. Hantera DB-användare + databas ───────────────────────
+DB_USER="hemmet"
+DB_NAME="hemmet"
+CURRENT_URL=$(env_get DATABASE_URL || true)
+
+# Om DATABASE_URL redan är satt till en icke-placeholder som funkar, hoppa
+if [[ -n "$CURRENT_URL" && "$CURRENT_URL" != *"CHANGE_ME"* ]]; then
+    echo "✓ DATABASE_URL finns redan i $ENV_FILE"
+
+    # Försök ansluta för att verifiera
+    if sudo -u postgres psql -Atc "\l" 2>/dev/null | grep -qw "$DB_NAME"; then
+        echo "✓ Databasen '$DB_NAME' finns"
+    else
+        echo "⚠  DATABASE_URL är satt men databasen '$DB_NAME' hittas inte lokalt."
+        echo "   Antar att det är en fjärr-databas — fortsätter med migrations."
+    fi
+else
+    # Skapa roll om den saknas
+    if sudo -u postgres psql -Atc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'" | grep -q 1; then
+        echo "✓ DB-roll '$DB_USER' finns redan"
+        DB_PASS=""
+    else
+        DB_PASS=$(openssl rand -base64 24 | tr -d "/+=" | head -c 24)
+        sudo -u postgres psql -c "CREATE ROLE $DB_USER LOGIN PASSWORD '$DB_PASS';" >/dev/null
+        echo "✓ Skapade DB-roll '$DB_USER' med slumpat lösenord"
+    fi
+
+    # Skapa databas om den saknas
+    if sudo -u postgres psql -Atc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'" | grep -q 1; then
+        echo "✓ Databasen '$DB_NAME' finns redan"
+    else
+        sudo -u postgres createdb -O "$DB_USER" "$DB_NAME"
+        echo "✓ Skapade databasen '$DB_NAME' (ägare: $DB_USER)"
+    fi
+
+    # Skriv DATABASE_URL i env-filen
+    if [ -n "$DB_PASS" ]; then
+        # URL-escape specialtecken i lösenord (redan minimerat via head ovan)
+        NEW_URL="postgresql://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}"
+        env_set DATABASE_URL "$NEW_URL"
+        echo "✓ Skrev DATABASE_URL till $ENV_FILE"
+    else
+        # Lösenord redan satt för befintlig roll — låt admin uppdatera manuellt
+        echo "⚠  Rollen '$DB_USER' existerade redan — uppdatera DATABASE_URL i $ENV_FILE manuellt"
+    fi
+fi
+
+# ── 4. AUTH_SECRET ──────────────────────────────────────────
+CURRENT_SECRET=$(env_get AUTH_SECRET || true)
+if [[ -z "$CURRENT_SECRET" || "$CURRENT_SECRET" == *"CHANGE_ME"* ]]; then
+    NEW_SECRET=$(openssl rand -base64 32)
+    env_set AUTH_SECRET "$NEW_SECRET"
+    echo "✓ Genererade AUTH_SECRET"
+else
+    echo "✓ AUTH_SECRET finns redan"
+fi
+
+# Sätt rimliga rättigheter på env-filen
+chown root:hemmet "$ENV_FILE"
+chmod 0640 "$ENV_FILE"
+
+# ── 5. Kör Prisma migrations ────────────────────────────────
+echo ""
+echo "▶ Kör databas-migrations"
+set -a
+# shellcheck disable=SC1090
+. "$ENV_FILE"
+set +a
+cd "$APP_DIR"
+if sudo -u hemmet --preserve-env=DATABASE_URL /usr/bin/node node_modules/prisma/build/index.js migrate deploy 2>&1; then
+    echo "✓ Migrations klara"
+else
+    echo "❌ Migrations misslyckades. Kolla DATABASE_URL och PostgreSQL-loggen."
+    exit 1
+fi
+
+# ── 5b. Grundladda data (BrfSettings, BrfRules, admin-user) ──
+echo ""
+echo "▶ Grundladdar data"
+install -d -m 0755 -o hemmet -g hemmet /var/lib/hemmet
+if sudo -u hemmet --preserve-env=DATABASE_URL /usr/bin/node "$APP_DIR/packaging/bootstrap.js"; then
+    :
+else
+    echo "❌ Bootstrap misslyckades."
+    exit 1
+fi
+
+# ── 6. Aktivera + starta service ────────────────────────────
+echo ""
+echo "▶ Aktiverar hemmet.service"
+systemctl daemon-reload
+if systemctl is-active --quiet hemmet.service; then
+    systemctl restart hemmet.service
+    echo "✓ Service omstartad"
+else
+    systemctl enable --now hemmet.service
+    echo "✓ Service aktiverad och startad"
+fi
+
+echo ""
+echo "============================================================"
+echo "Hemmet är nu installerat och körs."
+echo ""
+echo "  Status:   systemctl status hemmet.service"
+echo "  Loggar:   journalctl -u hemmet -f"
+echo "  Env:      sudoedit $ENV_FILE"
+echo ""
+echo "Öppna i webbläsare när tjänsten svarar:"
+HOSTNAME=$(env_get HOSTNAME || echo "0.0.0.0")
+PORT=$(env_get PORT || echo "3000")
+echo "  http://$(hostname -I 2>/dev/null | awk '{print $1}'):${PORT}"
+echo "============================================================"

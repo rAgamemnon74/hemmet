@@ -10,7 +10,9 @@
     "db:migrate": "npx prisma migrate dev",
     "db:seed": "npx prisma db seed",
     "db:studio": "npx prisma studio",
-    "db:generate": "npx prisma generate"
+    "db:generate": "npx prisma generate",
+    "gdpr:anonymize-bookings": "npx tsx scripts/anonymize-bookings.ts",
+    "brf:load": "npx tsx prisma/brfs/cli.ts"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
@@ -27,6 +29,7 @@
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "docx": "^9.6.1",
     "lucide-react": "^1.7.0",
     "next": "16.2.3",
     "next-auth": "^5.0.0-beta.30",
@@ -38,6 +41,7 @@
     "sonner": "^2.0.7",
     "superjson": "^2.2.6",
     "tailwind-merge": "^3.5.0",
+    "yaml": "^2.8.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {

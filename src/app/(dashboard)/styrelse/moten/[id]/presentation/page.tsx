@@ -1,10 +1,12 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { Home, CheckCircle, Clock, FileText, Lightbulb, Vote } from "lucide-react";
+import { Home, CheckCircle, Clock, FileText, Lightbulb, Vote, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import { AttendanceQR } from "@/components/meeting/attendance-qr";
+import { AgendaAttachmentViewer } from "@/components/meeting/agenda-attachment-viewer";
+import { NextMeetingPicker, formatProposedSwedish } from "@/components/meeting/next-meeting-picker";
 
 export default function PresentationPage() {
   const params = useParams();
@@ -73,9 +75,15 @@ export default function PresentationPage() {
                       )}>
                         {isPast && hasDecision ? <CheckCircle className="h-3.5 w-3.5" /> : i + 1}
                       </span>
-                      <span className={cn("text-sm", (isActive && !activeSubItem) && "font-semibold")}>
+                      <span className={cn("text-sm flex-1", (isActive && !activeSubItem) && "font-semibold")}>
                         {item.title}
                       </span>
+                      {item.attachments && item.attachments.length > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-xs text-gray-400 shrink-0" title={`${item.attachments.length} bilagor`}>
+                          <Paperclip className="h-3 w-3" />
+                          {item.attachments.length}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -86,10 +94,19 @@ export default function PresentationPage() {
                         return (
                           <div key={sub.id} className={cn(
                             "rounded px-3 py-1.5 text-xs flex items-center gap-2",
-                            isSubActive ? "bg-blue-600 text-white font-semibold" : "text-blue-300/70"
+                            isSubActive ? "bg-blue-600 text-white font-semibold" :
+                            sub.handled ? "text-green-300/80" : "text-blue-300/70"
                           )}>
-                            {sub.type === "motion" ? <FileText className="h-3 w-3 shrink-0" /> : <Lightbulb className="h-3 w-3 shrink-0" />}
-                            <span>§{i + 1}.{si + 1} {sub.title}</span>
+                            {sub.handled ? (
+                              <CheckCircle className="h-3 w-3 shrink-0" />
+                            ) : sub.type === "motion" ? (
+                              <FileText className="h-3 w-3 shrink-0" />
+                            ) : (
+                              <Lightbulb className="h-3 w-3 shrink-0" />
+                            )}
+                            <span className={cn(sub.handled && !isSubActive && "line-through decoration-green-500/40")}>
+                              §{i + 1}.{si + 1} {sub.title}
+                            </span>
                           </div>
                         );
                       })}
@@ -222,6 +239,25 @@ export default function PresentationPage() {
               </div>
             )}
 
+            {activeItem.specialType === "NEXT_MEETING" && (() => {
+              const proposedRaw = (activeItem as { proposedDate?: Date | string | null }).proposedDate;
+              const proposed = proposedRaw ? new Date(proposedRaw) : null;
+              return (
+                <div className="mb-6">
+                  <NextMeetingPicker value={proposed} readOnly dark />
+                  {proposed && (
+                    <p className="mt-4 text-center text-2xl font-semibold text-blue-200">
+                      Föreslaget datum och tid: {formatProposedSwedish(proposed)}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
+            {activeItem.attachments && activeItem.attachments.length > 0 && (
+              <AgendaAttachmentViewer attachments={activeItem.attachments} />
+            )}
+
             {activeItem.decisions.map((d) => <DecisionCard key={d.id} decision={d} />)}
 
             {subItems.length > 0 && (
@@ -335,7 +371,7 @@ function DecisionCard({ decision: d }: { decision: { id: string; reference: stri
 }
 
 type SubItem = {
-  id: string; title: string; type: "motion" | "suggestion";
+  id: string; title: string; type: "motion" | "suggestion"; handled: boolean;
   motion?: { proposal: string; boardResponse: string | null; voteProposals: Array<{ id: string; label: string; description: string; adopted: boolean; votesFor: number | null; votesAgainst: number | null; votesAbstained: number | null }> };
   suggestion?: { description: string; author: { firstName: string; lastName: string } };
 };
@@ -345,11 +381,11 @@ function getSubItems(activeItem: any, meeting: any): SubItem[] {
   if (!activeItem) return [];
   const items: SubItem[] = [];
   if (activeItem.specialType === "MOTIONS") {
-    for (const m of meeting.motions ?? []) items.push({ id: m.id, title: m.title, type: "motion", motion: { proposal: m.proposal, boardResponse: m.boardResponse, voteProposals: m.voteProposals } });
+    for (const m of meeting.motions ?? []) items.push({ id: m.id, title: m.title, type: "motion", handled: m.status === "BOARD_RESPONSE" || m.status === "DECIDED", motion: { proposal: m.proposal, boardResponse: m.boardResponse, voteProposals: m.voteProposals } });
   }
   if (activeItem.specialType === "BOARD_MATTERS") {
-    for (const m of meeting.pendingMotions ?? []) items.push({ id: m.id, title: m.title, type: "motion", motion: { proposal: m.proposal, boardResponse: m.boardResponse, voteProposals: m.voteProposals } });
-    for (const s of meeting.pendingSuggestions ?? []) items.push({ id: s.id, title: s.title, type: "suggestion", suggestion: { description: s.description, author: s.author } });
+    for (const m of meeting.pendingMotions ?? []) items.push({ id: m.id, title: m.title, type: "motion", handled: m.status === "BOARD_RESPONSE" || m.status === "DECIDED", motion: { proposal: m.proposal, boardResponse: m.boardResponse, voteProposals: m.voteProposals } });
+    for (const s of meeting.pendingSuggestions ?? []) items.push({ id: s.id, title: s.title, type: "suggestion", handled: false, suggestion: { description: s.description, author: s.author } });
   }
   return items;
 }

@@ -1,5 +1,9 @@
 # Hemmet — Stadgejämförelse: 10 föreningar
 
+*PDF-källorna är flyttade till `local/stadgar/` och ingår inte i git
+(se `local/README.md`). Denna analys bygger på offentliga stadgar från
+respektive förening och HSB/Riksbyggen-standardmallarna.*
+
 ## Analyserade stadgar
 
 | # | Förening | Typ | Ort | Källa |

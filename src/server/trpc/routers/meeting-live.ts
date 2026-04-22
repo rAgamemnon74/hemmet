@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { router, protectedProcedure, requirePermission } from "../trpc";
 import { TRPCError } from "@trpc/server";
+import { logActivity } from "@/lib/audit";
 
 export const meetingLiveRouter = router({
   // Get live state (polled by presentation view)
@@ -105,22 +106,32 @@ export const meetingLiveRouter = router({
       const fiscalYearStart = new Date(now.getFullYear(), fyStart - 1, 1);
       if (fiscalYearStart > now) fiscalYearStart.setFullYear(fiscalYearStart.getFullYear() - 1);
 
-      // For board meetings (BOARD_MATTERS): show motions NOT yet responded to by board
-      // (SUBMITTED or RECEIVED only — BOARD_RESPONSE means board has handled it)
-      // For annual meetings (MOTIONS): motions are linked directly to the meeting
+      // For board meetings (BOARD_MATTERS): show motions pending handling
+      // PLUS motions already handled during this meeting (so board can still
+      // navigate back and see what they just decided, and they don't disappear
+      // from the list mid-meeting).
       const [pendingMotions, pendingSuggestions] = await Promise.all([
         ctx.db.motion.findMany({
           where: {
-            status: { in: ["SUBMITTED", "RECEIVED"] }, // NOT BOARD_RESPONSE — that means handled
-            meetingId: null,
-            submittedAt: { gte: fiscalYearStart },
+            OR: [
+              // Ej besvarade motioner inom innevarande räkenskapsår
+              {
+                status: { in: ["SUBMITTED", "RECEIVED"] },
+                meetingId: null,
+                submittedAt: { gte: fiscalYearStart },
+              },
+              // Motioner som behandlats under detta styrelsemöte — stanna kvar
+              { boardResponseMeetingId: input.meetingId },
+            ],
           },
           select: {
             id: true, title: true, status: true, proposal: true,
             boardResponse: true, boardRecommendation: true,
+            boardResponseMeetingId: true,
             voteProposals: { orderBy: { sortOrder: "asc" } },
             author: { select: { firstName: true, lastName: true } },
           },
+          orderBy: { submittedAt: "asc" },
         }),
         ctx.db.suggestion.findMany({
           where: {
@@ -135,7 +146,33 @@ export const meetingLiveRouter = router({
         }),
       ]);
 
-      return { ...meeting, pendingMotions, pendingSuggestions, members, boardMembers };
+      // Bilagor per agendapunkt (polymorf — ej direkt relation, hämtas separat)
+      const agendaItemIds = meeting.agendaItems.map((i) => i.id);
+      const attachments = agendaItemIds.length > 0
+        ? await ctx.db.attachment.findMany({
+            where: { entityType: "AgendaItem", entityId: { in: agendaItemIds } },
+            orderBy: { createdAt: "asc" },
+            select: { id: true, entityId: true, type: true, name: true, url: true, mimeType: true, fileSize: true },
+          })
+        : [];
+      const attachmentsByItem = new Map<string, typeof attachments>();
+      for (const a of attachments) {
+        if (!attachmentsByItem.has(a.entityId)) attachmentsByItem.set(a.entityId, []);
+        attachmentsByItem.get(a.entityId)!.push(a);
+      }
+      const agendaItemsWithAttachments = meeting.agendaItems.map((item) => ({
+        ...item,
+        attachments: attachmentsByItem.get(item.id) ?? [],
+      }));
+
+      return {
+        ...meeting,
+        agendaItems: agendaItemsWithAttachments,
+        pendingMotions,
+        pendingSuggestions,
+        members,
+        boardMembers,
+      };
     }),
 
   // Set active agenda item (clears sub-item)
@@ -195,7 +232,7 @@ export const meetingLiveRouter = router({
       const datePrefix = format(meeting.scheduledAt, "yyyy-MM");
       const reference = `${datePrefix}-§${existingCount + 1}`;
 
-      return ctx.db.decision.create({
+      const decision = await ctx.db.decision.create({
         data: {
           meetingId: input.meetingId,
           agendaItemId: input.agendaItemId,
@@ -209,5 +246,26 @@ export const meetingLiveRouter = router({
           reference,
         },
       });
+
+      const voteSummary = input.method === "COUNTED" && input.votesFor !== undefined
+        ? ` (Ja ${input.votesFor} / Nej ${input.votesAgainst ?? 0} / Avstår ${input.votesAbstained ?? 0})`
+        : "";
+      logActivity({
+        userId: ctx.user.id as string,
+        action: "decision.create",
+        entityType: "Decision",
+        entityId: decision.id,
+        description: `Beslut ${reference}: ${input.title}${voteSummary}`,
+        after: {
+          title: input.title,
+          decisionText: input.decisionText,
+          method: input.method,
+          votesFor: input.votesFor ?? null,
+          votesAgainst: input.votesAgainst ?? null,
+          votesAbstained: input.votesAbstained ?? null,
+        },
+      });
+
+      return decision;
     }),
 });

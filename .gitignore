@@ -38,6 +38,14 @@ yarn-error.log*
 # uploads
 /uploads
 
+# lokalt/känsligt material (riktiga förenings-YAML:er, stadgar, persondata)
+# se local/README.md för innehåll och syfte
+/local
+
+# byggartefakter
+/dist
+*.deb
+
 # stadgar PDFs (may contain real org data)
 docs/stadgar/*.pdf
 *.pdf

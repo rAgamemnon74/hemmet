@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Save, Lock, Unlock, PenLine, CheckCircle, Archive, Wand2, AlertTriangle } from "lucide-react";
+import { Save, Lock, Unlock, PenLine, CheckCircle, Archive, Wand2, Download, Upload, FileText, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import { useSession } from "next-auth/react";
@@ -16,6 +16,8 @@ type Protocol = {
   finalizedAt: Date | null;
   finalizedBy: string | null;
   archivedAt: Date | null;
+  signedPdfDocumentId?: string | null;
+  signedPdfUploadedAt?: Date | null;
 } | null;
 
 const statusLabels: Record<string, string> = {
@@ -50,6 +52,9 @@ export function ProtocolTab({
   const userId = session?.user?.id;
   const [content, setContent] = useState(protocol?.content ?? "");
   const [hasChanges, setHasChanges] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   const generateDraft = trpc.protocol.generate.useQuery({ meetingId }, { enabled: false });
   const upsertProtocol = trpc.protocol.upsert.useMutation({
@@ -59,6 +64,70 @@ export function ProtocolTab({
   const reopen = trpc.protocol.reopen.useMutation({ onSuccess: () => router.refresh() });
   const sign = trpc.protocol.sign.useMutation({ onSuccess: () => router.refresh() });
   const archive = trpc.protocol.archive.useMutation({ onSuccess: () => router.refresh() });
+  const uploadSigned = trpc.protocol.uploadSigned.useMutation({ onSuccess: () => router.refresh() });
+  const removeSigned = trpc.protocol.removeSigned.useMutation({ onSuccess: () => router.refresh() });
+
+  function safeFilename(ext: string): string {
+    const safeTitle = content.split("\n")[0]?.replace(/[^a-zA-ZåäöÅÄÖ0-9 -]/g, "").trim() || "protokoll";
+    return `${safeTitle}.${ext}`;
+  }
+
+  function triggerDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleDownloadMarkdown() {
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+    triggerDownload(blob, safeFilename("md"));
+  }
+
+  const [docxGenerating, setDocxGenerating] = useState(false);
+
+  async function handleDownloadDocx() {
+    setDocxGenerating(true);
+    try {
+      const { markdownToDocxBlob } = await import("@/lib/markdown-to-docx");
+      const title = content.split("\n")[0]?.replace(/[#*]/g, "").trim() || "Protokoll";
+      const blob = await markdownToDocxBlob(content, title);
+      triggerDownload(blob, safeFilename("docx"));
+    } finally {
+      setDocxGenerating(false);
+    }
+  }
+
+  async function handleUploadPdf(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.includes("pdf") && !file.name.toLowerCase().endsWith(".pdf")) {
+      setUploadError("Endast PDF-filer accepteras som undertecknat protokoll.");
+      return;
+    }
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("category", "MEETING_PROTOCOL");
+      formData.append("visibleToMembers", "true");
+      const res = await fetch("/api/documents/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        setUploadError("Uppladdning misslyckades.");
+        return;
+      }
+      const data = await res.json() as { id: string };
+      await uploadSigned.mutateAsync({ meetingId, documentId: data.id });
+    } catch {
+      setUploadError("Oväntat fel vid uppladdning.");
+    } finally {
+      setUploading(false);
+      if (pdfInputRef.current) pdfInputRef.current.value = "";
+    }
+  }
 
   const status = protocol?.status ?? "DRAFT";
   const isLocked = status === "SIGNED" || status === "ARCHIVED";
@@ -123,6 +192,26 @@ export function ProtocolTab({
             </button>
           )}
 
+          {/* Download as Markdown */}
+          {content.trim().length > 0 && (
+            <button onClick={handleDownloadMarkdown}
+              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              title="Ladda ner som Markdown (.md) — råtext, öppnas i Word/LibreOffice men utan formatering">
+              <Download className="h-4 w-4" />
+              Ladda ner .md
+            </button>
+          )}
+
+          {/* Download as .docx */}
+          {content.trim().length > 0 && (
+            <button onClick={handleDownloadDocx} disabled={docxGenerating}
+              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              title="Ladda ner som Word-dokument (.docx) — rubriker, listor och fet text bevaras">
+              <Download className="h-4 w-4" />
+              {docxGenerating ? "Genererar..." : "Ladda ner .docx"}
+            </button>
+          )}
+
           {/* Finalize button — secretary locks the protocol */}
           {canEdit && protocol && status === "DRAFT" && (
             <button onClick={() => finalize.mutate({ meetingId })} disabled={finalize.isPending}
@@ -170,6 +259,69 @@ export function ProtocolTab({
       {upsertProtocol.error && <p className="mb-2 text-sm text-red-600">{upsertProtocol.error.message}</p>}
       {finalize.error && <p className="mb-2 text-sm text-red-600">{finalize.error.message}</p>}
       {sign.error && <p className="mb-2 text-sm text-red-600">{sign.error.message}</p>}
+      {uploadError && <p className="mb-2 text-sm text-red-600">{uploadError}</p>}
+      {uploadSigned.error && <p className="mb-2 text-sm text-red-600">{uploadSigned.error.message}</p>}
+
+      {/* Undertecknat PDF — formellt dokument */}
+      {protocol && (status === "FINALIZED" || status === "SIGNED" || status === "ARCHIVED") && (
+        <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50/60 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+                <FileText className="h-4 w-4" /> Undertecknat protokoll (formellt)
+              </h3>
+              <p className="mt-1 text-xs text-gray-500">
+                Skriv ut utkastet, låt ordförande och justerare underteckna på papper, skanna och ladda upp som PDF. Medlemmar kan ladda ner det formella protokollet härifrån.
+              </p>
+              {protocol.signedPdfDocumentId ? (
+                <div className="mt-3 flex items-center gap-2">
+                  <a
+                    href={`/api/documents/${protocol.signedPdfDocumentId}/download`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-green-300 bg-green-50 px-3 py-1.5 text-sm font-medium text-green-800 hover:bg-green-100"
+                  >
+                    <Download className="h-4 w-4" /> Ladda ner PDF
+                  </a>
+                  {canEdit && status !== "ARCHIVED" && (
+                    <button
+                      onClick={() => { if (confirm("Ta bort det uppladdade protokollet?")) removeSigned.mutate({ meetingId }); }}
+                      disabled={removeSigned.isPending}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-600 hover:bg-red-50 hover:text-red-600 hover:border-red-300 disabled:opacity-50"
+                      title="Ta bort">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {protocol.signedPdfUploadedAt && (
+                    <span className="text-xs text-gray-500">
+                      Uppladdat {new Date(protocol.signedPdfUploadedAt).toLocaleDateString("sv-SE")}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                canEdit && status !== "ARCHIVED" && (
+                  <div className="mt-3">
+                    <input
+                      ref={pdfInputRef}
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      onChange={handleUploadPdf}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => pdfInputRef.current?.click()}
+                      disabled={uploading}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50">
+                      <Upload className="h-4 w-4" />
+                      {uploading ? "Laddar upp..." : "Ladda upp undertecknat PDF"}
+                    </button>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Protocol content */}
       <div className="rounded-lg border border-gray-200 bg-white">

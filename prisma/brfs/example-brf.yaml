@@ -1,0 +1,167 @@
+# Hemmet BRF-mall — exempel
+#
+# Denna fil är fiktiv. All data är påhittad och visas bara för att
+# illustrera formatet. För riktig förening, kopiera filen och ersätt
+# fält-för-fält med er egen data.
+#
+# Import:  sudo hemmet-import-brf /opt/hemmet/examples/example-brf.yaml
+# Dry-run: sudo hemmet-import-brf --dry-run /opt/hemmet/examples/example-brf.yaml
+
+schema: "1.0"
+placeholderEmailDomain: "placeholder.testforeningen.se"
+
+settings:
+  name: "Brf Testvägen"
+  orgNumber: "999999-0001"
+  registrationDate: 2005-01-15
+  seat: "Stockholm"
+  address: "Testvägen 1"
+  postalCode: "111 11"
+  city: "Stockholm"
+  website: "https://testforeningen.example/"
+  fiscalYearStart: 1
+  fiscalYearEnd: 12
+
+# Stadgeregler — standardvärden för fristående BRF enligt svensk BRL
+rules:
+  affiliation: NONE                 # NONE | HSB | RIKSBYGGEN | SBC | OTHER
+  # Styrelse
+  minBoardMembers: 3
+  maxBoardMembers: 7
+  maxBoardSubstitutes: 3
+  allowExternalBoardMembers: 0
+  # Kallelse
+  noticePeriodMinWeeks: 2
+  noticePeriodMaxWeeks: 6
+  noticeMethodDigital: true
+  allowDigitalMeeting: false
+  # Ombud
+  maxProxiesPerPerson: 1
+  proxyCircleRestriction: true
+  proxyMaxValidityMonths: 12
+  # Dagordning
+  adjustersCount: 2
+  # Avgifter (procent av prisbasbelopp)
+  transferFeeMaxPercent: 2.5
+  pledgeFeeMaxPercent: 1.0
+  subletFeeMaxPercent: 10.0
+  transferFeePaidBySeller: false
+  # Revisorer
+  minAuditors: 1
+  maxAuditors: 2
+  maxAuditorSubstitutes: 1
+  requireAuthorizedAuditor: false
+  # Underhåll
+  maintenancePlanRequired: true
+  maintenancePlanYears: 30
+  # Andrahand
+  subletRequiresApproval: true
+
+property:
+  address: "Testvägen 1-5"
+  city: "Stockholm"
+  postalCode: "111 11"
+  totalArea: 2400
+  averageArea: 80
+  totalApartments: 30
+
+buildings:
+  - name: "Hus A"
+    address: "Testvägen 1"
+    constructionYear: 2005
+    heatingType: "Fjärrvärme"
+    apartmentCount: 15
+  - name: "Hus B"
+    address: "Testvägen 5"
+    constructionYear: 2005
+    heatingType: "Fjärrvärme"
+    apartmentCount: 15
+
+bookableResources:
+  - name: "Tvättstuga"
+    type: LAUNDRY
+    location: "Källaren, Hus A"
+    description: "Gemensam tvättstuga med 3 maskiner."
+    # Inget `overrides` eller `slotsPerDay` → TYPE_DEFAULTS gäller
+    # (5 × 3h-pass per dag mån-sön, 35 pass totalt)
+
+  - name: "Bastu"
+    type: SAUNA
+    location: "Källaren, Hus B"
+    description: "Bastu med dusch. 30 kr/pass. Nyckel i expeditionsrummet."
+    overrides:
+      maxDurationHours: 2
+    # Custom 2h-pass 07-21 istället för default 1h-pass 06-24
+    slotsPerDay:
+      - { start: "07:00", end: "09:00" }
+      - { start: "09:00", end: "11:00" }
+      - { start: "11:00", end: "13:00" }
+      - { start: "13:00", end: "15:00" }
+      - { start: "15:00", end: "17:00" }
+      - { start: "17:00", end: "19:00" }
+      - { start: "19:00", end: "21:00" }
+
+  - name: "Gästlägenhet"
+    type: GUEST_APARTMENT
+    location: "Entréplan, Hus A"
+    description: |
+      Gästlägenhet med 4 sovplatser. 250 kr/natt.
+      Incheckning 15:00, utcheckning 11:00. Nyckel hämtas
+      hos värden enligt instruktion i bekräftelsemejl.
+    overrides:
+      maxConsecutiveUnits: 5
+      maxActiveBookings: 1
+      cancelLockHours: 72
+
+# Fiktiv styrelse — ersätt med riktiga namn från Bolagsverket
+board:
+  - firstName: "Anna"
+    lastName: "Andersson"
+    birthYear: 1970
+    role: BOARD_CHAIRPERSON
+    address: "Testvägen 1"
+  - firstName: "Erik"
+    lastName: "Eriksson"
+    birthYear: 1965
+    role: BOARD_TREASURER
+    address: "Testvägen 1"
+  - firstName: "Sara"
+    lastName: "Svensson"
+    birthYear: 1975
+    role: BOARD_SECRETARY
+    address: "Testvägen 5"
+  - firstName: "Karl"
+    lastName: "Karlsson"
+    birthYear: 1968
+    role: BOARD_MEMBER
+    address: "Testvägen 5"
+  - firstName: "Lisa"
+    lastName: "Lindqvist"
+    birthYear: 1980
+    role: BOARD_SUBSTITUTE
+    address: "Testvägen 1"
+
+nominatingCommittee:
+  - firstName: "Bengt"
+    lastName: "Bengtsson"
+    role: NOMINATING_COMMITTEE_CHAIR
+    address: "Testvägen 1"
+  - firstName: "Eva"
+    lastName: "Evensdotter"
+    role: NOMINATING_COMMITTEE
+    address: "Testvägen 5"
+
+# Valfritt — om föreningen har en namngiven revisor
+# auditor:
+#   name: "Example Revisionsbyrå AB"
+#   orgNumber: "556000-0001"
+#   website: "https://example.se/"
+
+# Valfritt — override av protokollhuvud-fält per mötestyp
+# protocolHeader:
+#   BOARD:
+#     website: false
+#     email: false
+#   ANNUAL:
+#     website: true
+#     email: true

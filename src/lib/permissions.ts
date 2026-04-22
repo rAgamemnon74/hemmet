@@ -66,6 +66,9 @@ export type Permission =
   // Environment
   | "environment:view"
   | "environment:manage"
+  // Booking
+  | "booking:book"
+  | "booking:manage"
   // Admin
   | "admin:users"
   | "admin:integrations"
@@ -87,6 +90,7 @@ const BOARD_COMMON: Permission[] = [
   "audit:view",
   "contract:view", "procurement:view", "contractor:view",
   "environment:view",
+  "booking:book",
 ];
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
@@ -102,6 +106,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "transfer:create", "transfer:review", "transfer:manage_financial", "transfer:view",
     "contract:manage", "procurement:manage", "contractor:manage",
     "environment:manage",
+    "booking:manage",
     "admin:users", "admin:integrations", "admin:settings",
   ],
   BOARD_CHAIRPERSON: [
@@ -115,6 +120,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "transfer:create", "transfer:review", "transfer:view",
     "contract:manage", "procurement:manage", "contractor:manage",
     "environment:manage",
+    "booking:manage",
     "admin:users", "admin:integrations",
   ],
   BOARD_SECRETARY: [
@@ -134,6 +140,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     ...BOARD_COMMON,
     "report:manage",
     "contract:manage", "procurement:manage", "contractor:manage",
+    "booking:manage",
   ],
   BOARD_ENVIRONMENT: [...BOARD_COMMON, "environment:manage"],
   BOARD_EVENTS: [...BOARD_COMMON],
@@ -196,6 +203,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "report:submit",
     "suggestion:submit",
     "announcement:view",
+    "booking:book",
   ],
 };
 

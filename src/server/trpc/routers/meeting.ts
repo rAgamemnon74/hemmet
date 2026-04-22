@@ -272,6 +272,20 @@ export const meetingRouter = router({
         })),
       } : null;
 
+      // Motioner som styrelsen behandlat under detta möte (yttrande gjort här).
+      // Skiljt från meeting.motions som är motioner schemalagda för beslut
+      // (typiskt årsstämmans "Motioner"-punkt).
+      const motionsHandledByBoard = await ctx.db.motion.findMany({
+        where: { boardResponseMeetingId: input.id },
+        select: {
+          id: true, title: true, proposal: true, status: true,
+          boardResponse: true, boardRecommendation: true,
+          boardRespondedAt: true,
+          author: { select: { firstName: true, lastName: true } },
+        },
+        orderBy: { boardRespondedAt: "asc" },
+      });
+
       return {
         meeting,
         chairpersonName: userName(meeting.meetingChairpersonId),
@@ -279,6 +293,7 @@ export const meetingRouter = router({
         adjusterNames: meeting.adjusters.map((id) => userName(id) ?? "Okänd"),
         proxiesWithNames,
         voterRegistryWithNames,
+        motionsHandledByBoard,
       };
     }),
 

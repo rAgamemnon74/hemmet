@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# hemmet-test-db — testar att konfigurerad DATABASE_URL pekar på en
+# fungerande databas och visar grundläggande info.
+
+set -euo pipefail
+
+ENV_FILE=/etc/hemmet/env
+if [ ! -e "$ENV_FILE" ]; then
+    echo "❌ $ENV_FILE saknas. Kör hemmet-setup först." >&2
+    exit 1
+fi
+
+set -a
+# shellcheck disable=SC1090
+. "$ENV_FILE"
+set +a
+
+if [ -z "${DATABASE_URL:-}" ] || [[ "$DATABASE_URL" == *"CHANGE_ME"* ]]; then
+    echo "❌ DATABASE_URL är inte satt i $ENV_FILE" >&2
+    exit 1
+fi
+
+echo "▶ Testar anslutning till ${DATABASE_URL//:[^:@]*@/:***@}"
+
+if psql "$DATABASE_URL" -Atc "SELECT version();" 2>/dev/null; then
+    echo ""
+    echo "▶ Tabellöversikt:"
+    psql "$DATABASE_URL" -c "\dt" 2>/dev/null | head -30
+    echo ""
+    echo "▶ Antal användare:"
+    psql "$DATABASE_URL" -Atc "SELECT COUNT(*) FROM \"User\";" 2>/dev/null || echo "  (tabellen User finns inte — har migrations körts?)"
+    echo ""
+    echo "✓ Anslutning fungerar."
+else
+    echo "❌ Kunde inte ansluta. Kontrollera:" >&2
+    echo "   - Är PostgreSQL igång? systemctl status postgresql" >&2
+    echo "   - Stämmer DATABASE_URL i $ENV_FILE?" >&2
+    echo "   - Tillåter pg_hba.conf anslutningen?" >&2
+    exit 1
+fi

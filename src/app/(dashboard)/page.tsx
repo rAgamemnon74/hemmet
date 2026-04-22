@@ -9,7 +9,7 @@ import {
   CalendarDays, AlertTriangle, CheckSquare, FileText, Receipt,
   ArrowRightLeft, Wrench, UserPlus, Loader2, ChevronDown,
   PenLine, Key, Hammer, Clock, Plus, BookOpen, Sparkles,
-  FileWarning, ClipboardList, ShieldCheck, Banknote, Leaf,
+  FileWarning, ClipboardList, ShieldCheck, Banknote, Leaf, CalendarClock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
@@ -73,7 +73,8 @@ export default function DashboardPage() {
   const hasPersonalItems = personal && (
     personal.damageReports.length > 0 || personal.sublets.length > 0 ||
     personal.renovations.length > 0 || personal.protocolsToSign.length > 0 ||
-    personal.tasks.length > 0 || personal.annualReportToSign || personal.annualReportInProgress
+    personal.tasks.length > 0 || personal.annualReportToSign || personal.annualReportInProgress ||
+    (personal.upcomingBookings?.length ?? 0) > 0
   );
 
   return (
@@ -140,6 +141,19 @@ export default function DashboardPage() {
                 label={`Renovering: ${r.type}`}
                 detail={r.status} href="/boende/renovering" />
             ))}
+            {personal.upcomingBookings?.map((b) => {
+              const start = new Date(b.startTime);
+              const end = new Date(b.endTime);
+              const when = b.resource.bookingMode === "DAYS"
+                ? `${format(start, "d MMM", { locale: sv })}–${format(end, "d MMM", { locale: sv })}`
+                : `${format(start, "EEE d MMM HH:mm", { locale: sv })}–${format(end, "HH:mm")}`;
+              return (
+                <PersonalItem key={b.id} icon={CalendarClock} color="text-teal-600"
+                  label={`Bokat: ${b.resource.name}`}
+                  detail={when}
+                  href="/boende/boka" />
+              );
+            })}
           </div>
         ) : (
           <p className="text-sm text-blue-600/60">Inga pågående ärenden — allt lugnt!</p>

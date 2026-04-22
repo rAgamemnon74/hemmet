@@ -1,5 +1,8 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // "native" för lokal utveckling + arm64 för Raspberry Pi (brunkan, Debian 12/OpenSSL 3).
+  // Båda binärerna bundlas med node_modules/.prisma/client/ och väljs i runtime.
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
 }
 
 datasource db {
@@ -512,6 +515,7 @@ model Meeting {
 
 enum AgendaItemType {
   OPENING                    // Mötets öppnande
+  APPROVAL_AGENDA            // Godkännande av dagordning
   ATTENDANCE                 // Närvarokontroll (styrelse) / Upprättande av röstlängd (stämma)
   QUORUM_CHECK               // Behörighetsprövning — beslutförhet (styrelse) / behörig kallelse (stämma)
   ELECT_CHAIR                // Val av mötesordförande
@@ -526,6 +530,8 @@ enum AgendaItemType {
   MEMBERSHIP_REVIEW          // Beredda medlemsansökningar — godkänn/avslå med beslutskoppling
   MOTIONS                    // Visar kopplade motioner (årsmöte)
   BOARD_MATTERS              // Visar inkomna ärenden — motioner + förslag (styrelsemöte)
+  NEXT_MEETING               // Nästa möte — kalenderväljare för datum + tid
+  CLOSING                    // Mötets avslutande
 }
 
 model AgendaItem {
@@ -539,6 +545,7 @@ model AgendaItem {
   voteType    VoteType?
   specialType AgendaItemType? // Specialpunkter som renderas dynamiskt
   notes       String?  @db.Text // Sekreterarens anteckningar under mötet
+  proposedDate DateTime?        // Används av NEXT_MEETING för att lagra föreslaget datum+tid för nästa möte
 
   meeting   Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   votes     Vote[]
@@ -662,12 +669,17 @@ model Protocol {
   meetingId   String         @unique
   content     String         @db.Text
   status      ProtocolStatus @default(DRAFT)
-  signedAt    DateTime?      // Senaste signering
-  signedBy    String[]       // Array av userId som signerat
+  signedAt    DateTime?      // Senaste signering (digital, i systemet)
+  signedBy    String[]       // Array av userId som signerat digitalt
   finalizedAt DateTime?      // När sekreteraren slutbehandlade
   finalizedBy String?        // Sekreterarens userId
   archivedAt  DateTime?
-  pdfUrl      String?
+  pdfUrl      String?        // Legacy / unused
+  // Formellt undertecknat PDF (scannad efter fysiska signaturer) — mjuk referens
+  // till Document. Det är detta dokument medlemmar ska kunna ladda ner.
+  signedPdfDocumentId   String?
+  signedPdfUploadedAt   DateTime?
+  signedPdfUploadedById String?
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
@@ -874,6 +886,12 @@ model Motion {
   boardRecommendation MotionRecommendation? // Styrelsens rekommendation
   status        MotionStatus @default(DRAFT)
   meetingId     String?
+  // Vilket möte behandlade motionen och gav yttrandet (styrelsemöte).
+  // Skiljt från meetingId (som är möten där motionen står på dagordningen
+  // för beslut, typiskt årsstämma). Mjuk referens — ingen Prisma-relation
+  // för att undvika namnkollision med den befintliga meeting-relationen.
+  boardResponseMeetingId String?
+  boardRespondedAt       DateTime?
   resolution    String?      @db.Text
   submittedAt   DateTime?
   createdAt     DateTime     @default(now())
@@ -883,6 +901,8 @@ model Motion {
   meeting        Meeting?          @relation(fields: [meetingId], references: [id])
   documents      Document[]        @relation("MotionDocuments")
   voteProposals  MotionVoteProposal[]
+
+  @@index([boardResponseMeetingId])
 }
 
 enum MotionRecommendation {
@@ -1171,42 +1191,92 @@ model DisturbanceCase {
 enum ResourceType {
   LAUNDRY           // Tvättstuga
   SAUNA             // Bastu
-  GUEST_APARTMENT   // Gästlägenhet
+  GUEST_APARTMENT   // Gästlägenhet / övernattningsrum
   PARTY_ROOM        // Festlokal
-  GYM               // Gym
+  PARKING           // Gästparkering
+  HOBBY_ROOM        // Hobbyrum / verkstad
   OTHER
 }
 
-model BookableResource {
-  id              String       @id @default(cuid())
-  name            String       // "Tvättstuga 1", "Bastu"
-  type            ResourceType
-  description     String?
-  location        String?      // Var i fastigheten
-  maxDurationHours Int         @default(3) // Max bokningslängd
-  advanceBookingDays Int       @default(14) // Hur långt fram man kan boka
-  rulesText       String?      @db.Text // Bokningsregler i fritext
-  active          Boolean      @default(true)
-  createdAt       DateTime     @default(now())
+enum ResourceBookingMode {
+  FREEFORM  // Fri start/slut inom öppettider
+  SLOTS     // Fördefinierade pass (veckomönster)
+  DAYS      // Heldygn (midnatt till midnatt)
+}
 
-  bookings        Booking[]
+model BookableResource {
+  id                        String              @id @default(cuid())
+  name                      String
+  type                      ResourceType
+  bookingMode               ResourceBookingMode @default(FREEFORM)
+  description               String?
+  location                  String?
+  groupLabel                String?             // UI-gruppering, t.ex. "Tvättstuga 1"
+  rulesText                 String?             @db.Text
+  active                    Boolean             @default(true)
+  createdAt                 DateTime            @default(now())
+
+  // FREEFORM-parametrar
+  maxDurationHours          Int                 @default(3)
+  openingHour               Int?                // 6 = 06:00
+  closingHour               Int?                // 23 = 23:00
+
+  // Tidsfönster
+  advanceBookingDays        Int                 @default(14)
+  reducedAdvanceBookingDays Int?                // Vid priority-degradering
+
+  // Per-användare limiter
+  maxActiveBookings         Int?                // Samtidiga framtida bokningar
+  maxBookingsPerPeriod      Int?
+  periodDays                Int?
+  maxConsecutiveUnits       Int?                // DAYS: dygn i följd, SLOTS: pass i följd
+
+  // Priority + anti-gaming
+  priorityWindowDays        Int?                // Titta tillbaka X dagar på resurstyp
+  cancelLockHours           Int?                // Sen avbokning räknas mot priority
+
+  bookings                  Booking[]
+  slots                     ResourceSlot[]
+}
+
+model ResourceSlot {
+  id          String   @id @default(cuid())
+  resourceId  String
+  dayOfWeek   Int      // 0 = söndag, 1 = måndag, ..., 6 = lördag
+  startHour   Int
+  startMinute Int      @default(0)
+  endHour     Int
+  endMinute   Int      @default(0)
+  label       String?  // t.ex. "Morgon", "Kväll"
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  resource    BookableResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  bookings    Booking[]
+
+  @@index([resourceId, dayOfWeek])
 }
 
 model Booking {
-  id              String   @id @default(cuid())
-  resourceId      String
-  userId          String
-  startTime       DateTime
-  endTime         DateTime
-  notes           String?
-  cancelledAt     DateTime?
-  createdAt       DateTime @default(now())
+  id             String    @id @default(cuid())
+  resourceId     String
+  slotId         String?
+  userId         String?   // Nullas vid GDPR-anonymisering efter 24 mån
+  startTime      DateTime
+  endTime        DateTime
+  notes          String?
+  cancelledAt    DateTime?
+  cancelLate     Boolean   @default(false) // Sen avbokning — räknas mot priority
+  anonymizedAt   DateTime?
+  createdAt      DateTime  @default(now())
 
-  resource        BookableResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
-  user            User             @relation(fields: [userId], references: [id])
+  resource       BookableResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  slot           ResourceSlot?    @relation(fields: [slotId], references: [id], onDelete: SetNull)
+  user           User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([resourceId, startTime])
   @@index([userId])
+  @@index([slotId])
 }
 
 // ============================================================
@@ -2075,6 +2145,11 @@ model BrfSettings {
   logoUrl            String?
   stadgarUrl         String? // Stadgar
   ordningsreglerUrl  String? // Ordningsregler
+
+  // Konfiguration av vilka rader som visas i protokollhuvudet per mötestyp.
+  // Struktur: { BOARD: { name: true, ... }, ANNUAL: { ... }, EXTRAORDINARY: { ... } }
+  // Se DEFAULT_PROTOCOL_HEADER_CONFIG i src/lib/protocol-header.ts för format.
+  protocolHeaderConfig Json?
 
   // Deprecated: use bankgiro/plusgiro instead
   memberFeeAccountNr String?

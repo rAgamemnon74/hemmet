@@ -52,7 +52,10 @@ export const annualMeetingRouter = router({
             },
           },
           protocol: {
-            select: { id: true, content: true, signedAt: true, pdfUrl: true },
+            select: {
+              id: true, content: true, signedAt: true, pdfUrl: true,
+              signedPdfDocumentId: true, signedPdfUploadedAt: true,
+            },
           },
           decisions: {
             orderBy: { decidedAt: "asc" },

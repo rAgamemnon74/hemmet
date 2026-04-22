@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import { sv } from "date-fns/locale";
 import {
   ArrowLeft, CalendarDays, MapPin, FileText, Vote, ClipboardList,
-  UserCheck, CheckCircle, BookOpen, ScrollText, Send,
+  UserCheck, CheckCircle, BookOpen, ScrollText, Send, Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
@@ -219,13 +219,25 @@ export default function AnnualMeetingDetailPage() {
           {/* Protokoll (after meeting) */}
           {isCompleted && m.protocol && (
             <div className="rounded-lg border border-gray-200 bg-white p-6">
-              <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <BookOpen className="h-4 w-4" />
-                Protokoll
-                {m.protocol.signedAt && (
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">Justerat</span>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  Protokoll
+                  {m.protocol.signedAt && (
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">Justerat</span>
+                  )}
+                </h2>
+                {m.protocol.signedPdfDocumentId && (
+                  <a
+                    href={`/api/documents/${m.protocol.signedPdfDocumentId}/download`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-green-300 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-800 hover:bg-green-100"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Ladda ner undertecknat PDF
+                  </a>
                 )}
-              </h2>
+              </div>
               <div className="text-sm text-gray-700 whitespace-pre-wrap max-h-96 overflow-y-auto">
                 {m.protocol.content}
               </div>

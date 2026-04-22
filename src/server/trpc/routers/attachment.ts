@@ -6,6 +6,7 @@ const ALLOWED_ENTITY_TYPES = [
   "Inspection", "TransferCase", "Expense", "DamageReport",
   "SubletApplication", "RenovationApplication", "DisturbanceCase",
   "Motion", "MembershipApplication", "AnnualReport", "Meeting", "Protocol",
+  "AgendaItem",
 ] as const;
 
 export const attachmentRouter = router({

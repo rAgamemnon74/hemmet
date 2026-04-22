@@ -76,6 +76,8 @@ type MeetingData = {
     finalizedAt: Date | null;
     finalizedBy: string | null;
     archivedAt: Date | null;
+    signedPdfDocumentId: string | null;
+    signedPdfUploadedAt: Date | null;
   } | null;
   decisions: Array<{
     id: string;

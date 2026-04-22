@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# hemmet-migrate — kör Prisma migrate deploy mot konfigurerad DB.
+# Används efter manuell ändring i /etc/hemmet/env eller efter restore av DB.
+
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "❌ Måste köras som root (eller via sudo)" >&2
+    exit 1
+fi
+
+ENV_FILE=/etc/hemmet/env
+if [ ! -e "$ENV_FILE" ]; then
+    echo "❌ $ENV_FILE saknas. Kör hemmet-setup först." >&2
+    exit 1
+fi
+
+set -a
+# shellcheck disable=SC1090
+. "$ENV_FILE"
+set +a
+
+cd /opt/hemmet
+sudo -u hemmet --preserve-env=DATABASE_URL /usr/bin/node node_modules/prisma/build/index.js migrate deploy

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Plus, GripVertical, Trash2, Clock, Vote, FileText, Lightbulb } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import type { MeetingStatus, AgendaItemType } from "@prisma/client";
+import { AttachmentSection } from "@/components/attachments";
 
 type AgendaItem = {
   id: string;
@@ -88,6 +89,7 @@ export function AgendaTab({
   }
 
   const isEditable = canEdit && (meetingStatus === "DRAFT" || meetingStatus === "SCHEDULED");
+  const canAttach = canEdit && meetingStatus !== "COMPLETED" && meetingStatus !== "CANCELLED";
   const totalDuration = agendaItems.reduce((sum, item) => sum + (item.duration ?? 0), 0);
 
   return (
@@ -229,6 +231,10 @@ export function AgendaTab({
                     )}
                   </div>
                 )}
+
+                <div className="mt-3 pl-8">
+                  <AttachmentSection entityType="AgendaItem" entityId={item.id} canEdit={canAttach} />
+                </div>
               </div>
               {isEditable && (
                 <button

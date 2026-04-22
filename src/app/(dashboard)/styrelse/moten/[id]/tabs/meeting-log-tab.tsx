@@ -45,6 +45,8 @@ type AgendaItemLog = {
   title: string;
   description: string | null;
   specialType: string | null;
+  notes: string | null;
+  presenter: string | null;
   decisions: DecisionData[];
   votes: Array<{ id: string; choice: string; user: { id: string; firstName: string; lastName: string } }>;
 };
@@ -59,6 +61,24 @@ type MotionLog = {
   resolution: string | null;
   author: { firstName: string; lastName: string };
   voteProposals: Array<{ id: string; label: string; description: string; adopted: boolean; votesFor: number | null; votesAgainst: number | null; votesAbstained: number | null }>;
+};
+
+type MotionHandledLog = {
+  id: string;
+  title: string;
+  proposal: string;
+  status: string;
+  boardResponse: string | null;
+  boardRecommendation: string | null;
+  boardRespondedAt: Date | null;
+  author: { firstName: string; lastName: string };
+};
+
+const RECOMMENDATION_LABEL: Record<string, string> = {
+  APPROVE: "Tillstyrker (bifall)",
+  REJECT:  "Avstyrker (avslag)",
+  AMEND:   "Föreslår ändring",
+  NEUTRAL: "Tar inte ställning",
 };
 
 type ProxyLog = {
@@ -111,10 +131,11 @@ export function MeetingLogTab({ meetingId }: { meetingId: string }) {
     return <p className="text-sm text-red-600">Kunde inte ladda mötesloggen.</p>;
   }
 
-  const { meeting, chairpersonName, secretaryName, adjusterNames, proxiesWithNames, voterRegistryWithNames } = logQuery.data;
+  const { meeting, chairpersonName, secretaryName, adjusterNames, proxiesWithNames, voterRegistryWithNames, motionsHandledByBoard } = logQuery.data;
   const m = meeting as unknown as MeetingLog;
   const proxies = proxiesWithNames as unknown as ProxyLog[];
   const voterRegistry = voterRegistryWithNames as unknown as VoterRegistryLog;
+  const motionsHandled = (motionsHandledByBoard ?? []) as unknown as MotionHandledLog[];
   const isBoard = m.type === "BOARD";
   const present = m.attendances.filter((a) => a.status === "PRESENT" || a.status === "PROXY");
   const absent = m.attendances.filter((a) => a.status === "ABSENT");
@@ -219,6 +240,14 @@ export function MeetingLogTab({ meetingId }: { meetingId: string }) {
               {item.description && (
                 <p className="mt-0.5 text-xs text-gray-500">{item.description}</p>
               )}
+              {item.presenter && (
+                <p className="mt-1 text-xs text-gray-500">Föredragande: {item.presenter}</p>
+              )}
+              {item.notes && (
+                <div className="mt-2 rounded bg-blue-50/50 border border-blue-100 p-2 text-xs text-gray-800 whitespace-pre-wrap">
+                  {item.notes}
+                </div>
+              )}
 
               {/* Decisions under this agenda item */}
               {item.decisions.length > 0 && (
@@ -245,6 +274,45 @@ export function MeetingLogTab({ meetingId }: { meetingId: string }) {
         </div>
       </Section>
 
+      {/* Motioner som styrelsen behandlat under detta möte (med yttrande) */}
+      {motionsHandled.length > 0 && (
+        <Section icon={Vote} title={`Motioner behandlade av styrelsen (${motionsHandled.length})`}>
+          <p className="mb-3 text-xs text-gray-500">
+            Styrelsen har under mötet lämnat yttrande över följande motioner. Kopiera texterna till protokollet.
+          </p>
+          {motionsHandled.map((mo) => (
+            <div key={mo.id} className="border-l-2 border-purple-300 pl-4 py-1 space-y-1">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold text-gray-900">{mo.title}</h4>
+                  <p className="text-xs text-gray-600 whitespace-pre-wrap">{mo.proposal}</p>
+                  <p className="text-xs text-gray-400">
+                    Av {mo.author.firstName} {mo.author.lastName}
+                    {mo.boardRespondedAt && (
+                      <span className="ml-2">· yttrande lämnat {fmtTime(mo.boardRespondedAt)}</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              {mo.boardResponse && (
+                <div className="rounded bg-purple-50 p-2 mt-2">
+                  <p className="text-xs font-medium text-purple-700">Styrelsens yttrande</p>
+                  <p className="text-xs text-purple-800 whitespace-pre-wrap">{mo.boardResponse}</p>
+                  {mo.boardRecommendation && (
+                    <p className="mt-1 text-[11px] text-purple-700">
+                      Rekommendation: <span className="font-medium">{RECOMMENDATION_LABEL[mo.boardRecommendation] ?? mo.boardRecommendation}</span>
+                    </p>
+                  )}
+                </div>
+              )}
+              <p className="mt-1 text-[11px] text-gray-400 italic">
+                Protokollförslag: &ldquo;Styrelsen behandlade motion <em>{mo.title}</em> från {mo.author.firstName} {mo.author.lastName}. Styrelsen {(RECOMMENDATION_LABEL[mo.boardRecommendation ?? ""] ?? mo.boardRecommendation ?? "").toLowerCase()} motionen.&rdquo;
+              </p>
+            </div>
+          ))}
+        </Section>
+      )}
+
       {/* Motions (annual meetings) */}
       {m.motions.length > 0 && (
         <Section icon={Vote} title="Motioner">
@@ -256,7 +324,12 @@ export function MeetingLogTab({ meetingId }: { meetingId: string }) {
               {mo.boardResponse && (
                 <div className="rounded bg-purple-50 p-2">
                   <p className="text-xs font-medium text-purple-700">Styrelsens yttrande</p>
-                  <p className="text-xs text-purple-600">{mo.boardResponse}</p>
+                  <p className="text-xs text-purple-600 whitespace-pre-wrap">{mo.boardResponse}</p>
+                  {mo.boardRecommendation && (
+                    <p className="mt-1 text-[11px] text-purple-700">
+                      Rekommendation: <span className="font-medium">{RECOMMENDATION_LABEL[mo.boardRecommendation] ?? mo.boardRecommendation}</span>
+                    </p>
+                  )}
                 </div>
               )}
               {mo.resolution && (

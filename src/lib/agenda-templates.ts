@@ -2,7 +2,7 @@ export type AgendaTemplate = {
   title: string;
   description?: string;
   duration?: number;
-  specialType?: "OPENING" | "ATTENDANCE" | "QUORUM_CHECK" | "ELECT_CHAIR" | "ELECT_SECRETARY" | "ELECT_ADJUSTERS" | "MEMBERSHIP_REVIEW" | "AUDIT_REPORT" | "DISCHARGE_VOTE" | "BOARD_ELECTION" | "SUBSTITUTE_ELECTION" | "AUDITOR_ELECTION" | "ELECT_NOMINATING_COMMITTEE" | "MOTIONS" | "BOARD_MATTERS";
+  specialType?: "OPENING" | "APPROVAL_AGENDA" | "ATTENDANCE" | "QUORUM_CHECK" | "ELECT_CHAIR" | "ELECT_SECRETARY" | "ELECT_ADJUSTERS" | "MEMBERSHIP_REVIEW" | "AUDIT_REPORT" | "DISCHARGE_VOTE" | "BOARD_ELECTION" | "SUBSTITUTE_ELECTION" | "AUDITOR_ELECTION" | "ELECT_NOMINATING_COMMITTEE" | "MOTIONS" | "BOARD_MATTERS" | "NEXT_MEETING" | "CLOSING";
 };
 
 export const BOARD_MEETING_TEMPLATE: AgendaTemplate[] = [
@@ -12,15 +12,15 @@ export const BOARD_MEETING_TEMPLATE: AgendaTemplate[] = [
   { title: "Val av mötesordförande", description: "Om annan än ordinarie ordförande ska leda mötet.", duration: 2, specialType: "ELECT_CHAIR" },
   { title: "Val av mötessekreterare", duration: 2, specialType: "ELECT_SECRETARY" },
   { title: "Val av justerare", duration: 2, specialType: "ELECT_ADJUSTERS" },
-  { title: "Godkännande av dagordning", duration: 2 },
+  { title: "Godkännande av dagordning", duration: 2, specialType: "APPROVAL_AGENDA" },
   { title: "Föregående mötesprotokoll", description: "Godkännande och uppföljning av beslut från föregående möte.", duration: 10 },
   { title: "Ekonomisk rapport", description: "Kassören redovisar föreningens ekonomiska ställning.", duration: 10 },
   { title: "Fastighetsförvaltning", description: "Pågående och planerade underhållsåtgärder, felanmälningar.", duration: 15 },
   { title: "Inkomna skrivelser och ärenden", description: "Inlämnade motioner, förslag från boende och övriga inkomna ärenden.", duration: 10, specialType: "BOARD_MATTERS" },
   { title: "Medlemsansökningar", description: "Beredda ansökningar om medlemskap. Beslut protokollförs.", duration: 10, specialType: "MEMBERSHIP_REVIEW" },
   { title: "Nya ärenden", description: "Övriga frågor som styrelseledamöter vill ta upp.", duration: 15 },
-  { title: "Nästa möte", description: "Beslut om datum och tid för nästa styrelsemöte.", duration: 5 },
-  { title: "Mötets avslutande", duration: 1 },
+  { title: "Nästa möte", description: "Beslut om datum och tid för nästa styrelsemöte.", duration: 5, specialType: "NEXT_MEETING" },
+  { title: "Mötets avslutande", duration: 1, specialType: "CLOSING" },
 ];
 
 export const ANNUAL_MEETING_TEMPLATE: AgendaTemplate[] = [
@@ -30,7 +30,7 @@ export const ANNUAL_MEETING_TEMPLATE: AgendaTemplate[] = [
   { title: "Val av mötessekreterare", duration: 2, specialType: "ELECT_SECRETARY" },
   { title: "Val av justerare tillika rösträknare", duration: 5, specialType: "ELECT_ADJUSTERS" },
   { title: "Fråga om stämman blivit behörigen kallad", description: "Kallelse ska ha skickats senast 2 veckor före ordinarie stämma.", duration: 2, specialType: "QUORUM_CHECK" },
-  { title: "Godkännande av dagordning", duration: 2 },
+  { title: "Godkännande av dagordning", duration: 2, specialType: "APPROVAL_AGENDA" },
   { title: "Styrelsens årsredovisning", description: "Förvaltningsberättelse samt resultat- och balansräkning.", duration: 15 },
   { title: "Revisionsberättelse", description: "Revisorn redogör för sin granskning.", duration: 10, specialType: "AUDIT_REPORT" },
   { title: "Fastställande av resultat- och balansräkning", duration: 5 },
@@ -44,7 +44,7 @@ export const ANNUAL_MEETING_TEMPLATE: AgendaTemplate[] = [
   { title: "Val av valberedning", duration: 5, specialType: "ELECT_NOMINATING_COMMITTEE" },
   { title: "Motioner", description: "Behandling av inkomna motioner från medlemmar. Motioner från verksamhetsåret kopplas automatiskt.", duration: 20, specialType: "MOTIONS" },
   { title: "Övriga ärenden", duration: 10 },
-  { title: "Mötets avslutande", duration: 1 },
+  { title: "Mötets avslutande", duration: 1, specialType: "CLOSING" },
 ];
 
 export const EXTRAORDINARY_MEETING_TEMPLATE: AgendaTemplate[] = [
@@ -54,11 +54,11 @@ export const EXTRAORDINARY_MEETING_TEMPLATE: AgendaTemplate[] = [
   { title: "Val av mötessekreterare", duration: 2, specialType: "ELECT_SECRETARY" },
   { title: "Val av justerare tillika rösträknare", duration: 3, specialType: "ELECT_ADJUSTERS" },
   { title: "Fråga om stämman blivit behörigen kallad", description: "Kallelse ska ha skickats senast 2 veckor före extra stämma.", duration: 2, specialType: "QUORUM_CHECK" },
-  { title: "Godkännande av dagordning", duration: 2 },
+  { title: "Godkännande av dagordning", duration: 2, specialType: "APPROVAL_AGENDA" },
   { title: "Anledning till extra stämma", description: "Redogörelse för varför extra stämma har kallats.", duration: 10 },
   { title: "Behandling av ärende", description: "Det ärende som föranlett den extra stämman. Ersätt denna punkt med det specifika ärendet.", duration: 20 },
   { title: "Beslut", description: "Stämman beslutar i det aktuella ärendet.", duration: 10 },
-  { title: "Mötets avslutande", duration: 1 },
+  { title: "Mötets avslutande", duration: 1, specialType: "CLOSING" },
 ];
 
 export function getTemplate(type: string): AgendaTemplate[] {

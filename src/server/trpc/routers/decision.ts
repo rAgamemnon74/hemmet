@@ -135,16 +135,35 @@ export const decisionRouter = router({
     }),
 
   // Declare conflict of interest (jäv)
+  // userId är valfri — om den utelämnas deklarerar användaren sin egen jäv.
+  // Om angiven deklareras jäv å den personens vägnar (ordförande/sekreterare
+  // registrerar vid pågående möte). Kräver `meeting:vote` för självdeklaration
+  // eller `meeting:edit` för att deklarera för andra.
   declareRecusal: protectedProcedure
     .use(requirePermission("meeting:vote"))
     .input(
       z.object({
         decisionId: z.string(),
         reason: z.string().min(1, "Ange anledning till jäv"),
+        userId: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user.id as string;
+      const callerId = ctx.user.id as string;
+      const recusedUserId = input.userId ?? callerId;
+
+      // Vid deklaration för annan person krävs meeting:edit
+      if (recusedUserId !== callerId) {
+        const callerRoles = (ctx.user.roles ?? []) as import("@prisma/client").Role[];
+        const { hasPermission } = await import("@/lib/permissions");
+        if (!hasPermission(callerRoles, "meeting:edit")) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Endast ordförande/sekreterare kan registrera jäv för andra",
+          });
+        }
+      }
+
       const decision = await ctx.db.decision.findUnique({
         where: { id: input.decisionId },
         include: {
@@ -157,36 +176,37 @@ export const decisionRouter = router({
       });
       if (!decision) throw new TRPCError({ code: "NOT_FOUND" });
 
-      // Get user name
+      // Get user name för den som deklareras jävig
       const user = await ctx.db.user.findUnique({
-        where: { id: userId },
+        where: { id: recusedUserId },
         select: { firstName: true, lastName: true },
       });
 
       const recusal = await ctx.db.decisionRecusal.create({
         data: {
           decisionId: input.decisionId,
-          userId,
-          userName: user ? `${user.firstName} ${user.lastName}` : userId,
+          userId: recusedUserId,
+          userName: user ? `${user.firstName} ${user.lastName}` : recusedUserId,
           reason: input.reason,
         },
       });
 
       // Update participant list (remove recused user)
-      const newParticipants = decision.participantIds.filter((id) => id !== userId);
+      const newParticipants = decision.participantIds.filter((id) => id !== recusedUserId);
       await ctx.db.decision.update({
         where: { id: input.decisionId },
         data: { participantIds: newParticipants },
       });
 
+      const registeredBySelf = recusedUserId === callerId;
       logActivity({
-        userId,
+        userId: callerId,
         action: "decision.recusal",
         entityType: "Decision",
         entityId: input.decisionId,
-        description: `Jävsdeklaration: ${user?.firstName} ${user?.lastName} — ${input.reason}`,
+        description: `Jävsdeklaration: ${user?.firstName} ${user?.lastName} — ${input.reason}${registeredBySelf ? "" : " (registrerad av ordförande/sekreterare)"}`,
         before: { participantIds: decision.participantIds },
-        after: { participantIds: newParticipants, recusalReason: input.reason },
+        after: { participantIds: newParticipants, recusedUserId, recusalReason: input.reason, registeredBySelf },
       });
 
       return recusal;

@@ -312,7 +312,7 @@ export const dashboardRouter = router({
     ]);
 
     // Personal items ("Mitt just nu")
-    const [myDamageReports, mySublets, myRenovations, protocolsToSign, myTasks] = await Promise.all([
+    const [myDamageReports, mySublets, myRenovations, protocolsToSign, myTasks, upcomingBookings] = await Promise.all([
       ctx.db.damageReport.findMany({
         where: { reporterId: userId, status: { in: ["SUBMITTED", "ACKNOWLEDGED", "IN_PROGRESS"] } },
         select: { id: true, title: true, status: true },
@@ -337,6 +337,17 @@ export const dashboardRouter = router({
         where: { assigneeId: userId, status: { not: "DONE" } },
         select: { id: true, title: true, priority: true, dueDate: true },
         orderBy: [{ priority: "desc" }, { dueDate: "asc" }],
+        take: 5,
+      }),
+      ctx.db.booking.findMany({
+        where: { userId, cancelledAt: null, endTime: { gte: new Date() } },
+        select: {
+          id: true,
+          startTime: true,
+          endTime: true,
+          resource: { select: { id: true, name: true, type: true, bookingMode: true } },
+        },
+        orderBy: { startTime: "asc" },
         take: 5,
       }),
     ]);
@@ -368,6 +379,7 @@ export const dashboardRouter = router({
         tasks: myTasks,
         annualReportToSign,
         annualReportInProgress,
+        upcomingBookings,
       },
     };
   }),

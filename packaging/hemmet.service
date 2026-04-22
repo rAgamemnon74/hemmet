@@ -1,0 +1,35 @@
+[Unit]
+Description=Hemmet — BRF-stödplattform
+Documentation=https://github.com/thorburn/hemmet
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=hemmet
+Group=hemmet
+WorkingDirectory=/opt/hemmet
+EnvironmentFile=/etc/hemmet/env
+ExecStart=/usr/bin/node /opt/hemmet/server.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hemmet
+
+# Säkerhet
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/hemmet
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+
+[Install]
+WantedBy=multi-user.target

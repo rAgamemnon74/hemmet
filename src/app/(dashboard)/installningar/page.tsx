@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  Building2, CreditCard, Scale, Users, ListChecks, Plug, Settings,
+  Building2, CreditCard, Scale, Users, ListChecks, Plug, Settings, CalendarClock, FileText, Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GrunddataTab } from "./tabs/grunddata-tab";
@@ -11,6 +11,9 @@ import { StadgeregelTab } from "./tabs/stadgeregel-tab";
 import { FastigheterTab } from "./tabs/fastigheter-tab";
 import { AnvandareTab } from "./tabs/anvandare-tab";
 import { DagordningTab } from "./tabs/dagordning-tab";
+import { ProtokollTab } from "./tabs/protokoll-tab";
+import { BokningTab } from "./tabs/bokning-tab";
+import { ImporteraTab } from "./tabs/importera-tab";
 import { IntegrationerTab } from "./tabs/integrationer-tab";
 
 const tabs = [
@@ -20,6 +23,9 @@ const tabs = [
   { id: "fastigheter", label: "Fastigheter", icon: Building2 },
   { id: "anvandare", label: "Användare", icon: Users },
   { id: "dagordning", label: "Dagordning", icon: ListChecks },
+  { id: "protokoll", label: "Protokoll", icon: FileText },
+  { id: "bokning", label: "Bokning", icon: CalendarClock },
+  { id: "importera", label: "Importera", icon: Upload },
   { id: "integrationer", label: "Integrationer", icon: Plug },
 ] as const;
 
@@ -65,6 +71,9 @@ export default function SettingsPage() {
           {activeTab === "fastigheter" && <FastigheterTab />}
           {activeTab === "anvandare" && <AnvandareTab />}
           {activeTab === "dagordning" && <DagordningTab />}
+          {activeTab === "protokoll" && <ProtokollTab />}
+          {activeTab === "bokning" && <BokningTab />}
+          {activeTab === "importera" && <ImporteraTab />}
           {activeTab === "integrationer" && <IntegrationerTab />}
         </div>
       </div>
