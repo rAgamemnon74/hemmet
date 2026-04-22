@@ -17,6 +17,15 @@ if [ -z "$BASE_VERSION" ]; then
     exit 1
 fi
 
+# Debian/dpkg-konvention: `~` sorterar FÖRE nothing, så 1.0.0~rc1 < 1.0.0 < 1.0.1.
+# Semver använder `-rc1` men det tolkas av dpkg som debian-revision (efter upstream)
+# vilket gör att 1.0.0-rc1 skulle sorteras EFTER 1.0.0 — fel väg.
+# Översätt första `-` till `~` för dpkg.
+deb_version_from() {
+    # Ex: 1.0.0-rc1 → 1.0.0~rc1  ;  0.1.0+dev.abc → 0.1.0+dev.abc (ingen förändring)
+    printf '%s' "$1" | sed 's/-/~/'
+}
+
 # Avgör om detta är en "clean release" (HEAD är taggad med v<VERSION> + ren tree)
 # eller en "dev build" (allt annat — får +dev.<shortsha>-suffix).
 if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
@@ -28,25 +37,28 @@ if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; th
     TAG_ON_HEAD=$(git tag --points-at HEAD 2>/dev/null | grep -E "^v?${BASE_VERSION}$" || true)
 
     if [ -n "$TAG_ON_HEAD" ] && [ -z "$DIRTY" ]; then
-        VERSION="$BASE_VERSION"
+        SEMVER_VERSION="$BASE_VERSION"
         echo "▶ Clean release-bygge (tag $TAG_ON_HEAD på HEAD, rent tree)"
     else
-        VERSION="${BASE_VERSION}+dev.${SHORT_SHA}${DIRTY}"
+        SEMVER_VERSION="${BASE_VERSION}+dev.${SHORT_SHA}${DIRTY}"
         if [ -n "$DIRTY" ]; then
-            echo "▶ Dev-bygge (osparade ändringar) — version $VERSION"
+            echo "▶ Dev-bygge (osparade ändringar) — version $SEMVER_VERSION"
         else
-            echo "▶ Dev-bygge (ingen matchande tag på HEAD) — version $VERSION"
+            echo "▶ Dev-bygge (ingen matchande tag på HEAD) — version $SEMVER_VERSION"
         fi
     fi
 else
-    VERSION="$BASE_VERSION"
-    echo "▶ Git saknas — bygger som $VERSION (utan dev-suffix)"
+    SEMVER_VERSION="$BASE_VERSION"
+    echo "▶ Git saknas — bygger som $SEMVER_VERSION (utan dev-suffix)"
 fi
 
-# dpkg vill ha `~` istället för `-` före kvalificerare, men `+` funkar bra för
-# "nyare än men relaterad till base" — vi kör + för att matcha semver-metadata.
+# Översätt till dpkg-kompatibel version (ersätt -rc1 → ~rc1 för korrekt sortering)
+VERSION=$(deb_version_from "$SEMVER_VERSION")
 PKGNAME="hemmet_${VERSION}_arm64"
 echo "▶ Paketfilnamn: $PKGNAME.deb"
+if [ "$VERSION" != "$SEMVER_VERSION" ]; then
+    echo "  (semver: $SEMVER_VERSION)"
+fi
 
 # ── 1. Verktygskontroller ────────────────────────────────────
 for cmd in dpkg-deb node npx; do
