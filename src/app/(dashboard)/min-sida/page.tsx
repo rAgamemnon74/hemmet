@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { sv } from "date-fns/locale";
 import {
   User, Home, Shield, FileText, Wrench, Lightbulb,
-  Save, Loader2, CheckCircle, Clock, AlertTriangle,
+  Save, Loader2, CheckCircle, Clock, AlertTriangle, Key,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
@@ -84,9 +84,19 @@ export default function MinSidaPage() {
   const setConsent = trpc.profile.setConsent.useMutation({
     onSuccess: () => profileQuery.refetch(),
   });
+  const changePassword = trpc.profile.changePassword.useMutation({
+    onSuccess: () => {
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setPasswordFeedback("saved");
+      setTimeout(() => setPasswordFeedback(null), 3000);
+    },
+  });
 
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "" });
+  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "" });
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [passwordFeedback, setPasswordFeedback] = useState<"saved" | "mismatch" | null>(null);
 
   if (profileQuery.isLoading) {
     return (
@@ -106,6 +116,7 @@ export default function MinSidaPage() {
     setForm({
       firstName: profile!.firstName,
       lastName: profile!.lastName,
+      email: profile!.email,
       phone: profile!.phone ?? "",
     });
     setEditing(true);
@@ -115,7 +126,20 @@ export default function MinSidaPage() {
     updateProfile.mutate({
       firstName: form.firstName,
       lastName: form.lastName,
+      email: form.email,
       phone: form.phone || null,
+    });
+  }
+
+  function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordFeedback("mismatch");
+      return;
+    }
+    changePassword.mutate({
+      currentPassword: passwordForm.currentPassword,
+      newPassword: passwordForm.newPassword,
     });
   }
 
@@ -139,50 +163,122 @@ export default function MinSidaPage() {
         {/* Profile */}
         <Section icon={User} title="Min profil">
           {editing ? (
-            <div className="space-y-3">
+            <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-500">Förnamn</label>
-                  <input type="text" value={form.firstName} onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
+                  <label htmlFor="profile-firstname" className="text-xs font-medium text-gray-500">Förnamn</label>
+                  <input id="profile-firstname" name="firstName" type="text" autoComplete="given-name"
+                    value={form.firstName} onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
                     className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500">Efternamn</label>
-                  <input type="text" value={form.lastName} onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+                  <label htmlFor="profile-lastname" className="text-xs font-medium text-gray-500">Efternamn</label>
+                  <input id="profile-lastname" name="lastName" type="text" autoComplete="family-name"
+                    value={form.lastName} onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
                     className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-500">Telefon</label>
-                <input type="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                <label htmlFor="profile-email" className="text-xs font-medium text-gray-500">E-post</label>
+                <input id="profile-email" name="email" type="email" autoComplete="username email"
+                  value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label htmlFor="profile-phone" className="text-xs font-medium text-gray-500">Telefon</label>
+                <input id="profile-phone" name="phone" type="tel" autoComplete="tel"
+                  value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                   className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   placeholder="070-123 45 67" />
               </div>
+              {updateProfile.error && <p className="text-xs text-red-600">{updateProfile.error.message}</p>}
               <div className="flex gap-2">
-                <button onClick={handleSave} disabled={updateProfile.isPending}
+                <button type="submit" disabled={updateProfile.isPending}
                   className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
                   <Save className="h-3.5 w-3.5" />
                   {updateProfile.isPending ? "Sparar..." : "Spara"}
                 </button>
-                <button onClick={() => setEditing(false)}
+                <button type="button" onClick={() => setEditing(false)}
                   className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
                   Avbryt
                 </button>
               </div>
-            </div>
+            </form>
           ) : (
             <div className="space-y-2">
               <Row label="Namn" value={`${profile.firstName} ${profile.lastName}`} />
               <Row label="E-post" value={profile.email} />
               <Row label="Telefon" value={profile.phone ?? "Ej angiven"} />
               <Row label="Roller" value={profile.roles.map((r) => roleLabels[r.role] ?? r.role).join(", ")} />
-              <button onClick={startEditing}
-                className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800">
-                Redigera kontaktuppgifter
-              </button>
+              <div className="mt-2 flex flex-wrap gap-3">
+                <button onClick={startEditing}
+                  className="text-sm font-medium text-blue-600 hover:text-blue-800">
+                  Redigera profil
+                </button>
+                <button onClick={() => setChangingPassword((v) => !v)}
+                  className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800">
+                  <Key className="h-3.5 w-3.5" /> {changingPassword ? "Stäng lösenordsbyte" : "Byt lösenord"}
+                </button>
+              </div>
             </div>
           )}
         </Section>
+
+        {/* Lösenordsbyte — egen sektion (syns när användaren klickar "Byt lösenord") */}
+        {changingPassword && !editing && (
+          <Section icon={Key} title="Byt lösenord">
+            <form onSubmit={handleChangePassword} className="space-y-3">
+              {/* Dolt username-fält hjälper password managers koppla lösenordet till rätt konto */}
+              <input type="email" name="username" autoComplete="username" readOnly hidden value={profile.email} />
+
+              <div>
+                <label htmlFor="current-password" className="text-xs font-medium text-gray-500">Nuvarande lösenord</label>
+                <input id="current-password" name="current-password" type="password" autoComplete="current-password"
+                  required value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm((f) => ({ ...f, currentPassword: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label htmlFor="new-password" className="text-xs font-medium text-gray-500">Nytt lösenord (minst 8 tecken)</label>
+                <input id="new-password" name="new-password" type="password" autoComplete="new-password"
+                  required minLength={8} value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm((f) => ({ ...f, newPassword: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label htmlFor="confirm-password" className="text-xs font-medium text-gray-500">Bekräfta nytt lösenord</label>
+                <input id="confirm-password" name="confirm-password" type="password" autoComplete="new-password"
+                  required minLength={8} value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm((f) => ({ ...f, confirmPassword: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              </div>
+
+              {passwordFeedback === "mismatch" && (
+                <p className="text-xs text-red-600">Nytt lösenord och bekräftelsen matchar inte.</p>
+              )}
+              {changePassword.error && (
+                <p className="text-xs text-red-600">{changePassword.error.message}</p>
+              )}
+              {passwordFeedback === "saved" && (
+                <p className="text-xs text-green-600 flex items-center gap-1">
+                  <CheckCircle className="h-3.5 w-3.5" /> Lösenordet är bytt.
+                </p>
+              )}
+
+              <div className="flex gap-2">
+                <button type="submit" disabled={changePassword.isPending}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+                  <Save className="h-3.5 w-3.5" />
+                  {changePassword.isPending ? "Sparar..." : "Spara nytt lösenord"}
+                </button>
+                <button type="button" onClick={() => { setChangingPassword(false); setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" }); setPasswordFeedback(null); }}
+                  className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  Avbryt
+                </button>
+              </div>
+            </form>
+          </Section>
+        )}
 
         {/* Apartment */}
         <Section icon={Home} title="Min lägenhet">

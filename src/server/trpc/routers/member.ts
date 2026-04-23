@@ -6,6 +6,13 @@ import { Role } from "@prisma/client";
 import { hasPermission } from "@/lib/permissions";
 import { logPersonalDataAccess } from "@/lib/gdpr";
 import { logActivity } from "@/lib/audit";
+import { hash } from "bcryptjs";
+import { randomBytes } from "node:crypto";
+
+function generateTempPassword(): string {
+  // 16 tecken, alfanumeriskt (undvik tecken som är svåra att skriva på mobil)
+  return randomBytes(16).toString("base64").replace(/[+/=]/g, "").slice(0, 16);
+}
 
 const BOARD_ROLES: Role[] = [
   Role.ADMIN, Role.BOARD_CHAIRPERSON, Role.BOARD_SECRETARY, Role.BOARD_TREASURER,
@@ -79,7 +86,21 @@ export const memberRouter = router({
     .input(updateMemberSchema)
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
-      return ctx.db.user.update({ where: { id }, data });
+      const before = await ctx.db.user.findUnique({
+        where: { id },
+        select: { firstName: true, lastName: true, email: true, phone: true, apartmentId: true },
+      });
+      const updated = await ctx.db.user.update({ where: { id }, data });
+      logActivity({
+        userId: ctx.user.id as string,
+        action: "user.update",
+        entityType: "User",
+        entityId: id,
+        description: `Uppdaterade användare: ${updated.firstName} ${updated.lastName}`,
+        before: before ?? undefined,
+        after: data,
+      });
+      return updated;
     }),
 
   // Log CSV export (called by client before downloading)
@@ -151,6 +172,106 @@ export const memberRouter = router({
       });
 
       return { success: true };
+    }),
+
+  // Skapa ny användare (admin-only). Om initialPassword utelämnas genereras
+  // ett slumpat lösenord som returneras EN gång för visning.
+  create: protectedProcedure
+    .use(requirePermission("admin:users"))
+    .input(z.object({
+      email: z.string().email("Ogiltig e-post"),
+      firstName: z.string().min(1, "Förnamn krävs"),
+      lastName: z.string().min(1, "Efternamn krävs"),
+      phone: z.string().optional().nullable(),
+      initialPassword: z.string().min(8, "Lösenord måste vara minst 8 tecken").optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Kontrollera att e-posten inte är upptagen
+      const existing = await ctx.db.user.findUnique({ where: { email: input.email } });
+      if (existing) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `En användare med e-post ${input.email} finns redan`,
+        });
+      }
+
+      const password = input.initialPassword ?? generateTempPassword();
+      const passwordHash = await hash(password, 12);
+      const wasGenerated = !input.initialPassword;
+
+      const user = await ctx.db.user.create({
+        data: {
+          email: input.email,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          phone: input.phone ?? undefined,
+          passwordHash,
+        },
+        select: { id: true, email: true, firstName: true, lastName: true },
+      });
+
+      logActivity({
+        userId: ctx.user.id as string,
+        action: "user.create",
+        entityType: "User",
+        entityId: user.id,
+        description: `Skapade användare: ${user.firstName} ${user.lastName} (${user.email})`,
+        after: { email: user.email, firstName: user.firstName, lastName: user.lastName, passwordGenerated: wasGenerated },
+      });
+
+      return {
+        user,
+        // Returneras bara EN gång; admin visar det för den nya användaren
+        initialPassword: wasGenerated ? password : null,
+      };
+    }),
+
+  // Återställ/sätt lösenord (admin-only). Om newPassword utelämnas genereras
+  // ett slumpat lösenord som returneras EN gång. Användarens aktiva sessioner
+  // invalideras inte automatiskt (kräver AUTH_SECRET-rotation för det).
+  setPassword: protectedProcedure
+    .use(requirePermission("admin:users"))
+    .input(z.object({
+      userId: z.string(),
+      newPassword: z.string().min(8, "Lösenord måste vara minst 8 tecken").optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Admin kan inte återställa sitt eget lösenord här (gör det via /min-sida)
+      if (input.userId === ctx.user.id) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Använd /min-sida för att byta ditt eget lösenord",
+        });
+      }
+
+      const target = await ctx.db.user.findUnique({
+        where: { id: input.userId },
+        select: { id: true, email: true, firstName: true, lastName: true },
+      });
+      if (!target) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const password = input.newPassword ?? generateTempPassword();
+      const passwordHash = await hash(password, 12);
+      const wasGenerated = !input.newPassword;
+
+      await ctx.db.user.update({
+        where: { id: input.userId },
+        data: { passwordHash },
+      });
+
+      logActivity({
+        userId: ctx.user.id as string,
+        action: "user.resetPassword",
+        entityType: "User",
+        entityId: input.userId,
+        description: `Återställde lösenord för ${target.firstName} ${target.lastName} (${target.email})`,
+        after: { passwordGenerated: wasGenerated },
+      });
+
+      return {
+        user: target,
+        newPassword: wasGenerated ? password : null,
+      };
     }),
 
   addRole: protectedProcedure
